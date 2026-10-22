@@ -1,29 +1,31 @@
-# AUREL — A clearer view of value
+# دولار — مرجع قیمت طلا و ارز
 
-A responsive, bilingual (English/Persian) market-reference website for gold and currency data.
+وب‌سایت واکنش‌گرا برای بررسی داده‌های مرجع طلا و ارز؛ زبان پیش‌فرض فارسی است و از بخش بالای صفحه می‌توان به انگلیسی تغییر داد. برند این محصول «دولار» است. امیر استودیو در صفحه راه‌های ارتباطی به‌عنوان توسعه‌دهنده و پشتیبان معرفی شده است.
 
-## Deploy on GitHub Pages
-1. Open **Settings → Pages**.
-2. Under **Build and deployment**, choose **Deploy from a branch**.
-3. Choose `main` and `/ (root)`, then save.
-4. Once Pages finishes building, the site should be available at `https://amir-studio.github.io/dollar/`.
+## انتشار در GitHub Pages
+1. در مخزن، وارد **Settings → Pages** شوید.
+2. در بخش **Build and deployment** گزینه **Deploy from a branch** را انتخاب کنید.
+3. شاخه `main` و مسیر `/ (root)` را انتخاب و ذخیره کنید.
+4. پس از پایان فرایند انتشار، سایت در نشانی `https://amir-studio.github.io/dollar/` در دسترس خواهد بود.
 
-## Data and limitations
-- Gold spot reference: public endpoint at Gold-API. Availability, latency, and terms are controlled by that provider.
-- FX reference: open.er-api.com USD-base reference feed. These are not guaranteed tradable prices; **IRR values are not Iranian free-market quotes**.
-- The chart panel explicitly reports that historical data is not connected. It does not generate a synthetic line or pretend to show historical prices.
-- Gold estimator uses 31.1034768 grams per troy ounce and selected purity; excludes local premiums, fees, tax and dealer spreads.
-- Quotes can fail to load if the provider, browser, or network blocks a request. The UI should report this rather than fabricate prices.
+## داده‌ها و محدودیت‌ها
+- قیمت مرجع طلا از مسیر عمومی Gold-API دریافت می‌شود؛ دسترس‌پذیری، تأخیر و شرایط استفاده به ارائه‌دهنده وابسته است.
+- نرخ مرجع ارز از open.er-api.com و بر پایه دلار دریافت می‌شود. این نرخ‌ها الزاماً قابل معامله نیستند و نرخ ریالی محاسبه‌شده، قیمت بازار آزاد ایران نیست.
+- داده تاریخی به نمودار متصل نیست؛ سایت نباید نمودار فعلی را روند واقعی گذشته معرفی کند.
+- محاسبه‌گر طلا از تبدیل ۳۱٫۱۰۳۴۷۶۸ گرم برای هر اونس تروا و عیار انتخابی استفاده می‌کند؛ اجرت، مالیات، اضافه‌بها و اختلاف قیمت خریدوفروش لحاظ نشده‌اند.
+- اگر سرویس یا شبکه در دسترس نباشد، داده ممکن است بارگیری نشود. سایت نباید به‌جای قیمت واقعی، عدد ساختگی نمایش دهد.
 
-## Advertising
-The page contains a responsive reserved ad slot, not a live network script. Add the ad network's exact publisher-approved tag only after the site is approved and the network's policies and regional eligibility have been checked. Do not add AMP components to this standard HTML page unless converting the entire page to a valid AMP document. Never click your own ads or encourage invalid traffic.
+## تبلیغات
+در صفحه فقط جایگاه رزروشده تبلیغ وجود دارد و هنوز کد زنده شبکه تبلیغاتی نصب نشده است. پس از تأیید سایت و بررسی قوانین شبکه و شرایط منطقه‌ای، فقط کد ناشر تأییدشده همان شبکه را اضافه کنید. این صفحه HTML معمولی است؛ اجزای AMP را بدون تبدیل کامل سند به AMP معتبر اضافه نکنید. روی تبلیغات خود کلیک نکنید و ترافیک نامعتبر ایجاد نکنید.
 
-## Brand and contact
-AUREL is a working brand concept. Public contact currently displayed: `amir0website@gmail.com` and `+98 902 513 1506`. Confirm these are appropriate for this project before launch; the `aurel.markets` domain is not claimed or assumed to be owned.
+## راه‌های ارتباطی
+ایمیل پروژه: `amir0website@gmail.com`  
+تلفن: `+98 902 513 1506`  
+تصویر برند امیر استودیو در صفحه «راه‌های ارتباطی» نمایش داده می‌شود.
 
-## Before monetization
-- Verify data-source terms, accuracy and CORS behavior.
-- Review the included draft privacy notice and confirm whether additional cookie/consent controls are legally required for the actual advertising setup.
-- Replace the reserved ad slot with the provider's approved code.
-- Test keyboard navigation, mobile layout, and all links.
-- Do not present this site as a regulated financial service.
+## پیش از درآمدزایی
+- شرایط استفاده، دقت، دسترسی مرورگر و پایداری منابع داده را بررسی کنید.
+- اطلاعیه حریم خصوصی فعلی پیش‌نویس است و باید با توجه به محل فعالیت، مخاطبان و شبکه تبلیغاتی واقعی بازبینی شود.
+- جایگاه تبلیغ را فقط با کد مجاز و تأییدشده شبکه تکمیل کنید.
+- پیمایش با صفحه‌کلید، نمایش موبایل، لینک‌ها و دسترس‌پذیری را آزمایش کنید.
+- سایت را به‌عنوان خدمات مالی قانون‌گذاری‌شده معرفی نکنید.
