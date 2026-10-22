@@ -1,0 +1,13 @@
+{
+  "name": "aurel-market-reference",
+  "version": "0.2.0",
+  "private": true,
+  "description": "AUREL — a bilingual, static gold and currency reference workspace",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
