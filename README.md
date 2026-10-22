@@ -11,7 +11,7 @@ A responsive, bilingual (English/Persian) market-reference website for gold and 
 ## Data and limitations
 - Gold spot reference: public endpoint at Gold-API. Availability, latency, and terms are controlled by that provider.
 - FX reference: open.er-api.com USD-base reference feed. These are not guaranteed tradable prices; **IRR values are not Iranian free-market quotes**.
-- The line chart is explicitly a visual guide, not historical price data. Period controls do not imply a connected historical series.
+- The chart panel explicitly reports that historical data is not connected. It does not generate a synthetic line or pretend to show historical prices.
 - Gold estimator uses 31.1034768 grams per troy ounce and selected purity; excludes local premiums, fees, tax and dealer spreads.
 - Quotes can fail to load if the provider, browser, or network blocks a request. The UI should report this rather than fabricate prices.
 
@@ -23,7 +23,7 @@ AUREL is a working brand concept. Public contact currently displayed: `amir0webs
 
 ## Before monetization
 - Verify data-source terms, accuracy and CORS behavior.
-- Add a real privacy policy, cookie/consent handling if required, and a contact page.
+- Review the included draft privacy notice and confirm whether additional cookie/consent controls are legally required for the actual advertising setup.
 - Replace the reserved ad slot with the provider's approved code.
 - Test keyboard navigation, mobile layout, and all links.
 - Do not present this site as a regulated financial service.
