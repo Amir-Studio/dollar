@@ -19,7 +19,7 @@ A responsive, bilingual (English/Persian) market-reference website for gold and 
 The page contains a responsive reserved ad slot, not a live network script. Add the ad network's exact publisher-approved tag only after the site is approved and the network's policies and regional eligibility have been checked. Do not add AMP components to this standard HTML page unless converting the entire page to a valid AMP document. Never click your own ads or encourage invalid traffic.
 
 ## Brand and contact
-AUREL is a working brand concept. Replace `hello@aurel.markets` with a real monitored address and confirm domain ownership/availability before launch. No phone number is invented or displayed.
+AUREL is a working brand concept. Public contact currently displayed: `amir0website@gmail.com` and `+98 902 513 1506`. Confirm these are appropriate for this project before launch; the `aurel.markets` domain is not claimed or assumed to be owned.
 
 ## Before monetization
 - Verify data-source terms, accuracy and CORS behavior.
