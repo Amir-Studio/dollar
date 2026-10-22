@@ -23,10 +23,11 @@ test('essential product sections and calculators exist', () => {
 });
 
 test('data limitations are disclosed', () => {
-  assert.match(html, /not historical market data/i);
+  assert.match(html, /Historical series not connected/i);
   assert.match(html, /not investment, trading, tax or legal advice/i);
   assert.match(html, /local-market/i);
   assert.match(js, /31\.1034768/);
+  assert.doesNotMatch(js, /Math\.sin|Math\.cos/, 'do not generate synthetic market series');
 });
 
 test('support pages and brand asset exist', () => {
