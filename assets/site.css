@@ -10,3 +10,30 @@ html[dir="rtl"] body{direction:rtl;text-align:right;font-family:"DollarNozha",Ta
 /* Footer contact block */
 .footer-contact{margin-top:22px;max-width:340px;padding-top:16px;border-top:1px solid var(--line)}.footer-contact-head{display:flex;align-items:center;gap:12px;margin-bottom:15px}.studio-mark{width:62px;height:62px;display:block;object-fit:cover;border-radius:50%;border:1px solid var(--line);background:#fff}.footer-contact-head strong{display:block;font-size:13px;color:var(--ink);margin-bottom:5px}.studio-site{font-size:11px;color:var(--accent-dark)}.contact-line{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 0;border-top:1px solid var(--line);font-size:11px}.contact-line span{color:var(--muted);flex-shrink:0}.contact-line b{font-family:"DM Mono",monospace;font-size:10px;font-weight:500;text-align:left;overflow-wrap:anywhere}.footer-brand .brand-sub{display:none}.footer-brand .brand img{width:34px;height:34px}.footer-brand .brand-word{font-size:18px}
 @media(max-width:850px){.footer-contact{max-width:100%;width:100%}.footer-brand{width:100%;max-width:100%}}
+
+/* Financial data typography: numbers stay neutral, aligned and easy to scan. */
+.mono,.ticker-value,.watch-value,.watch-move,.field input,.field select,.result strong{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1,"lnum" 1}
+html[dir="rtl"] .ticker-value,html[dir="rtl"] .watch-value,html[dir="rtl"] .result strong{font-family:"DM Mono",monospace;font-weight:500;letter-spacing:0;direction:ltr;unicode-bidi:isolate}
+
+/* Premium contact panel — restrained graphite and muted champagne accents. */
+.footer-contact{position:relative;isolation:isolate;overflow:hidden;width:min(100%,365px);margin-top:23px;padding:22px 21px 16px;border:1px solid #3b3d33;border-radius:18px;background:linear-gradient(145deg,#292c25 0%,#20221e 72%);color:#f4f3ee;box-shadow:0 12px 32px #20221e12}
+.footer-contact:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,transparent,#b8bd91 30%,#d8c79b 68%,transparent);opacity:.9;z-index:-1}
+.footer-contact:after{content:"";position:absolute;width:180px;height:180px;left:-90px;bottom:-110px;border:1px solid #c9c49b18;border-radius:50%;box-shadow:0 0 0 18px #c9c49b08,0 0 0 36px #c9c49b05;pointer-events:none;z-index:-1}
+.contact-kicker{display:flex;align-items:center;gap:9px;margin-bottom:19px;color:#c8c9b7;font-size:10px;letter-spacing:.02em}
+.contact-kicker-line{height:1px;width:23px;background:#a5ad75}
+.footer-contact-head{display:flex;align-items:center;gap:13px;margin-bottom:17px}
+.studio-mark-link{display:block;flex:0 0 auto;border:1px solid #c9c49b60;border-radius:50%;padding:3px;background:#f7f5ed}
+.studio-mark{width:49px;height:49px;display:block;object-fit:cover;border-radius:50%;border:0;background:#fff}
+.footer-contact-head strong{display:block;font-size:15px;color:#f4f3ee;margin-bottom:5px}
+.contact-role{margin:0 0 6px;font-size:10px;line-height:1.8;color:#c3c5b9}
+.studio-site{font-size:10px;color:#d6d9b9;transition:color .2s}
+.studio-site:hover{color:#fff}
+.contact-line{display:grid;grid-template-columns:23px 1fr auto;align-items:center;gap:8px;margin-top:8px;padding:12px 11px;border:1px solid #ffffff16;border-radius:11px;background:#ffffff06;color:#f4f3ee;font-size:11px;transition:background .2s,border-color .2s,transform .2s}
+.contact-line:hover,.contact-line:focus-visible{background:#ffffff0d;border-color:#b6bb8b8a;transform:translateY(-1px);outline:none}
+.contact-icon{display:grid;place-items:center;width:22px;height:22px;border:1px solid #b6bb8b55;border-radius:50%;color:#d8dcb7;font-size:12px}
+.contact-label{color:#c3c5b9}
+.contact-line b{font-family:"DM Mono",monospace;font-size:10px;font-weight:500;letter-spacing:0;text-align:left;direction:ltr;unicode-bidi:isolate;color:#f6f3e8;overflow-wrap:anywhere}
+.contact-footnote{margin-top:14px;padding-top:12px;border-top:1px solid #ffffff18;color:#b6b8ab;font-size:9px;line-height:1.9}
+.footer-contact a:focus-visible{outline:2px solid #d8dcb7;outline-offset:3px}
+@media(max-width:850px){.footer-contact{width:100%;max-width:440px;margin-top:20px}}
+@media(max-width:520px){.footer-contact{padding:19px 15px 14px}.contact-line{grid-template-columns:22px 1fr;gap:7px}.contact-line b{grid-column:2;justify-self:start;font-size:10px}.contact-label{font-size:10px}}
