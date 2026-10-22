@@ -1,1 +1,29 @@
-# dollar
+# AUREL — A clearer view of value
+
+A responsive, bilingual (English/Persian) market-reference website for gold and currency data.
+
+## Deploy on GitHub Pages
+1. Open **Settings → Pages**.
+2. Under **Build and deployment**, choose **Deploy from a branch**.
+3. Choose `main` and `/ (root)`, then save.
+4. Once Pages finishes building, the site should be available at `https://amir-studio.github.io/dollar/`.
+
+## Data and limitations
+- Gold spot reference: public endpoint at Gold-API. Availability, latency, and terms are controlled by that provider.
+- FX reference: open.er-api.com USD-base reference feed. These are not guaranteed tradable prices; **IRR values are not Iranian free-market quotes**.
+- The line chart is explicitly a visual guide, not historical price data. Period controls do not imply a connected historical series.
+- Gold estimator uses 31.1034768 grams per troy ounce and selected purity; excludes local premiums, fees, tax and dealer spreads.
+- Quotes can fail to load if the provider, browser, or network blocks a request. The UI should report this rather than fabricate prices.
+
+## Advertising
+The page contains a responsive reserved ad slot, not a live network script. Add the ad network's exact publisher-approved tag only after the site is approved and the network's policies and regional eligibility have been checked. Do not add AMP components to this standard HTML page unless converting the entire page to a valid AMP document. Never click your own ads or encourage invalid traffic.
+
+## Brand and contact
+AUREL is a working brand concept. Replace `hello@aurel.markets` with a real monitored address and confirm domain ownership/availability before launch. No phone number is invented or displayed.
+
+## Before monetization
+- Verify data-source terms, accuracy and CORS behavior.
+- Add a real privacy policy, cookie/consent handling if required, and a contact page.
+- Replace the reserved ad slot with the provider's approved code.
+- Test keyboard navigation, mobile layout, and all links.
+- Do not present this site as a regulated financial service.
