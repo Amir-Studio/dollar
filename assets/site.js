@@ -119,12 +119,29 @@ function drawHistoryChart(){
  setText('chartPeriodLabel','از '+chartDate(rows[0].date)+' تا '+chartDate(last.date));
  setText('chartMinMax',number(Math.min(...vals),0)+' – '+number(Math.max(...vals),0));
  if(pred){
-  const p=(pred.value/shown-1)*100,fc=$('forecastValue');
+  const p=(pred.value/shown-1)*100,fc=$('forecastValue'),scenarioChange=$('scenarioChange');
   setText('forecastValue',toman(pred.value));
   if(fc)fc.style.color=down?'#ef4444':'#22c55e';
   setText('forecastRange',direction+' · '+(p>0?'+':'')+number(p,2)+'٪ · بازه: '+toman(pred.lo)+' تا '+toman(pred.hi));
- }else{setText('forecastValue','—');setText('forecastRange','برای نمایش پیش‌بینی، تاریخچه لازم است.')}
- setText('historyStatus',quoteFresh?'پیش‌بینی با نرخ تازهٔ منبع تنظیم شد · '+quote.timeLabel:'روند تاریخی و برآورد ۷روزه');
+  setText('scenarioTitle',down?'سناریوی غالب: احتمال کاهش':'سناریوی غالب: احتمال رشد');
+  setText('scenarioPill',down?'روند نزولی':'روند صعودی');
+  const pill=$('scenarioPill');if(pill){pill.classList.remove('neutral','up','down');pill.classList.add(down?'down':'up')}
+  setText('scenarioSummary','برآورد مدل آماری برای ۷ روز آینده '+(down?'نزولی':'صعودی')+' است. این جهت بر پایه روند تاریخچه محاسبه شده و هنوز تحلیل زنده اخبار در آن دخالت ندارد.');
+  setText('scenarioTarget',toman(pred.value));
+  setText('scenarioChange',(p>0?'+':'')+number(p,2)+'٪');
+  if(scenarioChange){scenarioChange.classList.remove('up','down');scenarioChange.classList.add(down?'down':'up')}
+  setText('scenarioRange',toman(pred.lo)+' تا '+toman(pred.hi));
+  setText('scenarioMethod','مبنای محاسبه: روند آماری تاریخچه؛ نه سیگنال قطعی و نه توصیهٔ معامله. اتصال تحلیلگر خبری هوش مصنوعی هنوز نیازمند راه‌اندازی Worker است.');
+  const dot=document.querySelector('.scenario-dot');if(dot){dot.classList.remove('up','down');dot.classList.add(down?'down':'up')}
+ }else{
+  setText('forecastValue','—');setText('forecastRange','برای نمایش پیش‌بینی، تاریخچه لازم است.');
+  setText('scenarioTitle','در انتظار دادهٔ معتبر');setText('scenarioPill','هنوز ارزیابی نشده');
+  const pill=$('scenarioPill');if(pill){pill.classList.remove('up','down');pill.classList.add('neutral')}
+  setText('scenarioSummary','برای ساخت سناریو، تاریخچهٔ کافی و معتبر لازم است.');
+  setText('scenarioTarget','—');setText('scenarioChange','—');setText('scenarioRange','—');
+  setText('scenarioMethod','سناریو تا زمان دریافت داده معتبر نمایش داده نمی‌شود.');
+ }
+ setText('historyStatus',quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
 }
 
 let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
