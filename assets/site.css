@@ -70,3 +70,43 @@ html[dir="rtl"] .hero-meta .big{
   letter-spacing:0;
   line-height:1.7;
 }
+
+/* Currency-first market monitor */
+.fx-panel{padding:0;overflow:hidden}
+.fx-toolbar{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:22px 24px;border-bottom:1px solid var(--line)}
+.fx-subtitle{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.8}
+.fx-tools{display:flex;gap:8px;align-items:center}
+.fx-tools input{width:190px;max-width:40vw;border:1px solid var(--line);background:#faf9f4;border-radius:9px;padding:11px 12px;font:12px inherit;outline:none}
+.fx-tools input:focus{border-color:#a7ad83;box-shadow:0 0 0 3px #a7ad831b}
+.refresh-btn{border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:var(--ink);color:#fff;font:11px inherit;white-space:nowrap}
+.refresh-btn:disabled{opacity:.65;cursor:wait}
+.table-scroll{overflow-x:auto}
+.fx-table{width:100%;border-collapse:collapse;min-width:760px;text-align:right;font-size:12px}
+.fx-table th{font-size:10px;color:var(--muted);font-weight:600;background:#f7f6f0;padding:14px 17px;white-space:nowrap}
+.fx-table td{padding:16px 17px;border-top:1px solid var(--line);white-space:nowrap}
+.fx-table tbody tr:hover{background:#faf9f4}
+.currency-name{display:flex;align-items:center;gap:11px;min-width:170px}
+.currency-code{display:grid;place-items:center;min-width:43px;height:35px;border-radius:9px;background:#eeefe5;color:#555e3f;font:700 11px "DM Mono",monospace}
+.currency-name strong{display:block;font-size:12px;font-weight:650}
+.currency-name small,.row-state{display:block;font-size:10px;color:var(--muted);margin-top:5px}
+.rate-cell{font:600 13px "DM Mono",monospace;direction:ltr;text-align:right}
+.table-change{font:600 11px "DM Mono",monospace;direction:ltr;display:inline-block}
+.table-change.up,.change.up{color:var(--green)}
+.table-change.down,.change.down{color:var(--red)}
+.time-cell{font-size:11px}
+.row-state.stale{color:var(--red)}
+.row-state.fresh{color:var(--green)}
+.table-empty{text-align:center!important;color:var(--muted);padding:28px!important}
+.fx-source-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 20px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}
+.fx-source-line strong{color:var(--ink)}
+.fx-disclaimer{padding:13px 20px;background:#f1f2e9;color:#596344;font-size:11px;line-height:1.9}
+.fx-disclaimer.is-stale{background:#f7e9e4;color:#8b4034}
+.market-trust-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:15px}
+.trust-card{display:flex;gap:13px;padding:19px;background:var(--white);border:1px solid var(--line);border-radius:13px}
+.trust-mark{font:11px "DM Mono",monospace;color:#777f58}
+.trust-card h3{font-size:12px;margin:0 0 7px}
+.trust-card p{font-size:11px;line-height:1.9;color:var(--muted);margin:0}
+.quote-status{font-size:9px;color:var(--muted)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:760px){.fx-toolbar{align-items:stretch;flex-direction:column;padding:17px}.fx-tools input{width:100%;max-width:none;min-width:0}.fx-tools{width:100%}.refresh-btn{flex-shrink:0}.market-trust-grid{grid-template-columns:1fr}.fx-source-line{flex-direction:column}.tickers{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.tickers{grid-template-columns:1fr}.fx-tools{flex-direction:column;align-items:stretch}.fx-tools input,.refresh-btn{width:100%}}
