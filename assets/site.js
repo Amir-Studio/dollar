@@ -123,7 +123,7 @@ let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
 function readCurrentPrice(payload,symbol){
  const rows=Array.isArray(payload?.data)?payload.data:[];
  const item=rows.find(r=>r.symbol===symbol);
- if(!item||item.stale===true)return null;
+ if(!item||item.stale===true||payload.meta?.stale===true)return null;
  const price=hNum(item.price),sourceTime=Date.parse(item.timestamp||payload.meta?.published_at||'');
  if(!Number.isFinite(price)||price<=0||!Number.isFinite(sourceTime)||Date.now()-sourceTime>45*60*1000)return null;
  return {price,sourceTime,receivedAt:Date.now(),timeLabel:item.timestamp_jalali||chartDate(sourceTime),sourceLabel:'TGJU'};
