@@ -110,3 +110,20 @@ html[dir="rtl"] .hero-meta .big{
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:760px){.fx-toolbar{align-items:stretch;flex-direction:column;padding:17px}.fx-tools input{width:100%;max-width:none;min-width:0}.fx-tools{width:100%}.refresh-btn{flex-shrink:0}.market-trust-grid{grid-template-columns:1fr}.fx-source-line{flex-direction:column}.tickers{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.tickers{grid-template-columns:1fr}.fx-tools{flex-direction:column;align-items:stretch}.fx-tools input,.refresh-btn{width:100%}}
+
+/* Market intelligence charts */
+.chart-section{padding-top:18px}.chart-panel{padding:0;overflow:hidden;background:var(--white)}
+.chart-toolbar{display:flex;align-items:end;justify-content:space-between;gap:15px;flex-wrap:wrap;padding:19px 22px;border-bottom:1px solid var(--line)}
+.chart-asset-wrap{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted)}
+.chart-asset-wrap select{min-width:155px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#faf9f4;color:var(--ink);font:600 12px "DollarYekan","Vazirmatn",sans-serif}
+.chart-ranges{display:flex;gap:5px;flex-wrap:wrap}.chart-ranges button,.forecast-toggle{border:1px solid var(--line);border-radius:8px;background:#f8f7f1;color:var(--muted);padding:10px 12px;font:11px "DollarYekan","Vazirmatn",sans-serif;cursor:pointer;transition:all .18s}
+.chart-ranges button.active,.chart-ranges button:hover,.forecast-toggle.active{background:#292c25;border-color:#292c25;color:#f7f5ed}.forecast-toggle{border-color:#b7b995;color:#596344}
+.chart-key{display:flex;align-items:center;gap:17px;flex-wrap:wrap;padding:15px 22px 0;font-size:10px;color:var(--muted)}.chart-key span{display:inline-flex;align-items:center;gap:7px}
+.key-line{display:inline-block;width:19px;height:3px;border-radius:3px;background:#7c8659}.key-dash{display:inline-block;width:19px;border-top:2px dashed #c18b57}
+.history-chart-wrap{width:100%;min-height:250px;padding:10px 12px 0}#historyChart{display:block;width:100%;height:clamp(250px,36vw,390px);overflow:visible}#historyChart text{font-family:"DollarYekan","Vazirmatn",sans-serif}
+.chart-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line)}.chart-stats article{min-width:0;padding:18px 19px;background:#fbfaf6}
+.chart-stats span,.chart-stats small{display:block;color:var(--muted);font-size:10px;line-height:1.8}.chart-stats strong{display:block;margin:8px 0 5px;color:var(--ink);font:600 clamp(13px,1.4vw,18px) "DM Mono","DollarYekan",monospace;direction:ltr;text-align:right;overflow-wrap:anywhere}
+.chart-stats .forecast-stat{background:#f0f0e7}.chart-stats .forecast-stat strong{color:#6c754b}.chart-note{margin:0;padding:16px 21px;background:#f8f7f1;color:#6c6c60;font-size:10px;line-height:2.1;border-top:1px solid var(--line)}.chart-note strong{color:#3f4235}
+.chart-source{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 21px;font-size:10px;color:var(--muted)}.chart-source strong{color:var(--ink)}.chart-source a{color:#596344;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:760px){.chart-toolbar{align-items:stretch;flex-direction:column;padding:16px}.chart-asset-wrap{justify-content:space-between}.chart-ranges{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.chart-ranges button{padding:10px 4px}.forecast-toggle{width:100%}.chart-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.chart-key{gap:10px;padding:14px 15px 0}.history-chart-wrap{padding:6px 4px 0}}
+@media(max-width:420px){.chart-stats article{padding:13px 11px}.chart-stats strong{font-size:12px}.chart-stats span,.chart-stats small{font-size:9px}.chart-source{flex-direction:column}}
