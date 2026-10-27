@@ -52,7 +52,7 @@ function render(payload){
  setText('goldCalcStatus',stale?'هشدار: داده مبنا قدیمی است؛ این برآورد را قیمت فعلی در نظر نگیرید.':'برآورد بر پایه نرخ هر گرم طلای ۱۸ عیار؛ بدون اجرت، مالیات و اختلاف خریدوفروش.');
  setText('goldCalc',gold?'—':'ناموجود');setText('gramPrice',gold?toman(Number(gold.price)):'ناموجود');setText('goldPrice',coin?toman(Number(coin.price)):'ناموجود');
  setText('chartCaption','داده‌های بازار آزاد · '+time);setText('chartStart',time);setText('chartEnd',stale?'داده قدیمی':'آخرین مشاهده');
- drawChart(usd,eur,gbp,stale);updateFx();updateGoldCalc();
+ drawChart(usd,eur,gbp,stale);updateFx();updateGoldCalc();renderChartQuoteStrip();
 }
 function drawChart(usd,eur,gbp,stale){/* Real daily history is rendered by drawHistoryChart. */}
 
@@ -111,6 +111,8 @@ function drawHistoryChart(){
  }
  const currentMark=quoteFresh?'<circle cx="'+lx+'" cy="'+y(base)+'" r="5" fill="#f5f5f5" stroke="#111" stroke-width="2"/>':'';
  svg.innerHTML=grid+labels+'<polygon points="'+area+'" fill="#ffffff" fill-opacity=".025"/>'+historicalSegments+future+'<circle cx="'+lx+'" cy="'+ly+'" r="3.5" fill="#f5f5f5" stroke="#111" stroke-width="1.5"/>'+currentMark+'<text x="'+L+'" y="'+(H-10)+'" text-anchor="start" fill="#a3a3a3" font-size="11">'+esc(chartDate(rows[0].date))+'</text>';
+ const detail=$('chartPointDetail');if(detail&&detail.dataset.ready!=='1'){detail.dataset.ready='1';detail.innerHTML='<span class="point-detail-label">جزئیات نقطهٔ نمودار</span><strong>روی هر نقطه بزن تا تاریخ و قیمت همان نقطه را ببینی.</strong>'}
+ svg.onpointerdown=event=>{const rect=svg.getBoundingClientRect(),vx=(event.clientX-rect.left)/rect.width*W,vy=(event.clientY-rect.top)/rect.height*H;if(showForecast&&projected.length&&vx>=lx){const day=Math.max(0,Math.min(7,Math.round((vx-lx)/futureSpace*7))),p=projected[day];if(detail&&p)detail.innerHTML='<span class="point-detail-label">پیش‌بینی آماری · '+(day===0?'نقطهٔ آغاز':'روز '+number(day))+'</span><strong>'+esc(toman(p.value))+'</strong><span>بازهٔ عدم‌قطعیت: '+esc(toman(p.lo))+' تا '+esc(toman(p.hi))+'</span>';return}let best=0,dist=Infinity;rows.forEach((r,i)=>{const dx=x(i)-vx,dy=y(r.close)-vy,d=dx*dx+dy*dy;if(d<dist){dist=d;best=i}});const p=rows[best],prev=rows[Math.max(0,best-1)],pct=best?(p.close/prev.close-1)*100:0;if(detail)detail.innerHTML='<span class="point-detail-label">نقطهٔ تاریخی · '+esc(chartDate(p.date))+'</span><strong>'+esc(toman(p.close))+'</strong><span class="point-detail-change '+(pct>0?'up':pct<0?'down':'')+'">'+(best?(pct>0?'+':'')+esc(number(pct,2))+'٪ نسبت به نقطهٔ قبل':'نخستین نقطهٔ این بازه')+'</span>'};
  const shown=quoteFresh?base:last.close;
  setText('chartLatest',toman(shown));
  setText('chartLatestDate',quoteFresh?'نرخ منبع: '+quote.sourceLabel+' · '+quote.timeLabel:'آخرین تاریخچه: '+chartDate(last.date));
@@ -145,6 +147,7 @@ function drawHistoryChart(){
 }
 
 let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
+function renderChartQuoteStrip(){const usd=getItem('USD_IRR_FREE'),gold=getItem('GOLD_18K_IRR'),uq=liveQuotes.get('USD_IRR_FREE'),gq=liveQuotes.get('GOLD_18K_IRR');setText('chartUsdPrice',uq&&Date.now()-uq.receivedAt<480000?toman(uq.price):usd?toman(Number(usd.price)):'ناموجود');setText('chartGoldPrice',gq&&Date.now()-gq.receivedAt<480000?toman(gq.price):gold?toman(Number(gold.price)):'ناموجود');setMove('chartUsdChange',usd);setMove('chartGoldChange',gold);setText('chartUsdTime','زمان ثبت: '+(uq?.timeLabel||stamp(usd)));setText('chartGoldTime','زمان ثبت: '+(gq?.timeLabel||stamp(gold)));}
 function readCurrentPrice(payload,symbol){
  const rows=Array.isArray(payload?.data)?payload.data:[];
  const item=rows.find(r=>r.symbol===symbol);
@@ -170,6 +173,7 @@ async function refreshForecastQuotes(){
    liveQuotes.set(symbol,quote);
    if(old&&old.price!==quote.price)changed=true;
   }
+  renderChartQuoteStrip();
   if(changed)drawHistoryChart();
   else if(!liveQuotes.has($('chartAsset')?.value||'USD_IRR_FREE'))setText('historyStatus','نمودار روند بازار و پیش‌بینی ۷روزه');
  }catch(e){setText('historyStatus','روند بازار و پیش‌بینی ۷روزه')}
