@@ -10,7 +10,7 @@
 <meta property="og:title" content="دولار | نرخ ارز بازار آزاد">
 <meta property="og:description" content="قیمت مرجع طلا و ارز و ابزارهای تبدیل.">
 <meta property="og:image" content="assets/brand.svg">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="dark">
 <meta name="robots" content="index,follow">
 <link rel="icon" type="image/svg+xml" href="assets/brand.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,6 +27,17 @@
 <div class="navright"><button class="lang" id="langBtn" aria-label="Switch language">English</button><a class="primary" href="#tools" data-en="Explore tools ↗" data-fa="ابزارها ↗">Explore tools ↗</a></div>
 </div></header>
 <main>
+<section class="section chart-section" id="charts"><div class="wrap">
+<div class="section-head chart-section-head"><div><div class="eyebrow">MARKET INTELLIGENCE · HISTORY & SCENARIOS</div><h2>نمودار واقعی بازار و سناریوی روند</h2></div><p>روند قیمت را دنبال کن و مسیر احتمالی ۷ روز آینده را روی همان نمودار ببین.</p></div>
+<div class="panel chart-panel">
+<div class="chart-toolbar"><div class="chart-asset-wrap"><label for="chartAsset">دارایی</label><select id="chartAsset"><option value="USD_IRR_FREE">دلار آزاد</option><option value="GOLD_18K_IRR">طلای ۱۸ عیار</option><option value="EUR_IRR_FREE">یورو آزاد</option><option value="COIN_EMAMI_IRR">سکه امامی</option></select></div>
+<div class="chart-ranges" role="group" aria-label="بازه نمودار"><button type="button" data-range="30">۱ ماه</button><button type="button" data-range="90" class="active">۳ ماه</button><button type="button" data-range="365">۱ سال</button><button type="button" data-range="all">همه</button></div><button id="forecastToggle" type="button" class="forecast-toggle active" aria-pressed="true">پیش‌بینی ۷روزه</button></div>
+<div class="chart-key"><span><i class="key-line"></i>قیمت تاریخی</span><span><i class="key-dash"></i>پیش‌بینی ۷روزه</span><span><i class="key-band"></i>بازهٔ قیمت‌های محتمل</span><span id="historyStatus" role="status">در حال دریافت تاریخچه…</span></div>
+<div class="history-chart-wrap"><svg id="historyChart" viewBox="0 0 960 360" role="img" aria-label="نمودار تاریخی قیمت و سناریوی روند" preserveAspectRatio="none"><text x="480" y="180" text-anchor="middle">در حال دریافت تاریخچه…</text></svg></div>
+<div class="chart-stats"><article><span>آخرین قیمت تاریخی</span><strong id="chartLatest">—</strong><small id="chartLatestDate">تاریخ ثبت: —</small></article><article><span>تغییر در بازه انتخابی</span><strong id="chartPeriodChange">—</strong><small id="chartPeriodLabel">بازه: ۳ ماه</small></article><article><span>بازه قیمت در نمودار</span><strong id="chartMinMax">—</strong><small>کمینه تا بیشینهٔ بازه</small></article><article class="forecast-stat"><span>سناریوی روند ۷روزه</span><strong id="forecastValue">—</strong><small id="forecastRange">مسیر برآوردی ۷ روز آینده</small></article></div>
+<div class="chart-note"><strong>نمای نمودار</strong> خط فیروزه‌ای تغییرات ثبت‌شدهٔ بازار را نشان می‌دهد؛ خط طلایی مسیر پیش‌بینی ۷روزه و ناحیهٔ آبی بازهٔ قیمت‌های محتمل را نمایش می‌دهد. با انتشار نرخ تازه، مبنای پیش‌بینی به‌روزرسانی می‌شود.</div>
+<div class="chart-source"><span>منبع تاریخچه: <strong>Iran Market Data · TGJU</strong></span><a href="https://iran-market.github.io/" target="_blank" rel="noopener">بررسی منبع و مستندات ↗</a></div>
+</div></div></section>
 <section class="hero"><div class="wrap">
 <div class="hero-grid"><div><div class="eyebrow" data-en="IRAN OPEN-MARKET FX · SOURCE & TIMESTAMP" data-fa="نرخ ارز بازار آزاد · منبع و زمان ثبت">نرخ ارز بازار آزاد · منبع و زمان ثبت</div><h1 data-en="Iranian exchange rates.<br><em>Clearly sourced.</em>" data-fa="نرخ ارز بازار آزاد؛<br><em>شفاف و مستند.</em>">نرخ ارز بازار آزاد؛ شفاف و مستند.</h1><p data-en="USD, EUR and GBP quoted in toman, with source attribution, Tehran observation time, daily change and clear stale-data warnings." data-fa="قیمت دلار، یورو و پوند به تومان؛ همراه با منبع مشخص، زمان ثبت به وقت تهران، تغییر روزانه و هشدار روشن برای داده‌های قدیمی.">قیمت دلار، یورو و پوند به تومان؛ همراه با منبع مشخص، زمان ثبت به وقت تهران، تغییر روزانه و هشدار روشن برای داده‌های قدیمی.</p></div>
 <div class="hero-meta"><div class="eyebrow" data-en="SOURCE STATUS" data-fa="وضعیت منبع">وضعیت منبع</div><div class="big" id="sourceStatusBig">در حال بررسی منبع</div><p id="sourceDetails">قیمت‌ها همراه با زمان آخرین ثبت و وضعیت تازگی نمایش داده می‌شوند.</p></div></div>
@@ -47,17 +58,7 @@
 <div class="ad-slot" aria-label="جایگاه تبلیغات"><div class="ad-label">جایگاه تبلیغات</div><p>جایگاه رزروشده برای تبلیغ واکنش‌گرا و تأییدشده</p><div class="ad-content" id="adSlot"></div></div>
 </div></section>
 
-<section class="section chart-section" id="charts"><div class="wrap">
-<div class="section-head chart-section-head"><div><div class="eyebrow">MARKET INTELLIGENCE · HISTORY & SCENARIOS</div><h2>نمودار واقعی بازار و سناریوی روند</h2></div><p>تاریخچهٔ واقعی بازار، بازهٔ محتمل مدل و بازتنظیم پیش‌بینی هنگام انتشار نرخ تازه؛ آینده قطعی نیست.</p></div>
-<div class="panel chart-panel">
-<div class="chart-toolbar"><div class="chart-asset-wrap"><label for="chartAsset">دارایی</label><select id="chartAsset"><option value="USD_IRR_FREE">دلار آزاد</option><option value="GOLD_18K_IRR">طلای ۱۸ عیار</option><option value="EUR_IRR_FREE">یورو آزاد</option><option value="COIN_EMAMI_IRR">سکه امامی</option></select></div>
-<div class="chart-ranges" role="group" aria-label="بازه نمودار"><button type="button" data-range="30">۱ ماه</button><button type="button" data-range="90" class="active">۳ ماه</button><button type="button" data-range="365">۱ سال</button><button type="button" data-range="all">همه</button></div><button id="forecastToggle" type="button" class="forecast-toggle active" aria-pressed="true">پیش‌بینی ۷روزه</button></div>
-<div class="chart-key"><span><i class="key-line"></i>قیمت پایانی روزانه</span><span><i class="key-dash"></i>سناریوی مرکزی</span><span><i class="key-band"></i>دامنهٔ عدم‌قطعیت مدل</span><span id="historyStatus" role="status">در حال دریافت تاریخچه…</span></div>
-<div class="history-chart-wrap"><svg id="historyChart" viewBox="0 0 960 360" role="img" aria-label="نمودار تاریخی قیمت و سناریوی روند" preserveAspectRatio="none"><text x="480" y="180" text-anchor="middle">در حال دریافت تاریخچه…</text></svg></div>
-<div class="chart-stats"><article><span>آخرین قیمت تاریخی</span><strong id="chartLatest">—</strong><small id="chartLatestDate">تاریخ ثبت: —</small></article><article><span>تغییر در بازه انتخابی</span><strong id="chartPeriodChange">—</strong><small id="chartPeriodLabel">بازه: ۳ ماه</small></article><article><span>بازه قیمت در نمودار</span><strong id="chartMinMax">—</strong><small>کمینه تا بیشینهٔ بازه</small></article><article class="forecast-stat"><span>سناریوی روند ۷روزه</span><strong id="forecastValue">—</strong><small id="forecastRange">برآورد ساده؛ عدم‌قطعیت بالاست.</small></article></div>
-<div class="chart-note"><strong>چطور بخوانی؟</strong> خط نارنجی سناریوی مرکزی مدل است؛ ناحیهٔ رنگی دامنهٔ عدم‌قطعیت را نشان می‌دهد، نه تضمین حداقل و حداکثر قیمت. مدل با تاریخچهٔ روزانه کالیبره می‌شود و هنگام دریافت نرخ معتبر تازه، نقطهٔ شروع و برآوردها را بازتنظیم می‌کند. اگر منبع دادهٔ تازه ندهد، پیش‌بینی بی‌دلیل «دقیق‌تر» اعلام نمی‌شود. این ابزار ساده است، خبر و تصمیمات سیاسی را نمی‌فهمد و توصیهٔ خریدوفروش نیست.</div>
-<div class="chart-source"><span>منبع تاریخچه: <strong>Iran Market Data · TGJU</strong></span><a href="https://iran-market.github.io/" target="_blank" rel="noopener">بررسی منبع و مستندات ↗</a></div>
-</div></div></section>\n<section class="section" id="tools"><div class="wrap"><div class="section-head"><div><div class="eyebrow">TOOLS · IRAN OPEN MARKET</div><h2>مبدل ارز و برآورد طلا</h2></div><p>محاسبات بر پایه آخرین نرخ ثبت‌شده در بازار آزاد است؛ پیش از استفاده، وضعیت تازگی داده‌ها را در جدول بالا بررسی کنید.</p></div>
+\n<section class="section" id="tools"><div class="wrap"><div class="section-head"><div><div class="eyebrow">TOOLS · IRAN OPEN MARKET</div><h2>مبدل ارز و برآورد طلا</h2></div><p>محاسبات بر پایه آخرین نرخ ثبت‌شده در بازار آزاد است؛ پیش از استفاده، وضعیت تازگی داده‌ها را در جدول بالا بررسی کنید.</p></div>
 <div class="tool-grid">
 <article class="tool"><div class="eyebrow">TOOL 01 · FX</div><h3>مبدل ارز بازار ایران</h3><p>تبدیل تقریبی بین دلار، یورو، پوند و تومان بر اساس نرخ‌های منتشرشده. این محاسبه نرخ تضمین‌شده معامله نیست.</p>
 <div class="field-row"><div class="field"><label for="amount">مقدار</label><input id="amount" type="number" min="0" step="any" value="100" inputmode="decimal"></div><div class="field"><label for="fromCurrency">از</label><select id="fromCurrency"><option value="USD">USD · دلار</option><option value="EUR">EUR · یورو</option><option value="GBP">GBP · پوند</option><option value="IRT">IRT · تومان</option></select></div></div>
