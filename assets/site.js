@@ -86,7 +86,7 @@ function drawHistoryChart(){
  }
  const pred=projected.length?projected[projected.length-1]:null;
  const down=!!(pred&&pred.value<base),direction=pred?(down?'کاهش احتمالی':'رشد احتمالی'):'پیش‌بینی در دسترس نیست';
- const forecastColor=down?'#ef4444':'#22c55e';
+ const forecastColor='#f2cc4d';
  const allForScale=vals.concat(projected.flatMap(p=>[p.lo,p.hi,p.value]));
  const min=Math.min(...allForScale),max=Math.max(...allForScale),span=Math.max(1,max-min),lo=Math.max(0,min-span*.08),hi=max+span*.08;
  const x=i=>L+i/Math.max(1,rows.length-1)*pw,y=v=>T+(hi-v)/(hi-lo)*ph;
@@ -107,7 +107,7 @@ function drawHistoryChart(){
   const lower=projected.slice().reverse().map(p=>fx(p.d)+','+y(p.lo)).join(' ');
   const center=projected.map(p=>fx(p.d)+','+y(p.value)).join(' ');
   const boundary=fx(0),tagX=Math.min(W-R-152,Math.max(boundary+8,W-R-150));
-  future='<polygon points="'+upper+' '+lower+'" fill="'+forecastColor+'" opacity=".14"/><polyline points="'+center+'" fill="none" stroke="'+forecastColor+'" stroke-width="3.5" stroke-dasharray="8 5" stroke-linecap="round"/><line x1="'+boundary+'" y1="'+T+'" x2="'+boundary+'" y2="'+(T+ph)+'" stroke="'+forecastColor+'" stroke-dasharray="3 5" opacity=".8"/><circle cx="'+fx(7)+'" cy="'+y(pred.value)+'" r="5" fill="'+forecastColor+'" stroke="#fff" stroke-width="1.5"/><rect x="'+tagX+'" y="'+(T+12)+'" width="140" height="29" rx="7" fill="'+forecastColor+'" fill-opacity=".16" stroke="'+forecastColor+'" stroke-opacity=".75"/><text x="'+(tagX+70)+'" y="'+(T+31)+'" text-anchor="middle" fill="'+forecastColor+'" font-size="13" font-weight="700">'+direction+'</text><text x="'+(fx(7)-4)+'" y="'+(H-10)+'" text-anchor="end" fill="'+forecastColor+'" font-size="11">۷ روز آینده</text>';
+  future='<rect x="'+boundary+'" y="'+T+'" width="'+(W-R-boundary)+'" height="'+ph+'" fill="'+forecastColor+'" fill-opacity=".09"/><polygon points="'+upper+' '+lower+'" fill="'+forecastColor+'" opacity=".22"/><polyline points="'+center+'" fill="none" stroke="'+forecastColor+'" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="'+boundary+'" y1="'+T+'" x2="'+boundary+'" y2="'+(T+ph)+'" stroke="'+forecastColor+'" stroke-width="1.5" opacity=".9"/><circle cx="'+fx(7)+'" cy="'+y(pred.value)+'" r="5.5" fill="'+forecastColor+'" stroke="#111" stroke-width="2"/><rect x="'+tagX+'" y="'+(T+12)+'" width="140" height="29" rx="7" fill="'+forecastColor+'" fill-opacity=".18" stroke="'+forecastColor+'" stroke-opacity=".8"/><text x="'+(tagX+70)+'" y="'+(T+31)+'" text-anchor="middle" fill="'+forecastColor+'" font-size="13" font-weight="700">پیش‌بینی ۷روزه</text><text x="'+(fx(7)-4)+'" y="'+(H-10)+'" text-anchor="end" fill="'+forecastColor+'" font-size="11">روز هفتم</text>';
  }
  const currentMark=quoteFresh?'<circle cx="'+lx+'" cy="'+y(base)+'" r="5" fill="#f5f5f5" stroke="#111" stroke-width="2"/>':'';
  svg.innerHTML=grid+labels+'<polygon points="'+area+'" fill="#ffffff" fill-opacity=".025"/>'+historicalSegments+future+'<circle cx="'+lx+'" cy="'+ly+'" r="3.5" fill="#f5f5f5" stroke="#111" stroke-width="1.5"/>'+currentMark+'<text x="'+L+'" y="'+(H-10)+'" text-anchor="start" fill="#a3a3a3" font-size="11">'+esc(chartDate(rows[0].date))+'</text>';
@@ -115,13 +115,13 @@ function drawHistoryChart(){
  setText('chartLatest',toman(shown));
  setText('chartLatestDate',quoteFresh?'نرخ منبع: '+quote.sourceLabel+' · '+quote.timeLabel:'آخرین تاریخچه: '+chartDate(last.date));
  const pct=(rows[rows.length-1].close/rows[0].close-1)*100,cp=$('chartPeriodChange');
- if(cp){cp.textContent=(pct>0?'+':'')+number(pct,2)+'%';cp.style.color=pct>0?'#22c55e':pct<0?'#ef4444':''}
+ if(cp){cp.textContent=(pct>0?'+':'')+number(pct,2)+'%';cp.style.color=pct>0?'#25c46a':pct<0?'#ef5350':''}
  setText('chartPeriodLabel','از '+chartDate(rows[0].date)+' تا '+chartDate(last.date));
  setText('chartMinMax',number(Math.min(...vals),0)+' – '+number(Math.max(...vals),0));
  if(pred){
   const p=(pred.value/shown-1)*100,fc=$('forecastValue'),scenarioChange=$('scenarioChange');
   setText('forecastValue',toman(pred.value));
-  if(fc)fc.style.color=down?'#ef4444':'#22c55e';
+  if(fc)fc.style.color='#f2cc4d';
   setText('forecastRange',direction+' · '+(p>0?'+':'')+number(p,2)+'٪ · بازه: '+toman(pred.lo)+' تا '+toman(pred.hi));
   setText('scenarioTitle',down?'سناریوی غالب: احتمال کاهش':'سناریوی غالب: احتمال رشد');
   setText('scenarioPill',down?'روند نزولی':'روند صعودی');
