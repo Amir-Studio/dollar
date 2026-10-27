@@ -35,7 +35,13 @@
 <div class="chart-key"><span><i class="key-line"></i>روند صعودی</span><span><i class="key-red-line"></i>روند نزولی</span><span><i class="key-dash"></i>پیش‌بینی ۷روزه</span><span id="historyStatus" role="status">در حال دریافت تاریخچه…</span></div>
 <div class="history-chart-wrap"><svg id="historyChart" viewBox="0 0 960 360" role="img" aria-label="نمودار تاریخی قیمت و سناریوی روند" preserveAspectRatio="none"><text x="480" y="180" text-anchor="middle">در حال دریافت تاریخچه…</text></svg></div>
 <div class="chart-stats"><article><span>آخرین قیمت تاریخی</span><strong id="chartLatest">—</strong><small id="chartLatestDate">تاریخ ثبت: —</small></article><article><span>تغییر در بازه انتخابی</span><strong id="chartPeriodChange">—</strong><small id="chartPeriodLabel">بازه: ۳ ماه</small></article><article><span>بازه قیمت در نمودار</span><strong id="chartMinMax">—</strong><small>کمینه تا بیشینهٔ بازه</small></article><article class="forecast-stat"><span>پیش‌بینی روند ۷روزه</span><strong id="forecastValue">—</strong><small id="forecastRange">مسیر برآوردی ۷ روز آینده</small></article></div>
-<div class="chart-note"><strong>نمای نمودار</strong> خط فیروزه‌ای تغییرات ثبت‌شدهٔ بازار را نشان می‌دهد؛ خط طلایی مسیر پیش‌بینی ۷روزه و ناحیهٔ آبی بازهٔ قیمت‌های محتمل را نمایش می‌دهد. با انتشار نرخ تازه، مبنای پیش‌بینی به‌روزرسانی می‌شود.</div>
+<section class="forecast-brief" aria-live="polite" id="forecastBrief">
+<div class="forecast-brief-head"><div><span class="forecast-kicker">MARKET SCENARIO · ۷ روز آینده</span><h3 id="scenarioTitle">در انتظار دادهٔ معتبر</h3></div><span class="scenario-pill neutral" id="scenarioPill">هنوز ارزیابی نشده</span></div>
+<p id="scenarioSummary">جهت روند، قیمت هدف و بازهٔ عدم‌قطعیت پس از دریافت تاریخچه محاسبه می‌شوند.</p>
+<div class="scenario-metrics"><div><span>قیمت هدف آماری</span><strong id="scenarioTarget">—</strong></div><div><span>تغییر برآوردی</span><strong id="scenarioChange">—</strong></div><div><span>بازهٔ عدم‌قطعیت</span><strong id="scenarioRange">—</strong></div></div>
+<div class="scenario-foot"><span class="scenario-dot"></span><span id="scenarioMethod">سناریوی آماری؛ هنوز به موتور خبرمحور هوش مصنوعی وصل نشده است.</span></div>
+</section>
+<div class="chart-note"><strong>راهنمای خواندن نمودار</strong> خط سبز = حرکت صعودی ثبت‌شده؛ خط قرمز = حرکت نزولی ثبت‌شده؛ خط‌چین سبز یا قرمز = مسیر برآوردی ۷ روز آینده. رنگ پیش‌بینی با جهت مدل تغییر می‌کند. این سناریو تضمین قیمت یا توصیهٔ خریدوفروش نیست.</div>
 <div class="chart-source"><span>منبع تاریخچه: <strong>Iran Market Data · TGJU</strong></span><a href="https://iran-market.github.io/" target="_blank" rel="noopener">بررسی منبع و مستندات ↗</a></div>
 </div></div></section>
 <section class="hero"><div class="wrap">
