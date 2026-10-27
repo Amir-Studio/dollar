@@ -32,10 +32,10 @@ function renderAll(payload){
  setText('chartStart',stamp);setText('chartEnd',stale?'قدیمی':'آخرین ثبت');
  setText('goldCalcStatus',stale?'هشدار: قیمت مبنا قدیمی است؛ این فقط برآورد ریاضی است.':'برآورد بر پایه نرخ هر گرم طلای ۱۸ عیار؛ بدون اجرت، مالیات و اختلاف خریدوفروش.');
  setText('goldCalc',gold?'—':'ناموجود');
- setText('gramPrice',gold?toman(gold.price):'ناموجود');
- setText('goldPrice',coin?toman(coin.price):'ناموجود');
- setText('usdPrice',usd?toman(usd.price):'ناموجود');
- setText('eurPrice',eur?toman(eur.price):'ناموجود');
+ setText('goldPrice',usd?toman(usd.price):'ناموجود');
+ setText('usdPrice',eur?toman(eur.price):'ناموجود');
+ setText('eurPrice',gold?toman(gold.price):'ناموجود');
+ setText('gramPrice',coin?toman(coin.price):'ناموجود');
  setText('topStatus',stale?'منبع قدیمی · با احتیاط استفاده کنید':'داده بازار دریافت شد');
  setText('footerUpdate',stale?'داده قدیمی · '+stamp:'منبع: TGJU · '+stamp);
  setText('sourceStatusBig',stale?'آخرین داده قدیمی است':'منبع دریافت شد');
