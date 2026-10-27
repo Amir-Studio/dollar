@@ -34,6 +34,7 @@ function render(payload){
  const currencyItems=CURRENCIES.map(c=>getItem(c.symbol)).filter(Boolean);
  CURRENCIES.forEach(c=>{const item=getItem(c.symbol);setText(c.ticker,item?toman(Number(item.price)):'ناموجود');setMove(c.move,item);setText(c.fresh,item?(staleItem(item)?'داده قدیمی':'داده تازه'):'ناموجود')});
  const usd=getItem(SYMBOLS.usd),eur=getItem(SYMBOLS.eur),gbp=getItem(SYMBOLS.gbp),gold=getItem(SYMBOLS.gold),coin=getItem(SYMBOLS.coin),usdt=getItem(SYMBOLS.usdt);
+ setMove('goldMove',gold);setText('goldFresh',gold?(staleItem(gold)?'داده قدیمی':'نرخ مرجع'):'ناموجود');
  setText('watchGold',gold?toman(Number(gold.price)):'ناموجود');setText('watchEur',eur?toman(Number(eur.price)):'ناموجود');setText('watchGbp',gbp?toman(Number(gbp.price)):'ناموجود');setText('watchJpy',usdt?toman(Number(usdt.price)):'ناموجود');
  setMove('watchUsdMove',usd);setMove('watchEurMove',eur);setMove('watchGbpMove',gbp);setMove('watchUsdtMove',usdt);
  const newest=currencyItems.map(x=>x.timestamp).filter(Boolean).sort().at(-1)||payload.meta?.updated_at;
