@@ -76,9 +76,9 @@ html[dir="rtl"] .hero-meta .big{
 .fx-toolbar{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:22px 24px;border-bottom:1px solid var(--line)}
 .fx-subtitle{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.8}
 .fx-tools{display:flex;gap:8px;align-items:center}
-.fx-tools input{width:190px;max-width:40vw;border:1px solid var(--line);background:#faf9f4;border-radius:9px;padding:11px 12px;font:12px inherit;outline:none}
+.fx-tools input{width:190px;max-width:40vw;border:1px solid var(--line);background:#faf9f4;border-radius:9px;padding:11px 12px;font:12px var(--sans);outline:none}
 .fx-tools input:focus{border-color:#a7ad83;box-shadow:0 0 0 3px #a7ad831b}
-.refresh-btn{border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:var(--ink);color:#fff;font:11px inherit;white-space:nowrap}
+.refresh-btn{border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:var(--ink);color:#fff;font:11px var(--sans);white-space:nowrap}
 .refresh-btn:disabled{opacity:.65;cursor:wait}
 .table-scroll{overflow-x:auto}
 .fx-table{width:100%;border-collapse:collapse;min-width:760px;text-align:right;font-size:12px}
