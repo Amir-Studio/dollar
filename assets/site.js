@@ -70,7 +70,7 @@ function drawHistoryChart(){
  const svg=$('historyChart');if(!svg)return;
  const symbol=$('chartAsset')?.value||'USD_IRR_FREE',all=historyCache.get(symbol)||[];
  const rows=historyRange==='all'?all:all.slice(-Number(historyRange));
- if(rows.length<2){svg.innerHTML='<text x="480" y="180" text-anchor="middle" fill="#7a7b70" font-size="15">تاریخچه کافی دریافت نشد.</text>';return}
+ if(rows.length<2){svg.innerHTML='<text x="480" y="180" text-anchor="middle" fill="#91a2b8" font-size="15">دادهٔ کافی برای نمایش نمودار وجود ندارد.</text>';return}
  const model=showForecast?trendModel(all):null,quote=liveQuotes.get(symbol);
  const quoteFresh=quote&&Date.now()-quote.receivedAt<8*60*1000&&Date.now()-quote.sourceTime<45*60*1000;
  const base=quoteFresh?quote.price:rows[rows.length-1].close;
@@ -89,7 +89,7 @@ function drawHistoryChart(){
  const x=i=>L+i/Math.max(1,rows.length-1)*pw,y=v=>T+(hi-v)/(hi-lo)*ph;
  const last=rows[rows.length-1],lx=x(rows.length-1),ly=y(last.close);
  let grid='',labels='';
- for(let i=0;i<5;i++){const v=lo+(hi-lo)*i/4,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e9e9e1" stroke-width="1"/>';labels+='<text x="'+(L-12)+'" y="'+(yy+4)+'" text-anchor="end" fill="#8a8b80" font-size="11">'+esc(number(v,0))+'</text>'}
+ for(let i=0;i<5;i++){const v=lo+(hi-lo)*i/4,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#24364b" stroke-width="1"/>';labels+='<text x="'+(L-12)+'" y="'+(yy+4)+'" text-anchor="end" fill="#91a2b8" font-size="11">'+esc(number(v,0))+'</text>'}
  const pts=rows.map((r,i)=>x(i)+','+y(r.close)).join(' ');
  const area=L+','+(T+ph)+' '+pts+' '+lx+','+(T+ph);
  let future='';
@@ -99,24 +99,24 @@ function drawHistoryChart(){
   const lower=projected.slice().reverse().map(p=>fx(p.d)+','+y(p.lo)).join(' ');
   const center=projected.map(p=>fx(p.d)+','+y(p.value)).join(' ');
   const boundary=fx(0);
-  future='<polygon points="'+upper+' '+lower+'" fill="#6991aa" opacity=".22"/><polyline points="'+center+'" fill="none" stroke="#bd8650" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round"/><line x1="'+boundary+'" y1="'+T+'" x2="'+boundary+'" y2="'+(T+ph)+'" stroke="#bd8650" stroke-dasharray="3 5"/><text x="'+(fx(7)-4)+'" y="'+(T+14)+'" text-anchor="end" fill="#a47748" font-size="11">۷ روز آینده</text>';
+  future='<polygon points="'+upper+' '+lower+'" fill="#4996ff" opacity=".20"/><polyline points="'+center+'" fill="none" stroke="#f6c86b" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round"/><line x1="'+boundary+'" y1="'+T+'" x2="'+boundary+'" y2="'+(T+ph)+'" stroke="#f6c86b" stroke-dasharray="3 5"/><text x="'+(fx(7)-4)+'" y="'+(T+14)+'" text-anchor="end" fill="#f6c86b" font-size="11">۷ روز آینده</text>';
  }
- const currentMark=quoteFresh?'<circle cx="'+lx+'" cy="'+y(base)+'" r="5" fill="#6991aa" stroke="#fff" stroke-width="2"/>':'';
- svg.innerHTML='<defs><linearGradient id="chartAreaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#89936a" stop-opacity=".28"/><stop offset="100%" stop-color="#89936a" stop-opacity=".015"/></linearGradient></defs>'+grid+labels+'<polygon points="'+area+'" fill="url(#chartAreaFill)"/><polyline points="'+pts+'" fill="none" stroke="#78835a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+future+'<circle cx="'+lx+'" cy="'+ly+'" r="4" fill="#78835a" stroke="#fff" stroke-width="2"/>'+currentMark+'<text x="'+L+'" y="'+(H-10)+'" text-anchor="start" fill="#8a8b80" font-size="11">'+esc(chartDate(rows[0].date))+'</text><text x="'+(W-R)+'" y="'+(H-10)+'" text-anchor="end" fill="#8a8b80" font-size="11">'+(projected.length?'سناریو: +۷ روز':'')+'</text>';
+ const currentMark=quoteFresh?'<circle cx="'+lx+'" cy="'+y(base)+'" r="5" fill="#4996ff" stroke="#dbeafe" stroke-width="2"/>':'';
+ svg.innerHTML='<defs><linearGradient id="chartAreaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#35d7c4" stop-opacity=".28"/><stop offset="100%" stop-color="#35d7c4" stop-opacity=".015"/></linearGradient></defs>'+grid+labels+'<polygon points="'+area+'" fill="url(#chartAreaFill)"/><polyline points="'+pts+'" fill="none" stroke="#35d7c4" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+future+'<circle cx="'+lx+'" cy="'+ly+'" r="4" fill="#35d7c4" stroke="#dbeafe" stroke-width="2"/>'+currentMark+'<text x="'+L+'" y="'+(H-10)+'" text-anchor="start" fill="#91a2b8" font-size="11">'+esc(chartDate(rows[0].date))+'</text><text x="'+(W-R)+'" y="'+(H-10)+'" text-anchor="end" fill="#91a2b8" font-size="11">'+(projected.length?'سناریو: +۷ روز':'')+'</text>';
  const shown=quoteFresh?base:last.close;
  setText('chartLatest',toman(shown));
  setText('chartLatestDate',quoteFresh?'نرخ منبع: '+quote.sourceLabel+' · '+quote.timeLabel:'آخرین تاریخچه: '+chartDate(last.date));
  const pct=(rows[rows.length-1].close/rows[0].close-1)*100,cp=$('chartPeriodChange');
- if(cp){cp.textContent=(pct>0?'+':'')+number(pct,2)+'%';cp.style.color=pct>0?'#667a43':pct<0?'#a34f42':''}
+ if(cp){cp.textContent=(pct>0?'+':'')+number(pct,2)+'%';cp.style.color=pct>0?'#34d399':pct<0?'#fb7185':''}
  setText('chartPeriodLabel','از '+chartDate(rows[0].date)+' تا '+chartDate(last.date));
  setText('chartMinMax',number(Math.min(...vals),0)+' – '+number(Math.max(...vals),0));
  if(projected.length){
   const pred=projected[7],p=(pred.value/shown-1)*100;
   setText('forecastValue',toman(pred.value));
-  setText('forecastRange','سناریوی مرکزی: '+(p>0?'+':'')+number(p,2)+'٪ · دامنه: '+toman(pred.lo)+' تا '+toman(pred.hi));
+  setText('forecastRange','پیش‌بینی: '+(p>0?'+':'')+number(p,2)+'٪ · بازه: '+toman(pred.lo)+' تا '+toman(pred.hi));
  }else{setText('forecastValue','مخفی');setText('forecastRange','سناریوی روند غیرفعال است.')}
  if(quoteFresh)setText('historyStatus','پیش‌بینی بازتنظیم شد · نرخ تازهٔ منبع: '+quote.timeLabel);
- else setText('historyStatus','تاریخچهٔ روزانه · نرخ زندهٔ معتبر در دسترس نیست؛ سناریو فقط بر پایه تاریخچه است.');
+ else setText('historyStatus','تاریخچهٔ قیمت‌ها و مسیر پیش‌بینی ۷روزه');
 }
 
 let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
@@ -146,11 +146,11 @@ async function refreshForecastQuotes(){
    if(old&&old.price!==quote.price)changed=true;
   }
   if(changed)drawHistoryChart();
-  else if(!liveQuotes.has($('chartAsset')?.value||'USD_IRR_FREE'))setText('historyStatus','منتظر نرخ تازه و معتبر از منبع؛ از داده قدیمی برای پیش‌بینی استفاده نمی‌شود.');
- }catch(e){setText('historyStatus','اتصال نرخ تازه برقرار نشد؛ نمایش بر پایه تاریخچه ادامه دارد.')}
+  else if(!liveQuotes.has($('chartAsset')?.value||'USD_IRR_FREE'))setText('historyStatus','نمودار روند بازار و پیش‌بینی ۷روزه');
+ }catch(e){setText('historyStatus','روند بازار و پیش‌بینی ۷روزه')}
  finally{livePollBusy=false}
 }
-async function loadHistory(){const symbol=$('chartAsset')?.value||'USD_IRR_FREE';if(historyLoading)return;if(historyCache.has(symbol)){drawHistoryChart();return}historyLoading=true;setText('historyStatus','در حال دریافت تاریخچهٔ روزانه…');try{const rows=await fetchHistory(symbol);drawHistoryChart();setText('historyStatus','تاریخچهٔ روزانه · '+number(rows.length)+' مشاهده · تا '+chartDate(rows[rows.length-1].date))}catch(e){setText('historyStatus','تاریخچه در دسترس نیست؛ منبع را دوباره بررسی کنید.');const svg=$('historyChart');if(svg)svg.innerHTML='<text x="480" y="165" text-anchor="middle" fill="#8a6558" font-size="15">تاریخچه دریافت نشد</text><text x="480" y="194" text-anchor="middle" fill="#8a8b80" font-size="12">اتصال یا قالب داده منبع را بررسی کنید.</text>';setText('chartLatest','—');setText('forecastValue','—');setText('forecastRange','برای سناریو، تاریخچه معتبر لازم است.')}finally{historyLoading=false}}
+async function loadHistory(){const symbol=$('chartAsset')?.value||'USD_IRR_FREE';if(historyLoading)return;if(historyCache.has(symbol)){drawHistoryChart();return}historyLoading=true;setText('historyStatus','در حال دریافت تاریخچهٔ روزانه…');try{const rows=await fetchHistory(symbol);drawHistoryChart();setText('historyStatus','تاریخچهٔ روزانه · '+number(rows.length)+' مشاهده · تا '+chartDate(rows[rows.length-1].date))}catch(e){setText('historyStatus','تاریخچه قیمت‌ها در حال حاضر بارگذاری نشد.');const svg=$('historyChart');if(svg)svg.innerHTML='<text x="480" y="165" text-anchor="middle" fill="#8a6558" font-size="15">تاریخچه دریافت نشد</text><text x="480" y="194" text-anchor="middle" fill="#91a2b8" font-size="12">اتصال یا قالب داده منبع را بررسی کنید.</text>';setText('chartLatest','—');setText('forecastValue','—');setText('forecastRange','برای سناریو، تاریخچه معتبر لازم است.')}finally{historyLoading=false}}
 
 function updateFx(){
  if(!market.size)return;
