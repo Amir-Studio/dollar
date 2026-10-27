@@ -17,8 +17,8 @@ function renderMove(id,item){const el=$(id);if(!el)return;el.textContent=moveTex
 function renderAll(payload){
  const rows=payload.data||[];market=new Map(rows.map(x=>[x.symbol,x]));lastPayload=payload;
  const usd=getItem(symbols.usd),eur=getItem(symbols.eur),gbp=getItem(symbols.gbp),gold=getItem(symbols.gold),coin=getItem(symbols.coin),usdt=getItem(symbols.usdt);
- renderCard('usdPrice',usd);renderCard('eurPrice',eur);renderCard('gramPrice',gold);renderCard('goldPrice',coin,'coin');
- setText('goldMove',coin?moveText(coin):'—');setText('usdMove',usd?moveText(usd):'—');setText('eurMove',gold?moveText(gold):'—');setText('gramMove',gbp?moveText(gbp):'—');
+ renderCard('goldPrice',usd);renderCard('usdPrice',eur);renderCard('eurPrice',gold);renderCard('gramPrice',coin,'coin');
+ setText('goldMove',usd?moveText(usd):'—');setText('usdMove',eur?moveText(eur):'—');setText('eurMove',gold?moveText(gold):'—');setText('gramMove',coin?moveText(coin):'—');
  setText('watchGold',usd?toman(usd.price):'—');setText('watchEur',eur?toman(eur.price):'—');setText('watchGbp',gbp?toman(gbp.price):'—');setText('watchJpy',usdt?toman(usdt.price):'—');
  renderMove('watchUsdMove',usd);renderMove('watchEurMove',eur);renderMove('watchGbpMove',gbp);renderMove('watchUsdtMove',usdt);
  const newest=rows.map(x=>x.timestamp).filter(Boolean).sort().at(-1)||payload.meta?.updated_at;
