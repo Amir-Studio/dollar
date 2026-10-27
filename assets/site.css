@@ -37,3 +37,8 @@ html[dir="rtl"] .ticker-value,html[dir="rtl"] .watch-value,html[dir="rtl"] .resu
 .footer-contact a:focus-visible{outline:2px solid #d8dcb7;outline-offset:3px}
 @media(max-width:850px){.footer-contact{width:100%;max-width:440px;margin-top:20px}}
 @media(max-width:520px){.footer-contact{padding:19px 15px 14px}.contact-line{grid-template-columns:22px 1fr;gap:7px}.contact-line b{grid-column:2;justify-self:start;font-size:10px}.contact-label{font-size:10px}}
+
+/* Final font override: premium Persian typography across RTL and LTR */
+html[dir="rtl"] body,html[dir="rtl"] .brand-word,html[dir="rtl"] .field input,html[dir="rtl"] .field select{font-family:"Vazirmatn",Tahoma,sans-serif}
+html[dir="rtl"] .hero h1,html[dir="rtl"] .section-head h2,html[dir="rtl"] .panel h3,html[dir="rtl"] .tool h3,html[dir="rtl"] .learn-card h3,html[dir="rtl"] .insight h3,html[dir="rtl"] .hero-meta .big,html[dir="rtl"] .result strong{font-family:"Estedad","Vazirmatn",Tahoma,sans-serif;font-weight:700;letter-spacing:0;line-height:1.7}
+html[dir="rtl"] .ticker-value,html[dir="rtl"] .watch-value,html[dir="rtl"] .result strong{font-family:"DM Mono","Vazirmatn",monospace}
