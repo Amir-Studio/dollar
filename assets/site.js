@@ -67,18 +67,88 @@ async function fetchHistory(symbol){if(historyCache.has(symbol))return historyCa
 function trendModel(rows){const p=rows.slice(-30).filter(r=>r.close>0),n=p.length;if(n<8)return null;const ys=p.map(r=>Math.log(r.close)),xm=(n-1)/2,ym=ys.reduce((a,b)=>a+b,0)/n;let num=0,den=0;ys.forEach((v,i)=>{num+=(i-xm)*(v-ym);den+=(i-xm)*(i-xm)});const slope=den?num/den:0,intercept=ym-slope*xm,err=ys.map((v,i)=>v-(intercept+slope*i)),sigma=Math.sqrt(err.reduce((a,b)=>a+b*b,0)/Math.max(1,n-2));return {n,slope,intercept,sigma,at:k=>Math.exp(intercept+slope*k)}}
 function chartDate(ms){return Number.isFinite(ms)?new Date(ms).toLocaleDateString(language==='fa'?'fa-IR':'en-GB',{year:'2-digit',month:'short',day:'numeric',timeZone:'Asia/Tehran'}):'—'}
 function drawHistoryChart(){
- const svg=$('historyChart');if(!svg)return;const symbol=$('chartAsset')?.value||'USD_IRR_FREE',all=historyCache.get(symbol)||[],rows=historyRange==='all'?all:all.slice(-Number(historyRange));
+ const svg=$('historyChart');if(!svg)return;
+ const symbol=$('chartAsset')?.value||'USD_IRR_FREE',all=historyCache.get(symbol)||[];
+ const rows=historyRange==='all'?all:all.slice(-Number(historyRange));
  if(rows.length<2){svg.innerHTML='<text x="480" y="180" text-anchor="middle" fill="#7a7b70" font-size="15">تاریخچه کافی دریافت نشد.</text>';return}
- const W=960,H=360,L=82,R=25,T=22,B=38,pw=W-L-R,ph=H-T-B,vals=rows.map(r=>r.close),min=Math.min(...vals),max=Math.max(...vals),span=Math.max(1,max-min),lo=Math.max(0,min-span*.12),hi=max+span*.12;
+ const model=showForecast?trendModel(all):null,quote=liveQuotes.get(symbol);
+ const quoteFresh=quote&&Date.now()-quote.receivedAt<8*60*1000&&Date.now()-quote.sourceTime<45*60*1000;
+ const base=quoteFresh?quote.price:rows[rows.length-1].close;
+ const W=960,H=360,L=82,R=25,T=22,B=38,ph=H-T-B;
+ const futureSpace=showForecast&&model?150:0,pw=W-L-R-futureSpace;
+ const vals=rows.map(r=>r.close);
+ let projected=[];
+ if(model&&showForecast)for(let d=0;d<=7;d++){
+  const value=base*Math.exp(model.slope*d);
+  const sigma=Math.max(model.sigma,0.003)*Math.sqrt(d+1);
+  const spread=Math.exp(Math.min(.45,sigma*1.15));
+  projected.push({d,value,lo:value/spread,hi:value*spread});
+ }
+ const allForScale=vals.concat(projected.flatMap(p=>[p.lo,p.hi,p.value]));
+ const min=Math.min(...allForScale),max=Math.max(...allForScale),span=Math.max(1,max-min),lo=Math.max(0,min-span*.08),hi=max+span*.08;
  const x=i=>L+i/Math.max(1,rows.length-1)*pw,y=v=>T+(hi-v)/(hi-lo)*ph;
- let grid='',labels='';for(let i=0;i<5;i++){const v=lo+(hi-lo)*i/4,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e9e9e1"/>';labels+='<text x="'+(L-12)+'" y="'+(yy+4)+'" text-anchor="end" fill="#8a8b80" font-size="11">'+esc(number(v,0))+'</text>'}
- const pts=rows.map((r,i)=>x(i)+','+y(r.close)).join(' '),last=rows[rows.length-1],lx=x(rows.length-1),ly=y(last.close),area=L+','+(T+ph)+' '+pts+' '+lx+','+(T+ph),model=showForecast?trendModel(all):null;let future='';
- if(model){const forecast=[];for(let d=0;d<=7;d++){const val=model.at(model.n-1+d),spread=Math.exp(Math.min(1.2,model.sigma*Math.sqrt(d+1)*1.4));forecast.push({x:lx+(d/7)*Math.min(95,pw*.13),y:y(val),upper:y(val*spread),lower:y(val/spread),value:val})}const top=forecast.map(p=>p.x+','+p.upper).join(' '),bottom=forecast.slice().reverse().map(p=>p.x+','+p.lower).join(' '),line=forecast.map(p=>p.x+','+p.y).join(' ');future='<polygon points="'+top+' '+bottom+'" fill="#c18b57" opacity=".13"/><polyline points="'+line+'" fill="none" stroke="#c18b57" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round"/><line x1="'+lx+'" y1="'+T+'" x2="'+lx+'" y2="'+(T+ph)+'" stroke="#c8c7bb" stroke-dasharray="3 5"/>'}
- svg.innerHTML='<defs><linearGradient id="chartAreaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#89936a" stop-opacity=".28"/><stop offset="100%" stop-color="#89936a" stop-opacity=".015"/></linearGradient></defs>'+grid+labels+'<polygon points="'+area+'" fill="url(#chartAreaFill)"/><polyline points="'+pts+'" fill="none" stroke="#78835a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+future+'<circle cx="'+lx+'" cy="'+ly+'" r="5" fill="#78835a" stroke="#fff" stroke-width="2"/><text x="'+L+'" y="'+(H-10)+'" text-anchor="start" fill="#8a8b80" font-size="11">'+esc(chartDate(rows[0].date))+'</text><text x="'+(W-R)+'" y="'+(H-10)+'" text-anchor="end" fill="#8a8b80" font-size="11">'+esc(chartDate(last.date))+'</text>';
- setText('chartLatest',toman(last.close));setText('chartLatestDate','تاریخ ثبت: '+chartDate(last.date));const pct=(last.close/rows[0].close-1)*100,cp=$('chartPeriodChange');if(cp){cp.textContent=(pct>0?'+':'')+number(pct,2)+'%';cp.style.color=pct>0?'#667a43':pct<0?'#a34f42':''}
- setText('chartPeriodLabel','از '+chartDate(rows[0].date)+' تا '+chartDate(last.date));setText('chartMinMax',number(min,0)+' – '+number(max,0));
- if(model&&showForecast){const pred=model.at(model.n+6),p=(pred/last.close-1)*100,band=Math.exp(Math.min(1.2,model.sigma*Math.sqrt(7)*1.4));setText('forecastValue',toman(pred));setText('forecastRange','روند مدل: '+(p>0?'+':'')+number(p,2)+'٪ · دامنه: '+toman(pred/band)+' تا '+toman(pred*band))}
- else{setText('forecastValue','مخفی');setText('forecastRange','سناریوی روند غیرفعال است.')}
+ const last=rows[rows.length-1],lx=x(rows.length-1),ly=y(last.close);
+ let grid='',labels='';
+ for(let i=0;i<5;i++){const v=lo+(hi-lo)*i/4,yy=y(v);grid+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e9e9e1" stroke-width="1"/>';labels+='<text x="'+(L-12)+'" y="'+(yy+4)+'" text-anchor="end" fill="#8a8b80" font-size="11">'+esc(number(v,0))+'</text>'}
+ const pts=rows.map((r,i)=>x(i)+','+y(r.close)).join(' ');
+ const area=L+','+(T+ph)+' '+pts+' '+lx+','+(T+ph);
+ let future='';
+ if(projected.length){
+  const fx=d=>lx+(d/7)*futureSpace;
+  const upper=projected.map(p=>fx(p.d)+','+y(p.hi)).join(' ');
+  const lower=projected.slice().reverse().map(p=>fx(p.d)+','+y(p.lo)).join(' ');
+  const center=projected.map(p=>fx(p.d)+','+y(p.value)).join(' ');
+  const boundary=fx(0);
+  future='<polygon points="'+upper+' '+lower+'" fill="#6991aa" opacity=".22"/><polyline points="'+center+'" fill="none" stroke="#bd8650" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round"/><line x1="'+boundary+'" y1="'+T+'" x2="'+boundary+'" y2="'+(T+ph)+'" stroke="#bd8650" stroke-dasharray="3 5"/><text x="'+(fx(7)-4)+'" y="'+(T+14)+'" text-anchor="end" fill="#a47748" font-size="11">۷ روز آینده</text>';
+ }
+ const currentMark=quoteFresh?'<circle cx="'+lx+'" cy="'+y(base)+'" r="5" fill="#6991aa" stroke="#fff" stroke-width="2"/>':'';
+ svg.innerHTML='<defs><linearGradient id="chartAreaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#89936a" stop-opacity=".28"/><stop offset="100%" stop-color="#89936a" stop-opacity=".015"/></linearGradient></defs>'+grid+labels+'<polygon points="'+area+'" fill="url(#chartAreaFill)"/><polyline points="'+pts+'" fill="none" stroke="#78835a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+future+'<circle cx="'+lx+'" cy="'+ly+'" r="4" fill="#78835a" stroke="#fff" stroke-width="2"/>'+currentMark+'<text x="'+L+'" y="'+(H-10)+'" text-anchor="start" fill="#8a8b80" font-size="11">'+esc(chartDate(rows[0].date))+'</text><text x="'+(W-R)+'" y="'+(H-10)+'" text-anchor="end" fill="#8a8b80" font-size="11">'+(projected.length?'سناریو: +۷ روز':'')+'</text>';
+ const shown=quoteFresh?base:last.close;
+ setText('chartLatest',toman(shown));
+ setText('chartLatestDate',quoteFresh?'نرخ منبع: '+quote.sourceLabel+' · '+quote.timeLabel:'آخرین تاریخچه: '+chartDate(last.date));
+ const pct=(rows[rows.length-1].close/rows[0].close-1)*100,cp=$('chartPeriodChange');
+ if(cp){cp.textContent=(pct>0?'+':'')+number(pct,2)+'%';cp.style.color=pct>0?'#667a43':pct<0?'#a34f42':''}
+ setText('chartPeriodLabel','از '+chartDate(rows[0].date)+' تا '+chartDate(last.date));
+ setText('chartMinMax',number(Math.min(...vals),0)+' – '+number(Math.max(...vals),0));
+ if(projected.length){
+  const pred=projected[7],p=(pred.value/shown-1)*100;
+  setText('forecastValue',toman(pred.value));
+  setText('forecastRange','سناریوی مرکزی: '+(p>0?'+':'')+number(p,2)+'٪ · دامنه: '+toman(pred.lo)+' تا '+toman(pred.hi));
+ }else{setText('forecastValue','مخفی');setText('forecastRange','سناریوی روند غیرفعال است.')}
+ if(quoteFresh)setText('historyStatus','پیش‌بینی بازتنظیم شد · نرخ تازهٔ منبع: '+quote.timeLabel);
+ else setText('historyStatus','تاریخچهٔ روزانه · نرخ زندهٔ معتبر در دسترس نیست؛ سناریو فقط بر پایه تاریخچه است.');
+}
+
+let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
+function readCurrentPrice(payload,symbol){
+ const rows=Array.isArray(payload?.data)?payload.data:[];
+ const item=rows.find(r=>r.symbol===symbol);
+ if(!item||item.stale===true)return null;
+ const price=hNum(item.price),sourceTime=Date.parse(item.timestamp||payload.meta?.published_at||'');
+ if(!Number.isFinite(price)||price<=0||!Number.isFinite(sourceTime)||Date.now()-sourceTime>45*60*1000)return null;
+ return {price,sourceTime,receivedAt:Date.now(),timeLabel:item.timestamp_jalali||chartDate(sourceTime),sourceLabel:'TGJU'};
+}
+async function refreshForecastQuotes(){
+ if(livePollBusy)return;livePollBusy=true;
+ try{
+  const response=await fetch(API+'?t='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw Error('quote feed unavailable');
+  const payload=await response.json();
+  const symbols=['USD_IRR_FREE','GOLD_18K_IRR','EUR_IRR_FREE','COIN_EMAMI_IRR'];
+  let changed=false;
+  for(const symbol of symbols){
+   const quote=readCurrentPrice(payload,symbol);if(!quote)continue;
+   const key=symbol+'|'+quote.sourceTime+'|'+quote.price;
+   const previous=lastLiveKey.get(symbol);
+   if(previous!==key){lastLiveKey.set(symbol,key);changed=true}
+   const old=liveQuotes.get(symbol);
+   liveQuotes.set(symbol,quote);
+   if(old&&old.price!==quote.price)changed=true;
+  }
+  if(changed)drawHistoryChart();
+  else if(!liveQuotes.has($('chartAsset')?.value||'USD_IRR_FREE'))setText('historyStatus','منتظر نرخ تازه و معتبر از منبع؛ از داده قدیمی برای پیش‌بینی استفاده نمی‌شود.');
+ }catch(e){setText('historyStatus','اتصال نرخ تازه برقرار نشد؛ نمایش بر پایه تاریخچه ادامه دارد.')}
+ finally{livePollBusy=false}
 }
 async function loadHistory(){const symbol=$('chartAsset')?.value||'USD_IRR_FREE';if(historyLoading)return;if(historyCache.has(symbol)){drawHistoryChart();return}historyLoading=true;setText('historyStatus','در حال دریافت تاریخچهٔ روزانه…');try{const rows=await fetchHistory(symbol);drawHistoryChart();setText('historyStatus','تاریخچهٔ روزانه · '+number(rows.length)+' مشاهده · تا '+chartDate(rows[rows.length-1].date))}catch(e){setText('historyStatus','تاریخچه در دسترس نیست؛ منبع را دوباره بررسی کنید.');const svg=$('historyChart');if(svg)svg.innerHTML='<text x="480" y="165" text-anchor="middle" fill="#8a6558" font-size="15">تاریخچه دریافت نشد</text><text x="480" y="194" text-anchor="middle" fill="#8a8b80" font-size="12">اتصال یا قالب داده منبع را بررسی کنید.</text>';setText('chartLatest','—');setText('forecastValue','—');setText('forecastRange','برای سناریو، تاریخچه معتبر لازم است.')}finally{historyLoading=false}}
 \nfunction updateFx(){
@@ -107,5 +177,5 @@ $('chartAsset')?.addEventListener('change',loadHistory);document.querySelectorAl
 $('fxSearch')?.addEventListener('input',()=>renderTable(CURRENCIES.map(c=>getItem(c.symbol)).filter(Boolean)));$('refreshBtn')?.addEventListener('click',refresh);
 $('langBtn')?.addEventListener('click',()=>{language=language==='en'?'fa':'en';document.documentElement.lang=language;document.documentElement.dir=language==='fa'?'rtl':'ltr';document.body.classList.toggle('rtl',language==='fa');$('langBtn').textContent=language==='en'?'فارسی':'English';document.querySelectorAll('[data-en][data-fa]').forEach(el=>{const v=el.getAttribute('data-'+language);if(v!==null)el.innerHTML=v});if(lastPayload)render(lastPayload)});
 document.documentElement.lang='fa';document.documentElement.dir='rtl';document.body.classList.add('rtl');$('langBtn').textContent='English';document.querySelectorAll('[data-en][data-fa]').forEach(el=>{el.innerHTML=el.getAttribute('data-fa')});$('year').textContent=new Date().getFullYear();
-refresh();loadHistory();setInterval(refresh,5*60*1000);setInterval(()=>{historyCache.clear();loadHistory()},30*60*1000);
+refresh();loadHistory();setInterval(refresh,5*60*1000);setInterval(()=>{historyCache.clear();loadHistory()},30*60*1000);setInterval(refreshForecastQuotes,30000);refreshForecastQuotes();
 })();
