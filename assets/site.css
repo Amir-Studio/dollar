@@ -308,3 +308,78 @@ body{background:#050505!important}
 .primary,.refresh-btn{background:#f4f4f5!important;color:#09090b!important;border-color:#f4f4f5!important}
 .primary:hover,.refresh-btn:hover{background:#d4d4d8!important}
 @media(max-width:620px){.forecast-brief{padding:15px 13px;border-radius:13px}.forecast-brief-head{align-items:flex-start;flex-direction:column;gap:10px}.scenario-metrics{grid-template-columns:1fr}.scenario-metrics>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px}.scenario-metrics span{margin:0}.scenario-metrics strong{text-align:left}}
+
+
+/* FINAL BRAND PALETTE — Obsidian black / graphite / silver. No blue, teal, or gold. */
+:root{
+  color-scheme:dark;
+  --paper:#080808;--white:#101010;--ink:#f2f2f2;--muted:#a0a0a0;
+  --line:#292929;--accent:#ededed;--accent-dark:#d4d4d4;
+  --green:#25c46a;--red:#ef5350;--night:#050505;
+}
+html,body{background:#080808!important;color:#ededed!important}
+body{background:#080808!important}
+.topline{background:#050505!important;border-color:#242424!important;color:#999!important}
+.header{background:rgba(8,8,8,.97)!important;border-color:#252525!important;box-shadow:0 12px 36px rgba(0,0,0,.22)!important}
+.brand-word,.hero h1,.section-head h2,.hero-meta .big,.currency-name strong{color:#f2f2f2!important}
+.brand-sub,.navlinks a,.section-head p,.hero p,.hero-meta p,.ticker-label,.ticker-foot,
+.tool p,.trust-card p,.chart-stats span,.chart-stats small{color:#a0a0a0!important}
+.hero .eyebrow,.section .eyebrow,.chart-section .eyebrow{color:#bdbdbd!important}
+.ticker,.panel,.tool,.trust-card,.learn-card,.insight,.chart-stats article,.result,.watch-card{
+ background:#101010!important;border-color:#292929!important;color:#ededed!important;
+ box-shadow:0 14px 36px rgba(0,0,0,.16)!important
+}
+.ticker-value,.watch-value,.chart-stats strong{color:#f2f2f2!important}
+.asset-icon,.currency-code{background:#1b1b1b!important;color:#e0e0e0!important}
+.change.up,.table-change.up{color:#25c46a!important}
+.change.down,.table-change.down{color:#ef5350!important}
+.fx-toolbar,.chart-toolbar,.chart-source,.chart-key{border-color:#292929!important}
+.fx-tools input,.chart-asset-wrap select,.chart-ranges button,.forecast-toggle,
+.field input,.field select,.field textarea{
+ background:#121212!important;color:#ededed!important;border-color:#333!important
+}
+.chart-ranges button.active,.chart-ranges button:hover,.forecast-toggle.active{
+ background:#242424!important;border-color:#777!important;color:#fff!important
+}
+.chart-stats{background:#242424!important}
+.chart-stats article,.chart-stats .forecast-stat{background:#101010!important}
+.chart-stats .forecast-stat strong{color:#f2f2f2!important}
+.chart-note{background:#0d0d0d!important;color:#c4c4c4!important;border-color:#303030!important}
+.chart-note strong,.chart-source strong,.fx-source-line strong{color:#f2f2f2!important}
+.chart-source a{color:#d6d6d6!important}
+.chart-key{color:#c4c4c4!important}
+.key-line{background:#25c46a!important}
+.key-red-line{background:#ef5350!important}
+.key-dash{border:0!important;border-top:3px dashed #d0d0d0!important;background:none!important}
+.key-band{background:rgba(220,220,220,.07)!important;border-color:rgba(220,220,220,.2)!important}
+.fx-table th{background:#171717!important;color:#bdbdbd!important}
+.fx-table td{border-color:#292929!important;color:#e5e5e5!important}
+.fx-table tbody tr:hover{background:#191919!important}
+.fx-disclaimer{background:#151515!important;color:#d0d0d0!important}
+.fx-disclaimer.is-stale{background:#2b1111!important;color:#ffb4b4!important}
+.ad-slot{background:#101010!important;color:#a0a0a0!important;border-color:#292929!important}
+.footer,.site-footer{background:#050505!important;border-color:#292929!important}
+.chart-panel{background:#0b0b0b!important;border:1px solid #292929!important;box-shadow:0 25px 75px rgba(0,0,0,.42)!important}
+.history-chart-wrap{background:#090909!important}
+.forecast-brief{background:linear-gradient(145deg,#141414,#0b0b0b)!important;border-color:#303030!important;color:#f2f2f2!important}
+.forecast-brief h3,.scenario-metrics strong{color:#f2f2f2!important}
+.forecast-brief p{color:#c4c4c4!important}
+.scenario-pill{background:#191919!important;border-color:#3a3a3a!important;color:#dedede!important}
+.scenario-pill.up{color:#55d98b!important;border-color:rgba(37,196,106,.45)!important;background:rgba(37,196,106,.08)!important}
+.scenario-pill.down{color:#ff7773!important;border-color:rgba(239,83,80,.45)!important;background:rgba(239,83,80,.08)!important}
+.scenario-metrics>div{background:#090909!important;border-color:#292929!important}
+.scenario-metrics span,.scenario-foot{color:#a0a0a0!important}
+.scenario-metrics #scenarioChange.up{color:#25c46a!important}
+.scenario-metrics #scenarioChange.down{color:#ef5350!important}
+.scenario-foot{border-color:#292929!important}
+.scenario-dot.up{background:#25c46a!important;box-shadow:0 0 0 3px rgba(37,196,106,.1)!important}
+.scenario-dot.down{background:#ef5350!important;box-shadow:0 0 0 3px rgba(239,83,80,.1)!important}
+.primary,.refresh-btn{background:#ededed!important;color:#090909!important;border-color:#ededed!important}
+.primary:hover,.refresh-btn:hover{background:#d1d1d1!important}
+input,select,button{accent-color:#d4d4d4}
+::selection{background:#424242!important;color:#fff!important}
+:focus-visible{outline-color:#bdbdbd!important}
+@media(prefers-reduced-motion:no-preference){
+ .ticker,.panel,.tool,.trust-card,.learn-card,.insight,.watch-card,.forecast-brief{transition:border-color .2s ease,background-color .2s ease,transform .2s ease}
+ .ticker:hover,.panel:hover,.tool:hover,.trust-card:hover,.learn-card:hover,.insight:hover,.watch-card:hover{border-color:#444!important}
+}
