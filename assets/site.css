@@ -42,3 +42,31 @@ html[dir="rtl"] .ticker-value,html[dir="rtl"] .watch-value,html[dir="rtl"] .resu
 html[dir="rtl"] body,html[dir="rtl"] .brand-word,html[dir="rtl"] .field input,html[dir="rtl"] .field select{font-family:"Vazirmatn",Tahoma,sans-serif}
 html[dir="rtl"] .hero h1,html[dir="rtl"] .section-head h2,html[dir="rtl"] .panel h3,html[dir="rtl"] .tool h3,html[dir="rtl"] .learn-card h3,html[dir="rtl"] .insight h3,html[dir="rtl"] .hero-meta .big,html[dir="rtl"] .result strong{font-family:"Estedad","Vazirmatn",Tahoma,sans-serif;font-weight:700;letter-spacing:0;line-height:1.7}
 html[dir="rtl"] .ticker-value,html[dir="rtl"] .watch-value,html[dir="rtl"] .result strong{font-family:"DM Mono","Vazirmatn",monospace}
+
+
+/* Persian site font: bundled in Amir-Studio/fonts */
+@font-face{
+  font-family:"DollarYekan";
+  src:url("https://raw.githubusercontent.com/Amir-Studio/fonts/main/W_yekan_p30download.com.ttf") format("truetype");
+  font-style:normal;
+  font-weight:400 900;
+  font-display:swap;
+}
+html[dir="rtl"] body,
+html[dir="rtl"] .brand-word,
+html[dir="rtl"] .field input,
+html[dir="rtl"] .field select{
+  font-family:"DollarYekan",Tahoma,sans-serif;
+}
+html[dir="rtl"] .hero h1,
+html[dir="rtl"] .section-head h2,
+html[dir="rtl"] .panel h3,
+html[dir="rtl"] .tool h3,
+html[dir="rtl"] .learn-card h3,
+html[dir="rtl"] .insight h3,
+html[dir="rtl"] .hero-meta .big{
+  font-family:"DollarYekan",Tahoma,sans-serif;
+  font-weight:700;
+  letter-spacing:0;
+  line-height:1.7;
+}
