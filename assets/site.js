@@ -151,7 +151,8 @@ async function refreshForecastQuotes(){
  finally{livePollBusy=false}
 }
 async function loadHistory(){const symbol=$('chartAsset')?.value||'USD_IRR_FREE';if(historyLoading)return;if(historyCache.has(symbol)){drawHistoryChart();return}historyLoading=true;setText('historyStatus','در حال دریافت تاریخچهٔ روزانه…');try{const rows=await fetchHistory(symbol);drawHistoryChart();setText('historyStatus','تاریخچهٔ روزانه · '+number(rows.length)+' مشاهده · تا '+chartDate(rows[rows.length-1].date))}catch(e){setText('historyStatus','تاریخچه در دسترس نیست؛ منبع را دوباره بررسی کنید.');const svg=$('historyChart');if(svg)svg.innerHTML='<text x="480" y="165" text-anchor="middle" fill="#8a6558" font-size="15">تاریخچه دریافت نشد</text><text x="480" y="194" text-anchor="middle" fill="#8a8b80" font-size="12">اتصال یا قالب داده منبع را بررسی کنید.</text>';setText('chartLatest','—');setText('forecastValue','—');setText('forecastRange','برای سناریو، تاریخچه معتبر لازم است.')}finally{historyLoading=false}}
-\nfunction updateFx(){
+
+function updateFx(){
  if(!market.size)return;
  const amount=Number($('amount')?.value),from=$('fromCurrency')?.value,to=$('toCurrency')?.value;
  const prices={USD:Number(getItem(SYMBOLS.usd)?.price),EUR:Number(getItem(SYMBOLS.eur)?.price),GBP:Number(getItem(SYMBOLS.gbp)?.price),IRT:1};
