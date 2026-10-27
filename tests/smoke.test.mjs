@@ -27,7 +27,8 @@ test('data limitations are disclosed', () => {
   assert.ok(html.includes('id="marketStatus"'), 'market data status should exist');
   assert.match(html, /not investment, trading, tax or legal advice/i);
   assert.match(html, /local-market/i);
-  assert.match(js, /31\.1034768/);
+  assert.match(js, /staleItem/);
+  assert.match(js, /TGJU/);
   assert.doesNotMatch(js, /Math\.sin|Math\.cos/, 'do not generate synthetic market series');
 });
 
