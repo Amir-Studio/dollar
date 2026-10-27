@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f4f3ee">
+<meta name="theme-color" content="#080808">
 <meta name="description" content="نرخ دلار، یورو و پوند در بازار آزاد ایران؛ همراه با زمان مشاهده، تغییر روزانه، منبع داده و هشدار تازگی.">
 <meta name="keywords" content="نرخ دلار، قیمت یورو، قیمت پوند، نرخ ارز بازار آزاد، مبدل ارز">
 <meta property="og:type" content="website">
@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Estedad:wght@400;500;600;700;800;900&family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <title>دولار | قیمت طلا و ارز</title>
-<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/site.css?v=20261027-mobile-black">
 </head>
 <body>
 <div class="topline"><div class="wrap"><span><i class="live-dot"></i>میز بازار <span id="topStatus">در حال دریافت داده‌های مرجع</span></span><span id="updatedTop">—</span></div></div>
@@ -32,8 +32,8 @@
 <div class="panel chart-panel">
 <div class="chart-toolbar"><div class="chart-asset-wrap"><label for="chartAsset">دارایی</label><select id="chartAsset"><option value="USD_IRR_FREE">دلار آزاد</option><option value="GOLD_18K_IRR">طلای ۱۸ عیار</option><option value="EUR_IRR_FREE">یورو آزاد</option><option value="COIN_EMAMI_IRR">سکه امامی</option></select></div>
 <div class="chart-ranges" role="group" aria-label="بازه نمودار"><button type="button" data-range="30">۱ ماه</button><button type="button" data-range="90" class="active">۳ ماه</button><button type="button" data-range="365">۱ سال</button><button type="button" data-range="all">همه</button></div><button id="forecastToggle" type="button" class="forecast-toggle active" aria-pressed="true">پیش‌بینی ۷روزه</button></div>
-<div class="chart-key"><span><i class="key-line"></i>روند صعودی</span><span><i class="key-red-line"></i>روند نزولی</span><span><i class="key-dash"></i>پیش‌بینی ۷روزه</span><span id="historyStatus" role="status">در حال دریافت تاریخچه…</span></div>
-<div class="history-chart-wrap"><svg id="historyChart" viewBox="0 0 960 360" role="img" aria-label="نمودار تاریخی قیمت و سناریوی روند" preserveAspectRatio="none"><text x="480" y="180" text-anchor="middle">در حال دریافت تاریخچه…</text></svg></div>
+<div class="chart-key"><span><i class="key-line"></i>روند صعودی</span><span><i class="key-red-line"></i>روند نزولی</span><span><i class="key-forecast-area"></i>ناحیه زرد: پیش‌بینی ۷ روز آینده</span><span id="historyStatus" role="status">در حال دریافت تاریخچه…</span></div>
+<div class="history-chart-wrap"><svg id="historyChart" viewBox="0 0 960 360" role="img" aria-label="نمودار تعاملی تاریخی قیمت و سناریوی آینده" preserveAspectRatio="none"><text x="480" y="180" text-anchor="middle">در حال دریافت تاریخچه…</text></svg></div><div id="chartPointDetail" class="chart-point-detail" role="status" aria-live="polite"><span class="point-detail-label">جزئیات نقطهٔ نمودار</span><strong>برای مشاهدهٔ قیمت و تغییرات، روی نمودار بزن.</strong></div>
 <div class="chart-stats"><article><span>آخرین قیمت تاریخی</span><strong id="chartLatest">—</strong><small id="chartLatestDate">تاریخ ثبت: —</small></article><article><span>تغییر در بازه انتخابی</span><strong id="chartPeriodChange">—</strong><small id="chartPeriodLabel">بازه: ۳ ماه</small></article><article><span>بازه قیمت در نمودار</span><strong id="chartMinMax">—</strong><small>کمینه تا بیشینهٔ بازه</small></article><article class="forecast-stat"><span>پیش‌بینی روند ۷روزه</span><strong id="forecastValue">—</strong><small id="forecastRange">مسیر برآوردی ۷ روز آینده</small></article></div>
 <section class="forecast-brief" aria-live="polite" id="forecastBrief">
 <div class="forecast-brief-head"><div><span class="forecast-kicker">MARKET SCENARIO · ۷ روز آینده</span><h3 id="scenarioTitle">در انتظار دادهٔ معتبر</h3></div><span class="scenario-pill neutral" id="scenarioPill">هنوز ارزیابی نشده</span></div>
@@ -41,7 +41,7 @@
 <div class="scenario-metrics"><div><span>قیمت هدف آماری</span><strong id="scenarioTarget">—</strong></div><div><span>تغییر برآوردی</span><strong id="scenarioChange">—</strong></div><div><span>بازهٔ عدم‌قطعیت</span><strong id="scenarioRange">—</strong></div></div>
 <div class="scenario-foot"><span class="scenario-dot"></span><span id="scenarioMethod">سناریوی آماری؛ هنوز به موتور خبرمحور هوش مصنوعی وصل نشده است.</span></div>
 </section>
-<div class="chart-note"><strong>راهنمای خواندن نمودار</strong> خط سبز = حرکت صعودی ثبت‌شده؛ خط قرمز = حرکت نزولی ثبت‌شده؛ خط‌چین سبز یا قرمز = مسیر برآوردی ۷ روز آینده. رنگ پیش‌بینی با جهت مدل تغییر می‌کند. این سناریو تضمین قیمت یا توصیهٔ خریدوفروش نیست.</div>
+<div class="chart-note"><strong>راهنمای نمودار</strong> سبز و قرمز حرکت‌های ثبت‌شده‌اند. <strong>ناحیهٔ زردِ سایه‌دار، پیش‌بینی آماری ۷ روز آینده است</strong>؛ خط پیش‌بینی پیوسته است و پهنای ناحیه بازهٔ عدم‌قطعیت را نشان می‌دهد. روی نمودار بزن تا قیمت و تاریخ نقطه را ببینی. پیش‌بینی تضمین قیمت یا توصیهٔ خریدوفروش نیست.</div>
 <div class="chart-source"><span>منبع تاریخچه: <strong>Iran Market Data · TGJU</strong></span><a href="https://iran-market.github.io/" target="_blank" rel="noopener">بررسی منبع و مستندات ↗</a></div>
 </div></div></section>
 <section class="hero"><div class="wrap">
