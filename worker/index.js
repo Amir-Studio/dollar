@@ -147,7 +147,13 @@ async function makeForecast(env, asset) {
   const target = price*(1+change/100);
   const rawConfidence = Math.max(0,Math.min(100,Math.round(n(ai.confidence))));
   const sources = citations(resp);
-  const conf = sources.length >= 4 ? rawConfidence : Math.min(rawConfidence, sources.length >= 2 ? 55 : 35);
+  const recentSources = sources.filter(s => {
+    const published = s.published_at ? Date.parse(s.published_at) : NaN;
+    return Number.isFinite(published) && published <= Date.now()+5*60*1000 && Date.now()-published <= 72*60*60*1000;
+  });
+  const conf = sources.length >= 4 && recentSources.length >= 2
+    ? rawConfidence
+    : Math.min(rawConfidence, sources.length >= 2 ? 50 : 30);
   const empiricalDailyVol = Math.max(model.sigma, model.daily_volatility_pct / 100);
   const uncertainty = Math.max(2.5,Math.min(20,(empiricalDailyVol*Math.sqrt(7)*100*1.45)+(100-conf)*0.04));
   return reply({
@@ -158,6 +164,7 @@ async function makeForecast(env, asset) {
     baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),momentum_7d_pct:model.momentum_7d_pct===null?null:Number(model.momentum_7d_pct.toFixed(3)),momentum_14d_pct:model.momentum_14d_pct===null?null:Number(model.momentum_14d_pct.toFixed(3)),momentum_30d_pct:model.momentum_30d_pct===null?null:Number(model.momentum_30d_pct.toFixed(3)),daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),regression_target:Math.round(model.baseline7),observations:model.count},
     sources,
     news_sources_count:sources.length,
+    recent_sources_count:recentSources.length,
     news_window_hours:72,
     note_fa:"این یک برآورد احتمالی ۷روزه است، نه تضمین یا توصیه خریدوفروش."
   },200,{"cache-control":"private, max-age=300","vary":"Origin"});
