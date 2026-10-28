@@ -17,9 +17,22 @@ function render(data){
  if(drivers.length)html+='<div class="ai-driver"><h4>عوامل اثرگذار</h4>'+drivers.map(d=>'<div class="ai-driver"><h4>'+escapeHtml(d.title_fa)+' · '+escapeHtml(({positive:'مثبت',negative:'منفی',mixed:'ترکیبی',unknown:'نامشخص'})[d.impact]||'ترکیبی')+'</h4><p>'+escapeHtml(d.explanation_fa)+' '+escapeHtml(d.evidence)+'</p></div>').join('')+'</div>';
  if(risks.length)html+='<div class="ai-driver"><h4>ریسک‌ها و محدودیت‌ها</h4><p>'+risks.map(escapeHtml).join(' · ')+'</p></div>';
  const sources=Array.isArray(data.sources)?data.sources:[];
- if(sources.length)html+='<div class="ai-driver"><h4>منابع گزارش</h4><div class="ai-sources">'+sources.map(s=>'<a href="'+escapeHtml(s.url)+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(s.title||new URL(s.url).hostname)+' ↗</a>').join('')+'</div></div>';
- html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · این خروجی احتمالی است، نه توصیهٔ معامله.</p>';
- output.innerHTML=html;setStatus('گزارش آماده شد');
+ if(sources.length){
+  html+='<div class="ai-driver"><h4>خبرها و گزارش‌های رسانه‌ای بررسی‌شده · '+escapeHtml(data.news_window_hours||72)+' ساعت اخیر</h4><p>لینک‌ها از جست‌وجوی وبِ همین گزارش گرفته شده‌اند. تاریخ انتشار فقط وقتی نشان داده می‌شود که منبع آن را ارائه کرده باشد.</p><div class="ai-news-list">'+sources.map(s=>{
+   const title=escapeHtml(s.title||s.domain||new URL(s.url).hostname),domain=escapeHtml(s.domain||new URL(s.url).hostname);
+   const date=s.published_at?escapeHtml(s.published_at):'تاریخ انتشار در دادهٔ منبع مشخص نبود';
+   const snippet=s.snippet?'<p>'+escapeHtml(s.snippet)+'</p>':'';
+   return '<article class="ai-news-item"><div class="ai-news-meta"><span>'+domain+'</span><small>'+date+'</small></div><a href="'+escapeHtml(s.url)+'" target="_blank" rel="noopener noreferrer">'+title+' ↗</a>'+snippet+'</article>';
+  }).join('')+'</div></div>';
+ }else{
+  html+='<div class="ai-driver"><h4>منابع خبری</h4><p>این اجرا لینک رسانه‌ای قابل‌تأییدی برنگرداند؛ به همین دلیل امتیاز اطمینان محدود شده است. گزارش را قطعی تلقی نکن.</p></div>';
+ }
+ if(data.baseline){
+  const fmt=v=>v===null||v===undefined?'—':(Number(v)>0?'+':'')+new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(v))+'٪';
+  html+='<div class="ai-driver"><h4>شاخص‌های مستقل روند</h4><p>روند ۳۰ نقطهٔ اخیر: '+fmt(data.baseline.daily_trend_pct)+' در روز · بازده ۷روزه: '+fmt(data.baseline.momentum_7d_pct)+' · نوسان روزانه: '+fmt(data.baseline.daily_volatility_pct)+' · دادهٔ مبنا: '+escapeHtml(data.baseline.observations||'—')+' نقطه</p></div>';
+ }
+ html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · منابع بررسی‌شده: '+escapeHtml(data.news_sources_count??sources.length)+' · این خروجی احتمالی است، نه توصیهٔ معامله.</p>';
+ output.innerHTML=html;setStatus(sources.length>=2?'گزارش آماده شد · منابع پیوست شد':'گزارش آماده شد · منابع محدود');
 }
 async function run(){
  const base=endpoint();if(!base){setStatus('نیازمند اتصال');output.innerHTML='<strong>سرویس هوش مصنوعی هنوز به این سایت متصل نشده.</strong><p>در بخش «تنظیم اتصال تحلیلگر»، آدرس Worker مستقرشده را وارد و ذخیره کن. برای امنیت، کلید API فقط باید در Secretهای Cloudflare باشد.</p>';document.querySelector('.ai-setup details')?.setAttribute('open','');return}
@@ -28,6 +41,19 @@ async function run(){
  catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای اتصال')}
  finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش هوشمند <span>↗</span>'}
 }
+async function checkHealth(){
+ const base=endpoint();
+ if(!base){setStatus('نیازمند اتصال');return}
+ try{
+  const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
+  const data=await res.json();
+  if(!res.ok||!data.ok)throw Error('health check failed');
+  if(!data.configured){setStatus('کلید هوش مصنوعی تنظیم نشده');return}
+  setStatus('سرویس متصل است');
+ }catch{setStatus('سرویس در دسترس نیست')}
+}
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
 $('saveAiEndpoint')?.addEventListener('click',saveEndpoint);runBtn?.addEventListener('click',run);
+checkHealth();
+window.addEventListener('dollar-ai-endpoint-updated',checkHealth);
 })();
