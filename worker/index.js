@@ -48,18 +48,39 @@ function stats(rows) {
   const slope = b ? a/b : 0, intercept = ym - slope*xm;
   const residual = y.map((v,i) => v - (intercept+slope*i));
   const sigma = Math.sqrt(residual.reduce((s,v)=>s+v*v,0)/Math.max(1,len-2));
-  return { count: len, daily_pct: (Math.exp(slope)-1)*100, baseline7: Math.exp(intercept+slope*(len-1+7)), sigma };
+  const pctBack = days => p.length > days ? (p[p.length-1].close/p[p.length-1-days].close-1)*100 : null;
+  const returns = p.slice(1).map((r,i)=>Math.log(r.close/p[i].close));
+  const meanReturn = returns.reduce((s,v)=>s+v,0)/Math.max(1,returns.length);
+  const dailyVol = Math.sqrt(returns.reduce((s,v)=>s+(v-meanReturn)**2,0)/Math.max(1,returns.length-1))*100;
+  let peak = 0, maxDrawdown = 0;
+  p.forEach(r=>{peak=Math.max(peak,r.close);if(peak>0)maxDrawdown=Math.min(maxDrawdown,(r.close/peak-1)*100)});
+  return {
+    count: len, daily_pct: (Math.exp(slope)-1)*100,
+    baseline7: Math.exp(intercept+slope*(len-1+7)), sigma,
+    momentum_7d_pct: pctBack(7), momentum_14d_pct: pctBack(14), momentum_30d_pct: pctBack(29),
+    daily_volatility_pct: dailyVol, max_drawdown_30d_pct: maxDrawdown
+  };
 }
 function citations(resp) {
   const out = [];
+  const add = (url, title, publishedAt, snippet) => {
+    if (!url || !/^https?:\/\//i.test(url)) return;
+    let parsed; try { parsed = new URL(url); } catch { return; }
+    const existing = out.find(x => x.url === url);
+    const date = publishedAt ? String(publishedAt) : null;
+    if (existing) {
+      if (!existing.published_at && date) existing.published_at = date;
+      if (!existing.snippet && snippet) existing.snippet = String(snippet).slice(0,360);
+      return;
+    }
+    out.push({title:title || parsed.hostname, url, domain:parsed.hostname.replace(/^www\./,""),
+      published_at:date, snippet:snippet ? String(snippet).slice(0,360) : null});
+  };
   for (const item of resp.output || []) {
     const ss = item.type === "web_search_call" ? (item.action?.sources || item.results || []) : [];
-    for (const s of ss) {
-      const url = s.url || s.uri;
-      if (url && /^https?:\/\//.test(url) && !out.some(x=>x.url===url)) out.push({title:s.title || new URL(url).hostname,url});
-    }
+    for (const s of ss) add(s.url || s.uri, s.title, s.published_date || s.publishedAt || s.date || s.last_updated, s.snippet || s.description);
     for (const c of (item.content || [])) for (const a of (c.annotations || [])) {
-      if (a.type === "url_citation" && a.url && !out.some(x=>x.url===a.url)) out.push({title:a.title || new URL(a.url).hostname,url:a.url});
+      if (a.type === "url_citation") add(a.url, a.title, a.published_at || a.published_date, a.snippet);
     }
   }
   return out.slice(0,12);
@@ -82,7 +103,7 @@ async function makeForecast(env, asset) {
   const recent = rows.slice(-30).map(x=>({date:new Date(x.date).toISOString().slice(0,10),close:x.close}));
   const prompt = [
     "تو تحلیلگر تخصصی بازار ارز و طلای ایران هستی؛ فقط پیش‌بینی احتمالی ۷ روز آینده ارائه می‌کنی.",
-    "با ابزار جست‌وجوی زنده وب، خبرهای ۷۲ ساعت اخیر و در صورت نیاز گزارش‌های زمینه‌ای معتبر را از رسانه‌های شناخته‌شده و منابع رسمی بررسی کن: مذاکرات و تحریم‌ها، سیاست داخلی، تورم، بانک مرکزی، نفت، ریسک‌های منطقه‌ای و شاخص دلار. در خروجی، هر محرک را به منبع قابل‌کلیک و تاریخ انتشار وصل کن؛ خبر تکراری را چند شاهد مستقل حساب نکن و شایعه را واقعیت تلقی نکن.",
+    "با ابزار جست‌وجوی زنده وب، ابتدا خبرهای منتشرشده در ۷۲ ساعت اخیر را بررسی کن و فقط در صورت نیاز برای زمینه به گزارش‌های قدیمی‌تر رجوع کن. رسانه‌های نوشتاری معتبر، منابع رسمی، اطلاعیه‌های بانک مرکزی، داده‌های تورم، نفت، تحریم‌ها، مذاکرات، سیاست داخلی و ریسک‌های منطقه‌ای را جست‌وجو کن. تا جای ممکن ۵ تا ۸ نتیجهٔ مرتبط از چند ناشر مستقل بررسی کن؛ خبر تکراری را چند شاهد حساب نکن. تاریخ انتشار را از تاریخ به‌روزرسانی جدا کن و اگر تاریخ روشن نیست، آن را تازه معرفی نکن. برای هر عامل مهم، شاهد و لینک واقعی منبع لازم است؛ شایعه را واقعیت تلقی نکن و اگر منبع قابل اتکا پیدا نشد، صریحاً بگو.",
     "خروجی فارسی و JSON مطابق schema باشد. expected_change_pct برآورد مستقل تو از درصد تغییر طی ۷ روز از قیمت فعلی است؛ آن را صرفاً برای تأیید فرض افزایش قیمت به سمت بالا منحرف نکن. به نرخ ارز ایران، تورم و ریسک‌های سیاسی توجه کن اما خبر منفی/مثبت را با شواهد بسنج. روند آماری فقط یک مبناست و سرور بعداً آن را با برآورد خبری ترکیب می‌کند. اگر خبرها متناقض یا کم‌کیفیت‌اند، تغییر را محتاطانه و confidence را پایین‌تر بگذار. confidence امتیاز اطمینان تحلیلی است، نه احتمال آماری کالیبره‌شده. از توصیه خریدوفروش پرهیز کن.",
     "دارایی: " + ASSETS[asset],
     "قیمت فعلی منبع: " + price,
@@ -90,6 +111,11 @@ async function makeForecast(env, asset) {
     "تعداد نقاط تاریخچه: " + rows.length,
     "هدف مبنای رگرسیون ۷روزه: " + model.baseline7,
     "روند روزانه مبنا درصد: " + model.daily_pct,
+    "بازده ۷ روز گذشته درصد: " + model.momentum_7d_pct,
+    "بازده ۱۴ روز گذشته درصد: " + model.momentum_14d_pct,
+    "بازده ۳۰ روز گذشته درصد: " + model.momentum_30d_pct,
+    "نوسان روزانه بازده درصد: " + model.daily_volatility_pct,
+    "بیشترین افت از سقف ۳۰ روزه درصد: " + model.max_drawdown_30d_pct,
     "نوسان باقیمانده لگاریتمی: " + model.sigma,
     "آخرین نقاط تاریخی: " + JSON.stringify(recent)
   ].join("\n");
@@ -119,24 +145,29 @@ async function makeForecast(env, asset) {
   const baselineChange = Math.max(-12,Math.min(12,model.daily_pct*7));
   const change = Math.max(-25,Math.min(25,aiChange*0.65+baselineChange*0.35));
   const target = price*(1+change/100);
-  const conf = Math.max(0,Math.min(100,Math.round(n(ai.confidence))));
-  const uncertainty = Math.max(1.5,Math.min(18,(model.sigma*Math.sqrt(7)*100*1.8)+(100-conf)*0.035));
+  const rawConfidence = Math.max(0,Math.min(100,Math.round(n(ai.confidence))));
+  const sources = citations(resp);
+  const conf = sources.length >= 4 ? rawConfidence : Math.min(rawConfidence, sources.length >= 2 ? 55 : 35);
+  const empiricalDailyVol = Math.max(model.sigma, model.daily_volatility_pct / 100);
+  const uncertainty = Math.max(2.5,Math.min(20,(empiricalDailyVol*Math.sqrt(7)*100*1.45)+(100-conf)*0.04));
   return reply({
     asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
     quote:{price,source_time:new Date(stamp).toISOString(),source:"Iran Market Data / TGJU"},
     forecast:{horizon_days:7,direction:change>0.35?"up":change< -0.35?"down":"sideways",headline_fa:ai.headline_fa,summary_fa:ai.summary_fa,expected_change_pct:Number(change.toFixed(2)),target_price:Math.round(target),range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),confidence:conf,uncertainty_pct:Number(uncertainty.toFixed(2))},
     drivers:ai.drivers,risks_fa:ai.risks_fa,
-    baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),regression_target:Math.round(model.baseline7),observations:model.count},
-    sources:citations(resp),
+    baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),momentum_7d_pct:model.momentum_7d_pct===null?null:Number(model.momentum_7d_pct.toFixed(3)),momentum_14d_pct:model.momentum_14d_pct===null?null:Number(model.momentum_14d_pct.toFixed(3)),momentum_30d_pct:model.momentum_30d_pct===null?null:Number(model.momentum_30d_pct.toFixed(3)),daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),regression_target:Math.round(model.baseline7),observations:model.count},
+    sources,
+    news_sources_count:sources.length,
+    news_window_hours:72,
     note_fa:"این یک برآورد احتمالی ۷روزه است، نه تضمین یا توصیه خریدوفروش."
-  },200,{"cache-control":"public, max-age=600"});
+  },200,{"cache-control":"private, max-age=300","vary":"Origin"});
 }
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
-    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",model:env.OPENAI_MODEL || "gpt-5.5"});
+    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",capabilities:["fresh-market-quote","historical-momentum","live-web-search","source-links","seven-day-scenario"]},200,{"cache-control":"no-store"});
     if (url.pathname !== "/forecast") return reply({error:"Use /health or /forecast?asset=USD_IRR_FREE"},404);
     const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
     if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
