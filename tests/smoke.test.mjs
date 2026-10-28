@@ -41,9 +41,15 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /type:"web_search"/);
   assert.match(worker, /OPENAI_API_KEY/);
   assert.match(worker, /aiChange\*0\.65\+baselineChange\*0\.35/);
-  assert.match(worker, /sources:citations\(resp\)/);
+  assert.match(worker, /const sources = citations\(resp\)/);
+  assert.match(worker, /news_sources_count:sources\.length/);
+  assert.match(worker, /published_at:date/);
+  assert.match(aiJs, /خبرها و گزارش‌های رسانه‌ای بررسی‌شده/);
+  assert.match(aiJs, /checkHealth/);
   assert.match(worker, /45\*60\*1000/);
   assert.match(worker, /range_low/);
+  assert.match(worker, /momentum_14d_pct/);
+  assert.match(worker, /configured:Boolean\(env\.OPENAI_API_KEY\)/);
   assert.match(worker, /tool_choice:"required"/);
 });
 
