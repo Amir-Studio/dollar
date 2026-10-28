@@ -1,29 +1,30 @@
 # Dollar Market Intelligence Worker
 
-Backend for the Dollar GitHub Pages site. It combines a current quote and historical series from Iran Market Data/TGJU, the OpenAI Responses API with required live web search, a statistical trend baseline, an uncertainty range, news drivers, risks, and cited sources.
+Backend for the Dollar GitHub Pages site. It combines fresh TGJU/Iran Market Data quotes, daily history, live web search for dated news, an AI assessment of relevant drivers, a capped statistical baseline, a blended 7-day scenario, uncertainty ranges, and source links.
 
-## Deploy
+## One-time deployment setup
 
-1. Create a Cloudflare Worker named dollar-market-intelligence.
-2. Paste the contents of worker/index.js into its editor and deploy.
-3. In Worker Settings → Variables and Secrets, add a Secret named OPENAI_API_KEY with your own API key.
-4. Optionally add OPENAI_MODEL. The default is gpt-5.5; choose a model available to your API project that supports Responses web search.
-5. Test https://YOUR-WORKER.workers.dev/health
-6. Test https://YOUR-WORKER.workers.dev/forecast?asset=USD_IRR_FREE
+1. In Cloudflare, create an API token with permission to edit Workers and obtain your Cloudflare Account ID.
+2. In the GitHub repository, open **Settings → Secrets and variables → Actions** and add repository secrets named `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+3. Push a change under `worker/` or manually run **Actions → Deploy market intelligence Worker → Run workflow**. The workflow deploys `worker/index.js` using `worker/wrangler.toml`.
+4. In Cloudflare Worker **Settings → Variables and Secrets**, add `OPENAI_API_KEY` as a **Secret**. Never store this key in GitHub source files or browser code. Optionally set `OPENAI_MODEL` to a model enabled for your API project that supports the Responses API and web search; the default is `gpt-5.5`.
+5. Test `https://dollar-market-intelligence.<your-workers-subdomain>.workers.dev/health`, then test `/forecast?asset=USD_IRR_FREE`.
+6. Open the website's **تحلیل هوشمند → تنظیم اتصال تحلیلگر**, enter the Worker URL, and save it. The same saved endpoint powers the news report and yellow chart forecast in that browser.
 
-The allowed browser origin is currently https://amir-studio.github.io. If the website moves to a custom domain, update ORIGIN in worker/index.js.
+The allowed browser origin is currently `https://amir-studio.github.io`. If the website moves to a custom domain, update `ORIGIN` in `worker/index.js`.
 
-## Supported asset symbols
+## Supported assets
 
-- USD_IRR_FREE — dollar
-- EUR_IRR_FREE — euro
-- GOLD_18K_IRR — 18k gold
-- COIN_EMAMI_IRR — Emami coin
+- `USD_IRR_FREE` — dollar
+- `EUR_IRR_FREE` — euro
+- `GOLD_18K_IRR` — 18-karat gold
+- `COIN_EMAMI_IRR` — Emami coin
 
-## Important
+## Forecasting and limitations
 
-- The endpoint refuses to forecast if the source quote is stale or fewer than 12 valid historical points are available.
-- Never put the API key in HTML, browser JavaScript, a public repository, or a chat message. Store it only as a Cloudflare Worker secret.
-- Live search can cover many public sources, but cannot access literally every article, private database, or paywalled feed.
-- The forecast is probabilistic, not guaranteed. Track out-of-sample forecast errors before claiming high accuracy.
-- The frontend is intentionally not wired to an unverified endpoint. After deployment, the Worker URL can be connected to the chart and AI insight panel.
+- The endpoint refuses to generate a forecast if the source quote is stale or fewer than 12 valid historical points are available.
+- The final percentage blends the model's news-informed estimate (65%) with a capped historical trend baseline (35%). This is a transparent heuristic, not a proven optimal weighting or a guarantee of accuracy.
+- The chart interpolates the 7-day target and uncertainty range for visualization; intermediate points are not separate daily AI predictions.
+- Web search can find public sources but cannot access every publication, private database, or paywalled article. Source links and publication dates should be reviewed.
+- Backtest on held-out dates and compare against simple baselines before describing the model as accurate. Confidence is an analytical score, not a calibrated probability.
+- The API key must remain a Cloudflare Worker Secret. Never paste it into GitHub source code or the website's endpoint field.
