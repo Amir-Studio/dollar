@@ -59,6 +59,27 @@ function drawChart(usd,eur,gbp,stale){/* Real daily history is rendered by drawH
 
 const HISTORY_BASE='https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/';
 let historyCache=new Map(),historyRange=90,showForecast=true,historyLoadingSymbol=null;
+const AI_ENDPOINT_KEY='dollar_ai_worker_endpoint_v1';
+const aiForecastCache=new Map(),aiForecastPending=new Set();
+function configuredAiEndpoint(){try{return localStorage.getItem(AI_ENDPOINT_KEY)||''}catch{return ''}}
+async function loadAiForecast(symbol){
+ const endpoint=configuredAiEndpoint();if(!endpoint)return;
+ const cached=aiForecastCache.get(symbol);
+ if(cached&&Date.now()-cached.fetchedAt<10*60*1000){if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)drawHistoryChart();return}
+ if(aiForecastPending.has(symbol))return;
+ aiForecastPending.add(symbol);
+ try{
+  const response=await fetch(endpoint.replace(/\/$/,'')+'/forecast?asset='+encodeURIComponent(symbol),{headers:{accept:'application/json'},cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||!data.forecast||!Number.isFinite(Number(data.forecast.target_price)))throw Error(data.error||'AI forecast unavailable');
+  aiForecastCache.set(symbol,{data,fetchedAt:Date.now()});
+  if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)drawHistoryChart();
+ }catch(error){
+  aiForecastCache.delete(symbol);
+  if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)setText('historyStatus','پیش‌بینی هوش مصنوعی فعلاً در دسترس نیست؛ نمایش روند آماری');
+ }finally{aiForecastPending.delete(symbol)}
+}
+window.addEventListener('dollar-ai-endpoint-updated',()=>{aiForecastCache.clear();loadAiForecast($('chartAsset')?.value||'USD_IRR_FREE')});
 const hNum=v=>{if(v===null||v===undefined||v==='')return NaN;const n=Number(String(v).replace(/[,٬\s]/g,''));return Number.isFinite(n)?n:NaN};
 function normalizeHistory(payload){
  const raw=Array.isArray(payload)?payload:(Array.isArray(payload.data)?payload.data:(Array.isArray(payload.history)?payload.history:[]));
@@ -74,22 +95,33 @@ function drawHistoryChart(){
  if(rows.length<2){svg.innerHTML='<text x="480" y="180" text-anchor="middle" fill="#a3a3a3" font-size="15">دادهٔ کافی برای نمایش نمودار وجود ندارد.</text>';return}
  const model=showForecast?trendModel(all):null,quote=liveQuotes.get(symbol);
  const quoteFresh=quote&&Date.now()-quote.receivedAt<8*60*1000&&Date.now()-quote.sourceTime<45*60*1000;
- const base=quoteFresh?quote.price:rows[rows.length-1].close;
+ const aiData=aiForecastCache.get(symbol)?.data,aiStamp=Date.parse(aiData?.quote?.source_time||''),aiFresh=!!(showForecast&&aiData?.forecast&&Number.isFinite(aiStamp)&&Date.now()-aiStamp<45*60*1000&&aiStamp<=Date.now()+5*60*1000);
+ const aiForecast=aiFresh?aiData.forecast:null;
+ const base=aiFresh&&Number(aiData.quote.price)>0?Number(aiData.quote.price):quoteFresh?quote.price:rows[rows.length-1].close;
  const W=960,H=360,L=82,R=25,T=22,B=38,ph=H-T-B;
  const futureSpace=showForecast&&model?180:0,pw=W-L-R-futureSpace;
  const vals=rows.map(r=>r.close);
  let projected=[];
- if(model&&showForecast)for(let d=0;d<=7;d++){
-  const residuals=model.residuals||[],lastResidual=residuals.length?residuals[residuals.length-1]:0;
+ if(showForecast&&(model||aiForecast))for(let d=0;d<=7;d++){
+  const fraction=d/7,residuals=model?.residuals||[],lastResidual=residuals.length?residuals[residuals.length-1]:0;
   const residual=residuals.length?residuals[(residuals.length-1+d)%residuals.length]-lastResidual:0;
-  const wiggle=d===0?0:residual*.58*Math.min(1,d/2);
-  const value=base*Math.exp(model.slope*d+wiggle);
-  const sigma=Math.max(model.sigma,0.003)*Math.sqrt(d+1);
-  const spread=Math.exp(Math.min(.45,sigma*1.15));
-  projected.push({d,value,lo:value/spread,hi:value*spread});
+  const wiggle=d===0||d===7?0:residual*.38*Math.sin(Math.PI*fraction);
+  let value,low,high;
+  if(aiForecast){
+   const target=Math.max(1,Number(aiForecast.target_price)||base);
+   value=Math.exp(Math.log(base)+(Math.log(target/base)*fraction)+wiggle);
+   const finalLow=Math.max(1,Number(aiForecast.range_low)||target*.96),finalHigh=Math.max(finalLow,Number(aiForecast.range_high)||target*1.04);
+   low=Math.exp(Math.log(base)+(Math.log(finalLow/base)*fraction)+wiggle);
+   high=Math.exp(Math.log(base)+(Math.log(finalHigh/base)*fraction)+wiggle);
+  }else{
+   value=base*Math.exp(model.slope*d+wiggle);
+   const sigma=Math.max(model.sigma,0.003)*Math.sqrt(d+1),spread=Math.exp(Math.min(.45,sigma*1.15));
+   low=value/spread;high=value*spread;
+  }
+  projected.push({d,value,lo:Math.min(low,value),hi:Math.max(high,value)});
  }
  const pred=projected.length?projected[projected.length-1]:null;
- const down=!!(pred&&pred.value<base),direction=pred?(down?'کاهش احتمالی':'رشد احتمالی'):'پیش‌بینی در دسترس نیست';
+ const down=!!(pred&&pred.value<base),direction=pred?(down?'تمایل نزولی احتمالی':'تمایل صعودی احتمالی'):'پیش‌بینی در دسترس نیست';
  const forecastColor='#f2cc4d';
  const allForScale=vals.concat(projected.flatMap(p=>[p.lo,p.hi,p.value]));
  const min=Math.min(...allForScale),max=Math.max(...allForScale),span=Math.max(1,max-min),lo=Math.max(0,min-span*.08),hi=max+span*.08;
@@ -131,12 +163,12 @@ function drawHistoryChart(){
   setText('scenarioTitle',down?'سناریوی غالب: احتمال کاهش':'سناریوی غالب: احتمال رشد');
   setText('scenarioPill',down?'روند نزولی':'روند صعودی');
   const pill=$('scenarioPill');if(pill){pill.classList.remove('neutral','up','down');pill.classList.add(down?'down':'up')}
-  setText('scenarioSummary','برآورد مدل آماری برای ۷ روز آینده '+(down?'نزولی':'صعودی')+' است. این جهت بر پایه روند تاریخچه محاسبه شده و هنوز تحلیل زنده اخبار در آن دخالت ندارد.');
+  setText('scenarioSummary',aiForecast?'برآورد ۷روزه با ترکیب تحلیل هوش مصنوعی، خبرهای وب و روند آماری ساخته شده است. جهت نمودار سناریو است، نه تضمین قیمت.':'برآورد آماری تاریخچه برای ۷ روز آینده '+(down?'تمایل نزولی':'تمایل صعودی')+' نشان می‌دهد. برای تحلیل خبری زنده، سرویس Worker را متصل کن.');
   setText('scenarioTarget',toman(pred.value));
   setText('scenarioChange',(p>0?'+':'')+number(p,2)+'٪');
   if(scenarioChange){scenarioChange.classList.remove('up','down');scenarioChange.classList.add(down?'down':'up')}
   setText('scenarioRange',toman(pred.lo)+' تا '+toman(pred.hi));
-  setText('scenarioMethod','مبنای محاسبه: روند آماری تاریخچه؛ نه سیگنال قطعی و نه توصیهٔ معامله. اتصال تحلیلگر خبری هوش مصنوعی هنوز نیازمند راه‌اندازی Worker است.');
+  setText('scenarioMethod',aiForecast?'مبنا: قیمت تازه، تاریخچه، جست‌وجوی زنده وب و منابع لینک‌شده. بازه عدم‌قطعیت تقریبی است و دقت آینده باید با نتایج واقعی سنجیده شود.':'مبنا: روند آماری تاریخچه؛ تحلیل خبری زنده هنوز متصل نیست. این خروجی سیگنال قطعی یا توصیه معامله نیست.');
   const dot=document.querySelector('.scenario-dot');if(dot){dot.classList.remove('up','down');dot.classList.add(down?'down':'up')}
  }else{
   setText('forecastValue','—');setText('forecastRange','برای نمایش پیش‌بینی، تاریخچه لازم است.');
@@ -146,7 +178,7 @@ function drawHistoryChart(){
   setText('scenarioTarget','—');setText('scenarioChange','—');setText('scenarioRange','—');
   setText('scenarioMethod','سناریو تا زمان دریافت داده معتبر نمایش داده نمی‌شود.');
  }
- setText('historyStatus',quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
+ setText('historyStatus',aiForecast?'تحلیل خبری هوش مصنوعی + روند آماری · '+(aiData.generated_at||'برآورد ۷روزه'):quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
 }
 
 let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
@@ -207,9 +239,9 @@ function unavailable(){
 }
 async function refresh(){const btn=$('refreshBtn');if(btn){btn.disabled=true;btn.textContent='در حال دریافت…'}try{const response=await fetch(API+'?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('source unavailable');const payload=await response.json();if(!Array.isArray(payload.data))throw Error('invalid data');render(payload)}catch(e){unavailable()}finally{if(btn){btn.disabled=false;btn.textContent=language==='fa'?'به‌روزرسانی ↻':'Refresh ↻'}}}
 document.querySelectorAll('.navlinks a[href^="#"],.brand[href^="#"],.navright a[href^="#"]').forEach(link=>link.addEventListener('click',event=>{const href=link.getAttribute('href');if(!href||href.length<2)return;const target=document.getElementById(href.slice(1));if(target){event.preventDefault();target.scrollIntoView({behavior:'smooth',block:'start'});history.replaceState(null,'',href);}}));
-$('chartAsset')?.addEventListener('change',loadHistory);document.querySelectorAll('[data-range]').forEach(btn=>btn.addEventListener('click',()=>{historyRange=btn.dataset.range==='all'?'all':Number(btn.dataset.range);document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('active',b===btn));drawHistoryChart()}));$('forecastToggle')?.addEventListener('click',()=>{showForecast=!showForecast;$('forecastToggle').classList.toggle('active',showForecast);$('forecastToggle').setAttribute('aria-pressed',String(showForecast));drawHistoryChart()});$('amount')?.addEventListener('input',updateFx);$('fromCurrency')?.addEventListener('change',updateFx);$('toCurrency')?.addEventListener('change',updateFx);$('weight')?.addEventListener('input',updateGoldCalc);$('purity')?.addEventListener('change',updateGoldCalc);
+$('chartAsset')?.addEventListener('change',()=>{loadHistory();loadAiForecast($('chartAsset')?.value||'USD_IRR_FREE')});document.querySelectorAll('[data-range]').forEach(btn=>btn.addEventListener('click',()=>{historyRange=btn.dataset.range==='all'?'all':Number(btn.dataset.range);document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('active',b===btn));drawHistoryChart()}));$('forecastToggle')?.addEventListener('click',()=>{showForecast=!showForecast;$('forecastToggle').classList.toggle('active',showForecast);$('forecastToggle').setAttribute('aria-pressed',String(showForecast));drawHistoryChart()});$('amount')?.addEventListener('input',updateFx);$('fromCurrency')?.addEventListener('change',updateFx);$('toCurrency')?.addEventListener('change',updateFx);$('weight')?.addEventListener('input',updateGoldCalc);$('purity')?.addEventListener('change',updateGoldCalc);
 $('fxSearch')?.addEventListener('input',()=>renderTable(CURRENCIES.map(c=>getItem(c.symbol)).filter(Boolean)));$('refreshBtn')?.addEventListener('click',refresh);
 $('langBtn')?.addEventListener('click',()=>{language=language==='en'?'fa':'en';document.documentElement.lang=language;document.documentElement.dir=language==='fa'?'rtl':'ltr';document.body.classList.toggle('rtl',language==='fa');$('langBtn').textContent=language==='en'?'فارسی':'English';document.querySelectorAll('[data-en][data-fa]').forEach(el=>{const v=el.getAttribute('data-'+language);if(v!==null)el.innerHTML=v});if(lastPayload)render(lastPayload)});
 document.documentElement.lang='fa';document.documentElement.dir='rtl';document.body.classList.add('rtl');$('langBtn').textContent='English';document.querySelectorAll('[data-en][data-fa]').forEach(el=>{el.innerHTML=el.getAttribute('data-fa')});$('year').textContent=new Date().getFullYear();
-refresh();loadHistory();setInterval(refresh,5*60*1000);setInterval(()=>{historyCache.clear();loadHistory()},30*60*1000);setInterval(refreshForecastQuotes,30000);refreshForecastQuotes();
+refresh();loadHistory();loadAiForecast($('chartAsset')?.value||'USD_IRR_FREE');setInterval(refresh,5*60*1000);setInterval(()=>{historyCache.clear();loadHistory()},30*60*1000);setInterval(refreshForecastQuotes,30000);refreshForecastQuotes();
 })();
