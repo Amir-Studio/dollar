@@ -18,7 +18,7 @@ function render(data){
  if(risks.length)html+='<div class="ai-driver"><h4>ریسک‌ها و محدودیت‌ها</h4><p>'+risks.map(escapeHtml).join(' · ')+'</p></div>';
  const sources=Array.isArray(data.sources)?data.sources:[];
  if(sources.length){
-  html+='<div class="ai-driver"><h4>خبرها و گزارش‌های رسانه‌ای بررسی‌شده · '+escapeHtml(data.news_window_hours||72)+' ساعت اخیر</h4><p>لینک‌ها از جست‌وجوی وبِ همین گزارش گرفته شده‌اند. تاریخ انتشار فقط وقتی نشان داده می‌شود که منبع آن را ارائه کرده باشد.</p><div class="ai-news-list">'+sources.map(s=>{
+  html+='<div class="ai-driver"><h4>خبرها و گزارش‌های رسانه‌ای بررسی‌شده</h4><p>اولویت جست‌وجو با خبرهای '+escapeHtml(data.news_window_hours||72)+' ساعت اخیر است؛ گزارش‌های زمینه‌ای قدیمی‌تر هم ممکن است نمایش داده شوند. تاریخ انتشار فقط وقتی نشان داده می‌شود که منبع آن را ارائه کرده باشد.</p><div class="ai-news-list">'+sources.map(s=>{
    const title=escapeHtml(s.title||s.domain||new URL(s.url).hostname),domain=escapeHtml(s.domain||new URL(s.url).hostname);
    const date=s.published_at?escapeHtml(s.published_at):'تاریخ انتشار در دادهٔ منبع مشخص نبود';
    const snippet=s.snippet?'<p>'+escapeHtml(s.snippet)+'</p>':'';
@@ -31,7 +31,7 @@ function render(data){
   const fmt=v=>v===null||v===undefined?'—':(Number(v)>0?'+':'')+new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(v))+'٪';
   html+='<div class="ai-driver"><h4>شاخص‌های مستقل روند</h4><p>روند ۳۰ نقطهٔ اخیر: '+fmt(data.baseline.daily_trend_pct)+' در روز · بازده ۷روزه: '+fmt(data.baseline.momentum_7d_pct)+' · نوسان روزانه: '+fmt(data.baseline.daily_volatility_pct)+' · دادهٔ مبنا: '+escapeHtml(data.baseline.observations||'—')+' نقطه</p></div>';
  }
- html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · منابع بررسی‌شده: '+escapeHtml(data.news_sources_count??sources.length)+' · این خروجی احتمالی است، نه توصیهٔ معامله.</p>';
+ html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · منابع پیوندشده: '+escapeHtml(data.news_sources_count??sources.length)+' · منابع دارای تاریخِ قابل‌تأیید در ۷۲ ساعت اخیر: '+escapeHtml(data.recent_sources_count??'—')+' · این خروجی احتمالی است، نه توصیهٔ معامله.</p>';
  output.innerHTML=html;setStatus(sources.length>=2?'گزارش آماده شد · منابع پیوست شد':'گزارش آماده شد · منابع محدود');
 }
 async function run(){
