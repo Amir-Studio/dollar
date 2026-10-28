@@ -26,3 +26,13 @@
 .studio-logo-link b{display:block;font:700 12px var(--mono);letter-spacing:1.1px;color:#e5e2d8}.studio-logo-link b span{color:#c5a45d}.studio-logo-link small{display:block;margin-top:4px;color:#7e8678;font-size:9px}
 .studio-contact-links{display:flex;gap:10px 18px;flex-wrap:wrap}.studio-contact-links a{font-size:10px;color:#a8b19d}.studio-contact-links a:hover{color:#e4cb7d}
 @media(max-width:680px){.chart-section{padding-top:24px}.chart-legend-under{gap:9px;font-size:9px;line-height:1.8}.ad-slot{min-height:76px;margin-top:14px;margin-bottom:14px}.studio-contact{align-items:flex-start;flex-direction:column}.studio-contact-links{flex-direction:column;gap:9px}}
+
+/* Editorial cards for source-backed AI news */
+.ai-output .ai-news-list{display:grid;gap:8px;width:100%;margin-top:9px}
+.ai-output .ai-news-item{min-width:0;padding:11px 12px;border:1px solid #2a3329;border-radius:9px;background:linear-gradient(135deg,#121712,#0c0f0c)}
+.ai-output .ai-news-item>a{display:block;margin-top:6px;color:#dce6d4;font-size:11px;line-height:1.9;text-decoration:none}
+.ai-output .ai-news-item>a:hover{color:var(--yellow)}
+.ai-output .ai-news-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;color:#8da087;font-size:9px}
+.ai-output .ai-news-meta small{color:#777f72;font-size:9px}
+.ai-output .ai-news-item>p{margin:5px 0 0;color:#8f998b;font-size:10px;line-height:1.9}
+.ai-output .ai-news-item a:focus-visible{outline:2px solid var(--yellow);outline-offset:3px}
