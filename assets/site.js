@@ -122,6 +122,8 @@ function drawHistoryChart(){
  }
  const pred=projected.length?projected[projected.length-1]:null;
  const down=!!(pred&&pred.value<base),direction=pred?(down?'تمایل نزولی احتمالی':'تمایل صعودی احتمالی'):'پیش‌بینی در دسترس نیست';
+ setText('forecastLegendText',aiForecast?'خط زرد: ترکیب روند و تحلیل خبرهای زنده با هوش مصنوعی':'خط زرد: برآورد آماری ۷روزه');
+ setText('chartNoteText',aiForecast?'سایهٔ زرد محدودهٔ برآورد مدل خبری و آماری است؛ منابع و تاریخ انتشار در گزارش هوشمند آمده‌اند. این پیش‌بینی تضمین قیمت نیست.':'سایهٔ زرد محدودهٔ عدم‌قطعیت برآورد آماری است؛ تا اتصال تحلیلگر خبری، خبرهای تازه در نمودار دخالت ندارند.');
  const forecastColor='#f2cc4d';
  const allForScale=vals.concat(projected.flatMap(p=>[p.lo,p.hi,p.value]));
  const min=Math.min(...allForScale),max=Math.max(...allForScale),span=Math.max(1,max-min),lo=Math.max(0,min-span*.08),hi=max+span*.08;
