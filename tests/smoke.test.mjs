@@ -43,6 +43,8 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /aiChange\*0\.65\+baselineChange\*0\.35/);
   assert.match(worker, /const sources = citations\(resp\)/);
   assert.match(worker, /news_sources_count:sources\.length/);
+  assert.match(worker, /recent_sources_count:recentSources\.length/);
+  assert.match(worker, /momentum_14d_pct/);
   assert.match(worker, /published_at:date/);
   assert.match(aiJs, /خبرها و گزارش‌های رسانه‌ای بررسی‌شده/);
   assert.match(aiJs, /checkHealth/);
