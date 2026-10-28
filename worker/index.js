@@ -82,8 +82,8 @@ async function makeForecast(env, asset) {
   const recent = rows.slice(-30).map(x=>({date:new Date(x.date).toISOString().slice(0,10),close:x.close}));
   const prompt = [
     "تو تحلیلگر تخصصی بازار ارز و طلای ایران هستی؛ فقط پیش‌بینی احتمالی ۷ روز آینده ارائه می‌کنی.",
-    "با ابزار جست‌وجوی زنده وب، خبرهای جدید و معتبر ایران و جهان را درباره مذاکرات و تحریم‌ها، سیاست داخلی، تورم، بانک مرکزی، نفت، ریسک‌های منطقه‌ای و قدرت جهانی دلار بررسی کن. تاریخ خبرها و منابع را مقایسه کن؛ شایعه را واقعیت تلقی نکن.",
-    "خروجی فارسی و JSON مطابق schema باشد. expected_change_pct درصد تغییر برآوردی طی ۷ روز از قیمت فعلی است. روند تاریخی مبناست؛ فقط با شواهد معتبر آن را تعدیل کن. اگر خبرها متناقض‌اند، تغییر را نزدیک مبنا و confidence را پایین‌تر بگذار. عدد confidence امتیاز اطمینان تحلیلی است، نه احتمال آماری کالیبره‌شده. از توصیه خریدوفروش پرهیز کن.",
+    "با ابزار جست‌وجوی زنده وب، خبرهای ۷۲ ساعت اخیر و در صورت نیاز گزارش‌های زمینه‌ای معتبر را از رسانه‌های شناخته‌شده و منابع رسمی بررسی کن: مذاکرات و تحریم‌ها، سیاست داخلی، تورم، بانک مرکزی، نفت، ریسک‌های منطقه‌ای و شاخص دلار. در خروجی، هر محرک را به منبع قابل‌کلیک و تاریخ انتشار وصل کن؛ خبر تکراری را چند شاهد مستقل حساب نکن و شایعه را واقعیت تلقی نکن.",
+    "خروجی فارسی و JSON مطابق schema باشد. expected_change_pct برآورد مستقل تو از درصد تغییر طی ۷ روز از قیمت فعلی است؛ آن را صرفاً برای تأیید فرض افزایش قیمت به سمت بالا منحرف نکن. به نرخ ارز ایران، تورم و ریسک‌های سیاسی توجه کن اما خبر منفی/مثبت را با شواهد بسنج. روند آماری فقط یک مبناست و سرور بعداً آن را با برآورد خبری ترکیب می‌کند. اگر خبرها متناقض یا کم‌کیفیت‌اند، تغییر را محتاطانه و confidence را پایین‌تر بگذار. confidence امتیاز اطمینان تحلیلی است، نه احتمال آماری کالیبره‌شده. از توصیه خریدوفروش پرهیز کن.",
     "دارایی: " + ASSETS[asset],
     "قیمت فعلی منبع: " + price,
     "زمان منبع: " + new Date(stamp).toISOString(),
@@ -115,7 +115,9 @@ async function makeForecast(env, asset) {
   const text = resp.output_text || (resp.output || []).flatMap(x=>x.content || []).find(x=>x.type==="output_text")?.text;
   let ai;
   try { ai = JSON.parse(text); } catch { return reply({error:"ساختار پاسخ هوش مصنوعی قابل‌خواندن نبود."},502); }
-  const change = Math.max(-25,Math.min(25,n(ai.expected_change_pct)));
+  const aiChange = Math.max(-25,Math.min(25,n(ai.expected_change_pct)));
+  const baselineChange = Math.max(-12,Math.min(12,model.daily_pct*7));
+  const change = Math.max(-25,Math.min(25,aiChange*0.65+baselineChange*0.35));
   const target = price*(1+change/100);
   const conf = Math.max(0,Math.min(100,Math.round(n(ai.confidence))));
   const uncertainty = Math.max(1.5,Math.min(18,(model.sigma*Math.sqrt(7)*100*1.8)+(100-conf)*0.035));
