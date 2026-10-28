@@ -105,7 +105,7 @@ function drawHistoryChart(){
  if(showForecast&&(model||aiForecast))for(let d=0;d<=7;d++){
   const fraction=d/7,residuals=model?.residuals||[],lastResidual=residuals.length?residuals[residuals.length-1]:0;
   const residual=residuals.length?residuals[(residuals.length-1+d)%residuals.length]-lastResidual:0;
-  const wiggle=d===0||d===7?0:residual*.38*Math.sin(Math.PI*fraction);
+  const wiggle=d===0||d===7?0:residual*.38*(4*fraction*(1-fraction));
   let value,low,high;
   if(aiForecast){
    const target=Math.max(1,Number(aiForecast.target_price)||base);
