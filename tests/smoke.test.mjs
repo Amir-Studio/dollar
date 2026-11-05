@@ -62,7 +62,7 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /background_refresh_enabled:Boolean\(env\.MARKET_CACHE\)/);
   assert.match(worker, /persistQuotesToSupabase/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(worker, /market_quotes\\?on_conflict=asset,source,observed_at/);
+  assert.match(worker, /market_quotes\?on_conflict=asset,source,observed_at/);
   assert.match(worker, /quote_persistence_enabled:Boolean/);
   assert.ok(wrangler.includes('crons = ["*/5 * * * *"]'));
   assert.match(worker, /readFreshCache\(env,"market:latest"/);
