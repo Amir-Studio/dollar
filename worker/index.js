@@ -160,11 +160,13 @@ function newsTopics(items) {
   }).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
 }
 async function makeFreeAnalysis(env, asset) {
-  const [market, rawHistory, news] = await Promise.all([
-    getJson(env.MARKET_DATA_URL || MARKET_URL),
+  const [cachedMarket, rawHistory, cachedNews] = await Promise.all([
+    readFreshCache(env,"market:latest",10*60*1000),
     getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json"),
-    collectNews().catch(() => [])
+    readFreshCache(env,"news:latest",45*60*1000)
   ]);
+  const market = cachedMarket?.payload || await getJson(env.MARKET_DATA_URL || MARKET_URL);
+  const news = cachedNews?.items || await collectNews().catch(() => []);
   const item = (market.data || []).find(x => x.symbol === asset);
   if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
   const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
@@ -294,12 +296,43 @@ async function makeForecast(env, asset) {
     note_fa:"این یک برآورد احتمالی ۷روزه است، نه تضمین یا توصیه خریدوفروش."
   },200,{"cache-control":"private, max-age=300","vary":"Origin"});
 }
+
+async function readFreshCache(env, key, maxAgeMs) {
+  if (!env.MARKET_CACHE) return null;
+  try {
+    const value = await env.MARKET_CACHE.get(key,"json");
+    const fetchedAt = Date.parse(value?.fetched_at || "");
+    if (!value || !Number.isFinite(fetchedAt) || Date.now()-fetchedAt > maxAgeMs || fetchedAt > Date.now()+60000) return null;
+    return value;
+  } catch { return null; }
+}
+async function refreshBackground(env) {
+  if (!env.MARKET_CACHE) {
+    console.log("Background refresh skipped: MARKET_CACHE KV binding is not configured.");
+    return;
+  }
+  const market = await getJson(env.MARKET_DATA_URL || MARKET_URL);
+  await env.MARKET_CACHE.put("market:latest",JSON.stringify({
+    fetched_at:new Date().toISOString(),payload:market
+  }),{expirationTtl:3600});
+  const cachedNews = await readFreshCache(env,"news:latest",15*60*1000);
+  if (!cachedNews) {
+    const items = await collectNews();
+    await env.MARKET_CACHE.put("news:latest",JSON.stringify({
+      fetched_at:new Date().toISOString(),items
+    }),{expirationTtl:3600});
+  }
+}
+
 export default {
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(refreshBackground(env).catch(error => console.error("Scheduled market refresh failed:",error?.message || error)));
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
-    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",free_mode:true,capabilities:["fresh-market-quote","historical-momentum","free-news-rss","topic-classification","seven-day-statistical-scenario","optional-openai-analysis"]},200,{"cache-control":"no-store"});
+    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",free_mode:true,background_refresh_enabled:Boolean(env.MARKET_CACHE),capabilities:["fresh-market-quote","historical-momentum","free-news-rss","topic-classification","seven-day-statistical-scenario","optional-openai-analysis"]},200,{"cache-control":"no-store"});
     if (url.pathname !== "/forecast" && url.pathname !== "/analysis") return reply({error:"Use /health, /analysis?asset=USD_IRR_FREE or /forecast?asset=USD_IRR_FREE"},404);
     const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
     if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
