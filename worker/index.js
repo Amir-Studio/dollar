@@ -307,7 +307,7 @@ async function readFreshCache(env, key, maxAgeMs) {
   } catch { return null; }
 }
 async function persistQuotesToSupabase(env, market) {
-  const baseUrl = String(env.SUPABASE_URL || "").replace(/\\/+$/, "");
+  const baseUrl = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   const secretKey = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!baseUrl || !secretKey) {
     console.log("Supabase quote persistence skipped: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.");
