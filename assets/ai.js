@@ -49,8 +49,8 @@ async function checkHealth(){
   const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error('health check failed');
-  if(!data.configured){setStatus('حالت رایگان خبرخوان و تحلیل آماری فعال است');return}
-  setStatus('سرویس متصل است');
+  if(!data.configured){setStatus(data.background_refresh_enabled?'حالت رایگان فعال · تازه‌سازی پس‌زمینه روشن است':'حالت رایگان فعال · برای تازه‌سازی پس‌زمینه KV لازم است');return}
+  setStatus(data.background_refresh_enabled?'هوش مصنوعی متصل · تازه‌سازی پس‌زمینه روشن':'هوش مصنوعی متصل · تازه‌سازی پس‌زمینه خاموش');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
