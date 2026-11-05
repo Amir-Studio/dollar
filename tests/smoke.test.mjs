@@ -54,8 +54,8 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /configured:Boolean\(env\.OPENAI_API_KEY\)/);
   assert.match(worker, /tool_choice:"required"/);
   assert.match(worker, /async function makeFreeAnalysis/);
-  assert.match(worker, /news.google.com\\/rss\\/search/);
-  assert.match(worker, /url.pathname === "\\/analysis"/);
+  assert.ok(worker.includes('news.google.com/rss/search'));
+  assert.ok(worker.includes('url.pathname === "/analysis"'));
   assert.match(worker, /mode:"free-algorithmic"/);
   assert.match(aiJs, /health.configured\?\'/);
   assert.match(aiJs, /FREE MARKET ANALYSIS/);
