@@ -306,21 +306,65 @@ async function readFreshCache(env, key, maxAgeMs) {
     return value;
   } catch { return null; }
 }
-async function refreshBackground(env) {
-  if (!env.MARKET_CACHE) {
-    console.log("Background refresh skipped: MARKET_CACHE KV binding is not configured.");
-    return;
+async function persistQuotesToSupabase(env, market) {
+  const baseUrl = String(env.SUPABASE_URL || "").replace(/\\/+$/, "");
+  const secretKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!baseUrl || !secretKey) {
+    console.log("Supabase quote persistence skipped: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.");
+    return { enabled: false, saved: 0 };
   }
+
+  const rows = (market.data || []).flatMap(item => {
+    const asset = item?.symbol;
+    const price = n(item?.price);
+    const stamp = dateMs(item?.timestamp || market.meta?.published_at || market.meta?.timestamp);
+    if (!Object.hasOwn(ASSETS, asset) || !(price > 0) || !Number.isFinite(stamp) ||
+        stamp > Date.now() + 5 * 60 * 1000 || Date.now() - stamp > 24 * 60 * 60 * 1000) return [];
+    return [{
+      asset,
+      price,
+      source: "Iran Market Data / TGJU",
+      observed_at: new Date(stamp).toISOString()
+    }];
+  });
+
+  if (!rows.length) return { enabled: true, saved: 0 };
+  const response = await fetch(baseUrl + "/rest/v1/market_quotes?on_conflict=asset,source,observed_at", {
+    method: "POST",
+    headers: {
+      apikey: secretKey,
+      authorization: "Bearer " + secretKey,
+      "content-type": "application/json",
+      prefer: "resolution=ignore-duplicates,return=minimal"
+    },
+    body: JSON.stringify(rows),
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 240);
+    throw Error("Supabase insert HTTP " + response.status + (detail ? ": " + detail : ""));
+  }
+  return { enabled: true, saved: rows.length };
+}
+
+async function refreshBackground(env) {
   const market = await getJson(env.MARKET_DATA_URL || MARKET_URL);
-  await env.MARKET_CACHE.put("market:latest",JSON.stringify({
-    fetched_at:new Date().toISOString(),payload:market
-  }),{expirationTtl:3600});
-  const cachedNews = await readFreshCache(env,"news:latest",15*60*1000);
-  if (!cachedNews) {
-    const items = await collectNews();
-    await env.MARKET_CACHE.put("news:latest",JSON.stringify({
-      fetched_at:new Date().toISOString(),items
+  const persistence = await persistQuotesToSupabase(env, market);
+  if (persistence.enabled) console.log("Supabase market quote sync completed:", persistence.saved);
+
+  if (env.MARKET_CACHE) {
+    await env.MARKET_CACHE.put("market:latest",JSON.stringify({
+      fetched_at:new Date().toISOString(),payload:market
     }),{expirationTtl:3600});
+    const cachedNews = await readFreshCache(env,"news:latest",15*60*1000);
+    if (!cachedNews) {
+      const items = await collectNews();
+      await env.MARKET_CACHE.put("news:latest",JSON.stringify({
+        fetched_at:new Date().toISOString(),items
+      }),{expirationTtl:3600});
+    }
+  } else {
+    console.log("MARKET_CACHE KV is not configured; quote persistence can still run through Supabase.");
   }
 }
 
@@ -332,7 +376,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
-    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",free_mode:true,background_refresh_enabled:Boolean(env.MARKET_CACHE),capabilities:["fresh-market-quote","historical-momentum","free-news-rss","topic-classification","seven-day-statistical-scenario","optional-openai-analysis"]},200,{"cache-control":"no-store"});
+    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",free_mode:true,background_refresh_enabled:Boolean(env.MARKET_CACHE),quote_persistence_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),capabilities:["fresh-market-quote","historical-momentum","free-news-rss","topic-classification","seven-day-statistical-scenario","optional-openai-analysis"]},200,{"cache-control":"no-store"});
     if (url.pathname !== "/forecast" && url.pathname !== "/analysis") return reply({error:"Use /health, /analysis?asset=USD_IRR_FREE or /forecast?asset=USD_IRR_FREE"},404);
     const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
     if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
