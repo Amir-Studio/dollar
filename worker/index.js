@@ -85,6 +85,131 @@ function citations(resp) {
   }
   return out.slice(0,12);
 }
+
+function xmlText(value) {
+  return String(value || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n,16)))
+    .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
+    .replace(/&quot;/g,'"').replace(/&apos;/g,"'").trim();
+}
+function rssTag(block, tag) {
+  const match = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">", "i"));
+  return match ? xmlText(match[1]) : "";
+}
+async function readNews(query, locale = "fa") {
+  const params = new URLSearchParams({
+    q: query, hl: locale === "fa" ? "fa" : "en-US",
+    gl: locale === "fa" ? "IR" : "US", ceid: locale === "fa" ? "IR:fa" : "US:en"
+  });
+  const response = await fetch("https://news.google.com/rss/search?" + params.toString(), {
+    headers: { accept: "application/rss+xml, application/xml, text/xml", "user-agent": "DollarMarketBrief/1.0" },
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!response.ok) throw Error("News feed HTTP " + response.status);
+  const xml = await response.text(), items = [];
+  for (const match of xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)) {
+    const block = match[1], title = rssTag(block,"title"), link = rssTag(block,"link");
+    const published = Date.parse(rssTag(block,"pubDate"));
+    const sourceMatch = block.match(/<source(?:\s[^>]*)?>([\s\S]*?)<\/source>/i);
+    let domain = "";
+    try { domain = new URL(link).hostname.replace(/^www\./,""); } catch {}
+    if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) continue;
+    if (published > Date.now() + 5*60*1000 || Date.now() - published > 72*60*60*1000) continue;
+    items.push({ title, url: link, domain: xmlText(sourceMatch?.[1] || domain), published_at: new Date(published).toISOString(), published_ms: published });
+  }
+  return items;
+}
+async function collectNews() {
+  const queries = [
+    ["اقتصاد ایران دلار ارز بانک مرکزی تورم","fa"],
+    ["قیمت طلا ایران اونس جهانی طلا سکه","fa"],
+    ["Iran economy currency sanctions oil central bank","en"],
+    ["gold prices Federal Reserve inflation global markets","en"]
+  ];
+  const results = await Promise.allSettled(queries.map(([q,locale]) => readNews(q,locale)));
+  const seen = new Set(), items = [];
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const item of result.value) {
+      const key = item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key); delete item.published_ms; items.push(item);
+    }
+  }
+  return items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,20);
+}
+function newsTopics(items) {
+  const groups = [
+    {name:"ارز و سیاست پولی",terms:["دلار","ارز","بانک مرکزی","نرخ بهره","currency","central bank","exchange rate","federal reserve"]},
+    {name:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","gold","bullion","precious metal"]},
+    {name:"تورم و اقتصاد",terms:["تورم","قیمت‌ها","اقتصاد","inflation","economy","prices","cpi"]},
+    {name:"انرژی و نفت",terms:["نفت","انرژی","oil","energy","opec"]},
+    {name:"سیاست خارجی و ریسک منطقه‌ای",terms:["تحریم","مذاکره","جنگ","ایران","sanction","iran","war","nuclear","geopolit"]}
+  ];
+  return groups.map(group => {
+    const matches = items.filter(item => {
+      const text = (item.title+" "+item.domain).toLocaleLowerCase();
+      return group.terms.some(term=>text.includes(term.toLocaleLowerCase()));
+    });
+    return {title_fa:group.name,impact:"unknown",
+      explanation_fa:matches.length
+        ? "این موضوع در تیترهای خبرهای گردآوری‌شده دیده شده است؛ اثر آن بر قیمت باید با متن کامل خبر و داده‌های بازار سنجیده شود."
+        : "در خبرهای تازهٔ دریافت‌شده، اشارهٔ برجسته‌ای به این موضوع پیدا نشد.",
+      evidence:matches.slice(0,2).map(x=>x.title).join("؛ "),count:matches.length};
+  }).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
+}
+async function makeFreeAnalysis(env, asset) {
+  const [market, rawHistory, news] = await Promise.all([
+    getJson(env.MARKET_DATA_URL || MARKET_URL),
+    getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json"),
+    collectNews().catch(() => [])
+  ]);
+  const item = (market.data || []).find(x => x.symbol === asset);
+  if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
+  const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
+  if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 45*60*1000 || stamp>Date.now()+5*60*1000)
+    return reply({error:"برای تحلیل، قیمت معتبر و تازه لازم است."},424);
+  const rows = historyRows(rawHistory);
+  if (rows.length < 12) return reply({error:"تاریخچه کافی برای تحلیل در دسترس نیست."},424);
+  const model = stats(rows);
+  const expected = Math.max(-15,Math.min(15,(model.baseline7/price-1)*100));
+  const target = price*(1+expected/100);
+  const uncertainty = Math.max(2.5,Math.min(18,model.sigma*Math.sqrt(7)*100*1.5));
+  const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
+  const topics = newsTopics(news);
+  const direction = expected>0.35?"up":expected< -0.35?"down":"sideways";
+  const directionFa = direction==="up"?"تمایل آماری صعودی":direction==="down"?"تمایل آماری نزولی":"روند آماری کم‌جهت";
+  const summary = "بر پایهٔ رگرسیون لگاریتمی " + model.count + " مشاهدهٔ اخیر، روند روزانه حدود " +
+    model.daily_pct.toFixed(2) + "٪ و تغییر ۷روزهٔ گذشته " +
+    (model.momentum_7d_pct===null?"نامشخص":model.momentum_7d_pct.toFixed(2)+"٪") +
+    " بوده است. برآورد آماری ۷روزه " + directionFa + " را نشان می‌دهد. این گزارش از مدل زبانی استفاده نمی‌کند؛ خبرها فقط گردآوری و بر اساس موضوع دسته‌بندی شده‌اند.";
+  const risks = [];
+  if (recent.length < 3) risks.push("پوشش خبرهای دارای تاریخ در ۲۴ ساعت اخیر محدود است؛ ممکن است رویداد مهمی از دست رفته باشد.");
+  if (rows.length < 30) risks.push("تاریخچه کمتر از ۳۰ مشاهده دارد؛ برآورد آماری ناپایدارتر است.");
+  if (model.daily_volatility_pct > 2) risks.push("نوسان روزانهٔ تاریخی بالاست؛ محدودهٔ سناریو را با احتیاط بخوان.");
+  risks.push("تیتر خبرها به‌تنهایی جهت اثر بر قیمت را مشخص نمی‌کند؛ اثر واقعی به متن کامل، زمان‌بندی و واکنش بازار بستگی دارد.");
+  return reply({
+    mode:"free-algorithmic",asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
+    quote:{price,source_time:new Date(stamp).toISOString(),source:"Iran Market Data / TGJU"},
+    forecast:{horizon_days:7,direction,headline_fa:directionFa,summary_fa:summary,
+      expected_change_pct:Number(expected.toFixed(2)),target_price:Math.round(target),
+      range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),
+      confidence:null,uncertainty_pct:Number(uncertainty.toFixed(2))},
+    drivers:topics,risks_fa:risks,sources:news,
+    news_sources_count:news.length,recent_sources_count:recent.length,news_window_hours:72,
+    coverage_score:Math.min(100,recent.length*12),
+    baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),
+      momentum_7d_pct:model.momentum_7d_pct===null?null:Number(model.momentum_7d_pct.toFixed(3)),
+      momentum_14d_pct:model.momentum_14d_pct===null?null:Number(model.momentum_14d_pct.toFixed(3)),
+      momentum_30d_pct:model.momentum_30d_pct===null?null:Number(model.momentum_30d_pct.toFixed(3)),
+      daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),
+      max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),
+      regression_target:Math.round(model.baseline7),observations:model.count},
+    note_fa:"تحلیل الگوریتمی رایگان بر پایهٔ تاریخچه و تیتر خبرهاست؛ مدل زبانی یا توصیهٔ خریدوفروش نیست."
+  },200,{"cache-control":"public, max-age=300","vary":"Origin"});
+}
+
 async function makeForecast(env, asset) {
   if (!env.OPENAI_API_KEY) return reply({error:"OPENAI_API_KEY secret is not configured."},503);
   const [market, rawHistory] = await Promise.all([
@@ -174,11 +299,11 @@ export default {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
-    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",capabilities:["fresh-market-quote","historical-momentum","live-web-search","source-links","seven-day-scenario"]},200,{"cache-control":"no-store"});
-    if (url.pathname !== "/forecast") return reply({error:"Use /health or /forecast?asset=USD_IRR_FREE"},404);
+    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",free_mode:true,capabilities:["fresh-market-quote","historical-momentum","free-news-rss","topic-classification","seven-day-statistical-scenario","optional-openai-analysis"]},200,{"cache-control":"no-store"});
+    if (url.pathname !== "/forecast" && url.pathname !== "/analysis") return reply({error:"Use /health, /analysis?asset=USD_IRR_FREE or /forecast?asset=USD_IRR_FREE"},404);
     const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
     if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
-    try { return await makeForecast(env,asset); }
+    try { return url.pathname === "/analysis" ? await makeFreeAnalysis(env,asset) : await makeForecast(env,asset); }
     catch (e) { return reply({error:"سرویس پیش‌بینی کامل نشد.",detail:String(e?.message || e).slice(0,220)},502); }
   }
 };
