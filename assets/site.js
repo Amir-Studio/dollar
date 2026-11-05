@@ -69,9 +69,13 @@ async function loadAiForecast(symbol){
  if(aiForecastPending.has(symbol))return;
  aiForecastPending.add(symbol);
  try{
-  const response=await fetch(endpoint.replace(/\/$/,'')+'/forecast?asset='+encodeURIComponent(symbol),{headers:{accept:'application/json'},cache:'no-store'});
+  const healthResponse=await fetch(endpoint.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
+  const health=await healthResponse.json();
+  if(!healthResponse.ok||!health.ok)throw Error('analysis service unavailable');
+  const route=health.configured?'/forecast':'/analysis';
+  const response=await fetch(endpoint.replace(/\/$/,'')+route+'?asset='+encodeURIComponent(symbol),{headers:{accept:'application/json'},cache:'no-store'});
   const data=await response.json();
-  if(!response.ok||!data.forecast||!Number.isFinite(Number(data.forecast.target_price)))throw Error(data.error||'AI forecast unavailable');
+  if(!response.ok||!data.forecast||!Number.isFinite(Number(data.forecast.target_price)))throw Error(data.error||'market analysis unavailable');
   aiForecastCache.set(symbol,{data,fetchedAt:Date.now()});
   if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)drawHistoryChart();
  }catch(error){
@@ -96,7 +100,7 @@ function drawHistoryChart(){
  const model=showForecast?trendModel(all):null,quote=liveQuotes.get(symbol);
  const quoteFresh=quote&&Date.now()-quote.receivedAt<8*60*1000&&Date.now()-quote.sourceTime<45*60*1000;
  const aiData=aiForecastCache.get(symbol)?.data,aiStamp=Date.parse(aiData?.quote?.source_time||''),aiFresh=!!(showForecast&&aiData?.forecast&&Number.isFinite(aiStamp)&&Date.now()-aiStamp<45*60*1000&&aiStamp<=Date.now()+5*60*1000);
- const aiForecast=aiFresh?aiData.forecast:null;
+ const aiForecast=aiFresh?aiData.forecast:null,freeAnalysis=aiFresh&&aiData.mode==='free-algorithmic';
  const base=aiFresh&&Number(aiData.quote.price)>0?Number(aiData.quote.price):quoteFresh?quote.price:rows[rows.length-1].close;
  const W=960,H=360,L=82,R=25,T=22,B=38,ph=H-T-B;
  const futureSpace=showForecast&&model?180:0,pw=W-L-R-futureSpace;
@@ -122,8 +126,8 @@ function drawHistoryChart(){
  }
  const pred=projected.length?projected[projected.length-1]:null;
  const down=!!(pred&&pred.value<base),direction=pred?(down?'تمایل نزولی احتمالی':'تمایل صعودی احتمالی'):'پیش‌بینی در دسترس نیست';
- setText('forecastLegendText',aiForecast?'خط زرد: ترکیب روند و تحلیل خبرهای زنده با هوش مصنوعی':'خط زرد: برآورد آماری ۷روزه');
- setText('chartNoteText',aiForecast?'سایهٔ زرد محدودهٔ برآورد مدل خبری و آماری است؛ منابع و تاریخ انتشار در گزارش هوشمند آمده‌اند. این پیش‌بینی تضمین قیمت نیست.':'سایهٔ زرد محدودهٔ عدم‌قطعیت برآورد آماری است؛ تا اتصال تحلیلگر خبری، خبرهای تازه در نمودار دخالت ندارند.');
+ setText('forecastLegendText',aiForecast?(freeAnalysis?'خط زرد: روند آماری با پوشش خبرهای تازه':'خط زرد: ترکیب روند و تحلیل خبرهای زنده با هوش مصنوعی'):'خط زرد: برآورد آماری ۷روزه');
+ setText('chartNoteText',aiForecast?(freeAnalysis?'سایهٔ زرد محدودهٔ برآورد آماری است؛ خبرها فقط گردآوری و دسته‌بندی شده‌اند و تحلیل زبانی انجام نشده است.':'سایهٔ زرد محدودهٔ برآورد مدل خبری و آماری است؛ منابع و تاریخ انتشار در گزارش هوشمند آمده‌اند. این پیش‌بینی تضمین قیمت نیست.'):'سایهٔ زرد محدودهٔ عدم‌قطعیت برآورد آماری است؛ خبرهای تازه هنوز به نمودار متصل نشده‌اند.');
  const forecastColor='#f2cc4d';
  const allForScale=vals.concat(projected.flatMap(p=>[p.lo,p.hi,p.value]));
  const min=Math.min(...allForScale),max=Math.max(...allForScale),span=Math.max(1,max-min),lo=Math.max(0,min-span*.08),hi=max+span*.08;
@@ -165,12 +169,12 @@ function drawHistoryChart(){
   setText('scenarioTitle',down?'سناریوی غالب: احتمال کاهش':'سناریوی غالب: احتمال رشد');
   setText('scenarioPill',down?'روند نزولی':'روند صعودی');
   const pill=$('scenarioPill');if(pill){pill.classList.remove('neutral','up','down');pill.classList.add(down?'down':'up')}
-  setText('scenarioSummary',aiForecast?'برآورد ۷روزه با ترکیب تحلیل هوش مصنوعی، خبرهای وب و روند آماری ساخته شده است. جهت نمودار سناریو است، نه تضمین قیمت.':'برآورد آماری تاریخچه برای ۷ روز آینده '+(down?'تمایل نزولی':'تمایل صعودی')+' نشان می‌دهد. برای تحلیل خبری زنده، سرویس Worker را متصل کن.');
+  setText('scenarioSummary',aiForecast?(freeAnalysis?'سناریو از روند آماری تاریخچه ساخته شده و خبرهای تازه فقط به‌صورت موضوعی دسته‌بندی شده‌اند؛ این حالت از مدل زبانی استفاده نمی‌کند.':'برآورد ۷روزه با ترکیب تحلیل هوش مصنوعی، خبرهای وب و روند آماری ساخته شده است. جهت نمودار سناریو است، نه تضمین قیمت.'):'برآورد آماری تاریخچه برای ۷ روز آینده '+(down?'تمایل نزولی':'تمایل صعودی')+' نشان می‌دهد.');
   setText('scenarioTarget',toman(pred.value));
   setText('scenarioChange',(p>0?'+':'')+number(p,2)+'٪');
   if(scenarioChange){scenarioChange.classList.remove('up','down');scenarioChange.classList.add(down?'down':'up')}
   setText('scenarioRange',toman(pred.lo)+' تا '+toman(pred.hi));
-  setText('scenarioMethod',aiForecast?'مبنا: قیمت تازه، تاریخچه، جست‌وجوی زنده وب و منابع لینک‌شده. بازه عدم‌قطعیت تقریبی است و دقت آینده باید با نتایج واقعی سنجیده شود.':'مبنا: روند آماری تاریخچه؛ تحلیل خبری زنده هنوز متصل نیست. این خروجی سیگنال قطعی یا توصیه معامله نیست.');
+  setText('scenarioMethod',aiForecast?(freeAnalysis?'مبنا: قیمت تازه، تاریخچهٔ آماری و تیترهای RSS دسته‌بندی‌شده؛ اثر خبری به‌صورت خودکار تعیین نشده است.':'مبنا: قیمت تازه، تاریخچه، جست‌وجوی زنده وب و منابع لینک‌شده. بازه عدم‌قطعیت تقریبی است و دقت آینده باید با نتایج واقعی سنجیده شود.'):'مبنا: روند آماری تاریخچه؛ خبرهای تازه هنوز در این سناریو دخالت ندارند.');
   const dot=document.querySelector('.scenario-dot');if(dot){dot.classList.remove('up','down');dot.classList.add(down?'down':'up')}
  }else{
   setText('forecastValue','—');setText('forecastRange','برای نمایش پیش‌بینی، تاریخچه لازم است.');
@@ -180,7 +184,7 @@ function drawHistoryChart(){
   setText('scenarioTarget','—');setText('scenarioChange','—');setText('scenarioRange','—');
   setText('scenarioMethod','سناریو تا زمان دریافت داده معتبر نمایش داده نمی‌شود.');
  }
- setText('historyStatus',aiForecast?'تحلیل خبری هوش مصنوعی + روند آماری · '+(aiData.generated_at||'برآورد ۷روزه'):quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
+ setText('historyStatus',aiForecast?(freeAnalysis?'تحلیل رایگان آماری + خبرخوان · '+(aiData.generated_at||'برآورد ۷روزه'):'تحلیل هوش مصنوعی + روند آماری · '+(aiData.generated_at||'برآورد ۷روزه')):quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
 }
 
 let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
@@ -245,5 +249,5 @@ $('chartAsset')?.addEventListener('change',()=>{loadHistory();loadAiForecast($('
 $('fxSearch')?.addEventListener('input',()=>renderTable(CURRENCIES.map(c=>getItem(c.symbol)).filter(Boolean)));$('refreshBtn')?.addEventListener('click',refresh);
 $('langBtn')?.addEventListener('click',()=>{language=language==='en'?'fa':'en';document.documentElement.lang=language;document.documentElement.dir=language==='fa'?'rtl':'ltr';document.body.classList.toggle('rtl',language==='fa');$('langBtn').textContent=language==='en'?'فارسی':'English';document.querySelectorAll('[data-en][data-fa]').forEach(el=>{const v=el.getAttribute('data-'+language);if(v!==null)el.innerHTML=v});if(lastPayload)render(lastPayload)});
 document.documentElement.lang='fa';document.documentElement.dir='rtl';document.body.classList.add('rtl');$('langBtn').textContent='English';document.querySelectorAll('[data-en][data-fa]').forEach(el=>{el.innerHTML=el.getAttribute('data-fa')});$('year').textContent=new Date().getFullYear();
-refresh();loadHistory();loadAiForecast($('chartAsset')?.value||'USD_IRR_FREE');setInterval(refresh,5*60*1000);setInterval(()=>{historyCache.clear();loadHistory()},30*60*1000);setInterval(refreshForecastQuotes,30000);refreshForecastQuotes();
+refresh();loadHistory();loadAiForecast($('chartAsset')?.value||'USD_IRR_FREE');setInterval(refresh,5*60*1000);setInterval(()=>{historyCache.clear();loadHistory()},30*60*1000);setInterval(refreshForecastQuotes,5*60*1000);refreshForecastQuotes();
 })();
