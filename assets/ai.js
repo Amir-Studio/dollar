@@ -12,9 +12,10 @@ function showError(message){output.innerHTML='<span class="ai-error">گزارش 
 function render(data){
  const f=data.forecast||{},drivers=Array.isArray(data.drivers)?data.drivers:[],risks=Array.isArray(data.risks_fa)?data.risks_fa:[];
  const direction=f.direction==='up'?'تمایل صعودی':f.direction==='down'?'تمایل نزولی':'روند خنثی';
- const metrics=[['قیمت مرجع',toman(data.quote?.price)],['برآورد ۷روزه',toman(f.target_price)],['تغییر برآوردی',(Number(f.expected_change_pct)>0?'+':'')+new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(f.expected_change_pct))+'٪'],['اطمینان تحلیلی',new Intl.NumberFormat('fa-IR').format(Number(f.confidence)||0)+' از ۱۰۰']];
- let html='<div class="ai-kicker">AI MARKET BRIEFING · '+escapeHtml(data.asset_fa||data.asset||'بازار')+'</div><h3 class="ai-headline">'+escapeHtml(f.headline_fa||direction)+'</h3><p class="ai-summary">'+escapeHtml(f.summary_fa||'')+'</p><div class="ai-metrics">'+metrics.map(m=>'<article><small>'+m[0]+'</small><b>'+escapeHtml(m[1])+'</b></article>').join('')+'</div>';
- if(drivers.length)html+='<div class="ai-driver"><h4>عوامل اثرگذار</h4>'+drivers.map(d=>'<div class="ai-driver"><h4>'+escapeHtml(d.title_fa)+' · '+escapeHtml(({positive:'مثبت',negative:'منفی',mixed:'ترکیبی',unknown:'نامشخص'})[d.impact]||'ترکیبی')+'</h4><p>'+escapeHtml(d.explanation_fa)+' '+escapeHtml(d.evidence)+'</p></div>').join('')+'</div>';
+ const freeMode=data.mode==='free-algorithmic';
+ const metrics=[['قیمت مرجع',toman(data.quote?.price)],[freeMode?'برآورد آماری ۷روزه':'برآورد ۷روزه',toman(f.target_price)],['تغییر برآوردی',(Number(f.expected_change_pct)>0?'+':'')+new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(f.expected_change_pct))+'٪'],[freeMode?'خبرهای تازه در ۲۴ ساعت': 'اطمینان تحلیلی',freeMode?new Intl.NumberFormat('fa-IR').format(Number(data.recent_sources_count)||0)+' خبر':new Intl.NumberFormat('fa-IR').format(Number(f.confidence)||0)+' از ۱۰۰']];
+ let html='<div class="ai-kicker">'+(freeMode?'FREE MARKET ANALYSIS · تحلیل الگوریتمی رایگان':'AI MARKET BRIEFING · تحلیل هوش مصنوعی')+' · '+escapeHtml(data.asset_fa||data.asset||'بازار')+'</div><h3 class="ai-headline">'+escapeHtml(f.headline_fa||direction)+'</h3><p class="ai-summary">'+escapeHtml(f.summary_fa||'')+'</p><div class="ai-metrics">'+metrics.map(m=>'<article><small>'+m[0]+'</small><b>'+escapeHtml(m[1])+'</b></article>').join('')+'</div>';
+ if(drivers.length)html+='<div class="ai-driver"><h4>'+(freeMode?'موضوعات خبری شناسایی‌شده':'عوامل اثرگذار')+'</h4>'+drivers.map(d=>'<div class="ai-driver"><h4>'+escapeHtml(d.title_fa)+' · '+escapeHtml(({positive:'مثبت',negative:'منفی',mixed:'ترکیبی',unknown:'نامشخص'})[d.impact]||'ترکیبی')+'</h4><p>'+escapeHtml(d.explanation_fa)+' '+escapeHtml(d.evidence)+'</p></div>').join('')+'</div>';
  if(risks.length)html+='<div class="ai-driver"><h4>ریسک‌ها و محدودیت‌ها</h4><p>'+risks.map(escapeHtml).join(' · ')+'</p></div>';
  const sources=Array.isArray(data.sources)?data.sources:[];
  if(sources.length){
@@ -31,15 +32,15 @@ function render(data){
   const fmt=v=>v===null||v===undefined?'—':(Number(v)>0?'+':'')+new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(v))+'٪';
   html+='<div class="ai-driver"><h4>شاخص‌های مستقل روند</h4><p>روند ۳۰ نقطهٔ اخیر: '+fmt(data.baseline.daily_trend_pct)+' در روز · بازده ۷روزه: '+fmt(data.baseline.momentum_7d_pct)+' · نوسان روزانه: '+fmt(data.baseline.daily_volatility_pct)+' · دادهٔ مبنا: '+escapeHtml(data.baseline.observations||'—')+' نقطه</p></div>';
  }
- html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · منابع پیوندشده: '+escapeHtml(data.news_sources_count??sources.length)+' · منابع دارای تاریخِ قابل‌تأیید در ۷۲ ساعت اخیر: '+escapeHtml(data.recent_sources_count??'—')+' · این خروجی احتمالی است، نه توصیهٔ معامله.</p>';
- output.innerHTML=html;setStatus(sources.length>=2?'گزارش آماده شد · منابع پیوست شد':'گزارش آماده شد · منابع محدود');
+ html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · منابع پیوندشده: '+escapeHtml(data.news_sources_count??sources.length)+' · منابع دارای تاریخِ قابل‌تأیید در ۷۲ ساعت اخیر: '+escapeHtml(data.recent_sources_count??'—')+' · '+escapeHtml(data.note_fa||'این خروجی احتمالی است، نه توصیهٔ معامله.')+'</p>';
+ output.innerHTML=html;setStatus(freeMode?'تحلیل رایگان آماده شد · بدون مدل مولد':(sources.length>=2?'گزارش هوش مصنوعی آماده شد · منابع پیوست شد':'گزارش آماده شد · منابع محدود'));
 }
 async function run(){
  const base=endpoint();if(!base){setStatus('نیازمند اتصال');output.innerHTML='<strong>سرویس هوش مصنوعی هنوز به این سایت متصل نشده.</strong><p>در بخش «تنظیم اتصال تحلیلگر»، آدرس Worker مستقرشده را وارد و ذخیره کن. برای امنیت، کلید API فقط باید در Secretهای Cloudflare باشد.</p>';document.querySelector('.ai-setup details')?.setAttribute('open','');return}
  const asset=$('aiAsset')?.value||'USD_IRR_FREE';runBtn.disabled=true;runBtn.innerHTML='<span class="ai-spark">✳</span> در حال تحلیل خبرها و داده‌ها…';setStatus('در حال بررسی');output.innerHTML='<strong>در حال ساخت گزارش بازار…</strong><p>قیمت و تاریخچه بررسی می‌شود و سپس تحلیل خبری و منابع جمع‌بندی می‌شوند. این کار ممکن است کمی طول بکشد.</p>';
- try{const res=await fetch(base.replace(/\/$/,'')+'/forecast?asset='+encodeURIComponent(asset),{headers:{accept:'application/json'},cache:'no-store'});const data=await res.json();if(!res.ok)throw new Error(data.error||'سرویس پاسخ موفق نداد ('+res.status+')');render(data)}
+ try{const healthRes=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});const health=await healthRes.json();if(!healthRes.ok||!health.ok)throw new Error('سرویس تحلیل در دسترس نیست.');const route=health.configured?'/forecast':'/analysis';const res=await fetch(base.replace(/\/$/,'')+route+'?asset='+encodeURIComponent(asset),{headers:{accept:'application/json'},cache:'no-store'});const data=await res.json();if(!res.ok)throw new Error(data.error||'سرویس پاسخ موفق نداد ('+res.status+')');render(data)}
  catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای اتصال')}
- finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش هوشمند <span>↗</span>'}
+ finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش بازار <span>↗</span>'}
 }
 async function checkHealth(){
  const base=endpoint();
@@ -48,7 +49,7 @@ async function checkHealth(){
   const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error('health check failed');
-  if(!data.configured){setStatus('کلید هوش مصنوعی تنظیم نشده');return}
+  if(!data.configured){setStatus('حالت رایگان خبرخوان و تحلیل آماری فعال است');return}
   setStatus('سرویس متصل است');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
