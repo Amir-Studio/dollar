@@ -53,6 +53,19 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /momentum_14d_pct/);
   assert.match(worker, /configured:Boolean\(env\.OPENAI_API_KEY\)/);
   assert.match(worker, /tool_choice:"required"/);
+  assert.match(worker, /async function makeFreeAnalysis/);
+  assert.match(worker, /news.google.com\\/rss\\/search/);
+  assert.match(worker, /url.pathname === "\\/analysis"/);
+  assert.match(worker, /mode:"free-algorithmic"/);
+  assert.match(aiJs, /health.configured\?\'/);
+  assert.match(aiJs, /FREE MARKET ANALYSIS/);
+  assert.match(js, /freeAnalysis/);
+});
+
+
+test('Worker module parses and exposes its HTTP handler', async () => {
+  const module = await import('../worker/index.js');
+  assert.equal(typeof module.default.fetch, 'function');
 });
 
 test('market data limitations and risk disclosure are visible', () => {
