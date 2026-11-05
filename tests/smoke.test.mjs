@@ -7,6 +7,7 @@ const js = readFileSync(new URL('../assets/site.js', import.meta.url), 'utf8');
 const aiJs = readFileSync(new URL('../assets/ai.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../assets/site.css', import.meta.url), 'utf8');
 const worker = readFileSync(new URL('../worker/index.js', import.meta.url), 'utf8');
+const wrangler = readFileSync(new URL('../worker/wrangler.toml', import.meta.url), 'utf8');
 
 test('homepage references external stylesheet and deferred scripts', () => {
   assert.match(html, /href="assets\/site\.css/);
@@ -57,6 +58,10 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.ok(worker.includes('news.google.com/rss/search'));
   assert.ok(worker.includes('url.pathname === "/analysis"'));
   assert.match(worker, /mode:"free-algorithmic"/);
+  assert.match(worker, /async scheduled\(controller, env, ctx\)/);
+  assert.match(worker, /background_refresh_enabled:Boolean\(env\.MARKET_CACHE\)/);
+  assert.ok(wrangler.includes('crons = ["*/5 * * * *"]'));
+  assert.match(worker, /readFreshCache\(env,"market:latest"/);
   assert.match(aiJs, /health.configured\?\'/);
   assert.match(aiJs, /FREE MARKET ANALYSIS/);
   assert.match(js, /freeAnalysis/);
