@@ -20,7 +20,14 @@ function render(data){
   const dir=f.direction==='up'?'تمایل صعودی':f.direction==='down'?'تمایل نزولی':'کم‌جهت';
   const acc=v.directional_accuracy_pct==null?'هنوز نمونه کافی نیست':fa(v.directional_accuracy_pct)+'٪';
   const html='<div class="ai-kicker">ADAPTIVE FORECAST ENGINE · '+escapeHtml(data.asset||'بازار')+' · '+fa(f.horizon_days)+' روز</div><h3 class="ai-headline">'+dir+'</h3><p class="ai-summary">برآورد آماری ترکیبی با وزن‌دهی بر اساس آزمون walk-forward. پیش‌بینی قبلی بازنویسی نمی‌شود و نتیجهٔ هر افق پس از رسیدن زمان هدف ارزیابی خواهد شد.</p><div class="ai-metrics"><article><small>قیمت مبنا</small><b>'+toman(f.reference_price)+'</b></article><article><small>قیمت برآوردی</small><b>'+toman(f.predicted_price)+'</b></article><article><small>تغییر برآوردی</small><b>'+(Number(f.predicted_change_pct)>0?'+':'')+fa(f.predicted_change_pct)+'٪</b></article><article><small>بازهٔ سناریو</small><b>'+toman(f.range?.low)+' تا '+toman(f.range?.high)+'</b></article></div><div class="ai-driver"><h4>کارنامهٔ آزمون تاریخی خارج از نمونه</h4><p>دقت تشخیص جهت: '+acc+' · تعداد نمونه‌های جهت: '+fa(v.directional_samples)+' · خطای مطلق مدل ترکیبی: '+fa(v.mae_pct)+'٪ · خطای مدل بدون تغییر: '+fa(v.naive_mae_pct)+'٪ · نمونه‌های آزمون: '+fa(v.samples)+'</p><p>مدل‌های ترکیبی: '+escapeHtml(JSON.stringify(f.model_weights||{}))+'</p></div><p>نسخهٔ مدل: '+escapeHtml(f.model_version)+' · زمان صدور: '+escapeHtml(f.issued_at||data.generated_at||'—')+' · منبع قیمت: '+escapeHtml(f.source||'—')+'</p><p>این خروجی سناریوی آماری است، نه تضمین یا توصیهٔ خریدوفروش.</p>';
-  output.innerHTML=html;setStatus('موتور تطبیقی فعال · پیش‌بینی ثبت شد');return;
+  const news=data.news_context||{},topics=Array.isArray(news.topics)?news.topics:[],headlines=Array.isArray(news.headlines)?news.headlines:[];
+  if(topics.length){
+   html+='<div class="ai-driver"><h4>زمینهٔ خبری ۷۲ ساعت اخیر · '+fa(news.headline_count)+' تیتر</h4><p>خبرها از RSS گردآوری و موضوع‌بندی شده‌اند؛ به‌دلیل نبود ارزیابی معتبر اثر خبر، در جهت یا عدد پیش‌بینی دخالت داده نشده‌اند.</p>'+topics.map(t=>'<div class="ai-driver"><b>'+escapeHtml(t.title_fa)+'</b><p>'+fa(t.count)+' تیتر · '+escapeHtml(t.explanation_fa||'')+'</p></div>').join('')+'</div>';
+  }
+  if(headlines.length){
+   html+='<div class="ai-driver"><h4>تیترهای قابل‌ردیابی</h4><div class="ai-news-list">'+headlines.slice(0,8).map(item=>'<article class="ai-news-item"><div class="ai-news-meta"><span>'+escapeHtml(item.domain||'منبع خبری')+'</span><small>'+escapeHtml(item.published_at||'')+'</small></div><a href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(item.title||'خبر')+' ↗</a></article>').join('')+'</div></div>';
+  }
+  output.innerHTML=html;setStatus('مدل تطبیقی فعال · پیش‌بینی و زمینه خبری آماده');return;
  }
  const drivers=Array.isArray(data.drivers)?data.drivers:[],risks=Array.isArray(data.risks_fa)?data.risks_fa:[];
  const direction=f.direction==='up'?'تمایل صعودی':f.direction==='down'?'تمایل نزولی':'روند خنثی';
