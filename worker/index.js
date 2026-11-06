@@ -470,7 +470,56 @@ export default {
       return reply(data,200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance") return handleForecastApi(url,env);
-    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),llm_configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || null,free_mode:true,free_forecast_enabled:true,database_configured:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),forecast_ledger_table:"market_forecast_runs",news_store_table:"market_news_items",background_refresh_enabled:Boolean(env.MARKET_CACHE),background_news_refresh_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),quote_persistence_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),capabilities:["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification"]},200,{"cache-control":"no-store"});
+    if (url.pathname === "/health") {
+      const databaseConfigured = Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+      const tableChecks = databaseConfigured ? await Promise.all([
+        ["market_quotes", "asset"],
+        ["market_forecast_runs", "id"],
+        ["market_news_items", "id"],
+        ["market_news_sync_state", "id"],
+        ["market_news_sources", "source_id"]
+      ].map(async ([table, column]) => {
+        try {
+          const base = String(env.SUPABASE_URL).replace(/\\/+$/, "");
+          const query = new URLSearchParams({ select: column, limit: "1" });
+          const response = await fetch(base + "/rest/v1/" + table + "?" + query, {
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, accept: "application/json" },
+            signal: AbortSignal.timeout(6000)
+          });
+          return [table, response.ok];
+        } catch { return [table, false]; }
+      })) : [];
+      const databaseTables = Object.fromEntries(tableChecks);
+      const has = table => databaseTables[table] === true;
+      const kvBindingPresent = Boolean(env.MARKET_CACHE);
+      const forecastLedgerReady = databaseConfigured && has("market_forecast_runs");
+      const quotePersistenceReady = databaseConfigured && has("market_quotes");
+      const newsStorageReady = databaseConfigured && has("market_news_items") && has("market_news_sync_state");
+      const newsPipelineSchemaReady = newsStorageReady && has("market_news_sources");
+      return reply({
+        ok: true,
+        service: "dollar-market-intelligence",
+        configured: Boolean(env.OPENAI_API_KEY),
+        llm_configured: Boolean(env.OPENAI_API_KEY),
+        model: env.OPENAI_MODEL || null,
+        free_mode: true,
+        free_forecast_enabled: true,
+        database_configured: databaseConfigured,
+        database_schema_ready: databaseConfigured && forecastLedgerReady && quotePersistenceReady && newsStorageReady,
+        database_tables: databaseTables,
+        forecast_ledger_enabled: forecastLedgerReady,
+        news_storage_enabled: newsStorageReady,
+        news_pipeline_schema_ready: newsPipelineSchemaReady,
+        forecast_ledger_table: "market_forecast_runs",
+        news_store_table: "market_news_items",
+        kv_binding_present: kvBindingPresent,
+        background_refresh_enabled: kvBindingPresent,
+        background_refresh_prerequisites_ready: kvBindingPresent && quotePersistenceReady,
+        background_news_refresh_enabled: kvBindingPresent && newsStorageReady,
+        quote_persistence_enabled: quotePersistenceReady,
+        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","database-schema-diagnostics"]
+      }, 200, { "cache-control": "no-store" });
+    }
     if (url.pathname === "/catalog") return reply({
       currency_and_gold:{tracked_quote_assets:Object.keys(ASSETS).map(symbol=>({symbol,name_fa:ASSETS[symbol],quote_tracking:true,analysis_enabled:ANALYSIS_ASSETS.has(symbol)}))},
       housing:{status:"planned",frequency:"monthly_or_quarterly",required_dimensions:["province","city","property_type","transaction_or_listing","price_per_sqm","sample_count","source","observed_at"]},
