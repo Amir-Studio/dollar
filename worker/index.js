@@ -480,7 +480,7 @@ export default {
         ["market_news_sources", "source_id"]
       ].map(async ([table, column]) => {
         try {
-          const base = String(env.SUPABASE_URL).replace(/\\/+$/, "");
+          const base = String(env.SUPABASE_URL).replace(/\/+$/, "");
           const query = new URLSearchParams({ select: column, limit: "1" });
           const response = await fetch(base + "/rest/v1/" + table + "?" + query, {
             headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, accept: "application/json" },
