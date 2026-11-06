@@ -49,7 +49,7 @@ function render(data){
 }
 async function run(){
  const base=endpoint();if(!base){setStatus('نیازمند اتصال');output.innerHTML='<strong>سرویس هوش مصنوعی هنوز به این سایت متصل نشده.</strong><p>در بخش «تنظیم اتصال تحلیلگر»، آدرس Worker مستقرشده را وارد و ذخیره کن. برای امنیت، کلید API فقط باید در Secretهای Cloudflare باشد.</p>';document.querySelector('.ai-setup details')?.setAttribute('open','');return}
- const asset=$('aiAsset')?.value||'USD_IRR_FREE';const horizon=$('aiHorizon')?.value||'7';runBtn.disabled=true;runBtn.innerHTML='<span class="ai-spark">✳</span> در حال تحلیل خبرها و داده‌ها…';setStatus('در حال بررسی');output.innerHTML='<strong>در حال ساخت گزارش بازار…</strong><p>قیمت و تاریخچه بررسی می‌شود و سپس تحلیل خبری و منابع جمع‌بندی می‌شوند. این کار ممکن است کمی طول بکشد.</p>';
+ const asset=$('aiAsset')?.value||'USD_IRR_FREE';const horizon=$('aiHorizon')?.value||'7';runBtn.disabled=true;runBtn.innerHTML='<span class="ai-spark">✳</span> در حال آزمون مدل و داده‌ها…';setStatus('در حال بررسی');output.innerHTML='<strong>در حال ارزیابی بازار…</strong><p>قیمت و تاریخچه بررسی می‌شود؛ سپس مدل‌های آماری با آزمون walk-forward و معیارهای خطا سنجیده می‌شوند. اگر شواهد کافی نباشد، پیش‌بینی منتشر نمی‌شود.</p>';
  try{const healthRes=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});const health=await healthRes.json();if(!healthRes.ok||!health.ok)throw new Error('سرویس تحلیل در دسترس نیست.');const adaptive=Array.isArray(health.capabilities)&&health.capabilities.includes('adaptive-ensemble-forecast');const route=adaptive?'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon):(health.configured?'/forecast':'/analysis');const res=await fetch(base.replace(/\/$/,'')+route+(adaptive?'':'?asset='+encodeURIComponent(asset)),{headers:{accept:'application/json'},cache:'no-store'});const data=await res.json();if(!res.ok)throw new Error(data.error||'سرویس پاسخ موفق نداد ('+res.status+')');render(data)}
  catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای اتصال')}
  finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش بازار <span>↗</span>'}
@@ -61,8 +61,8 @@ async function checkHealth(){
   const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error('health check failed');
-  if(!data.configured){setStatus(data.background_refresh_enabled?'حالت رایگان فعال · تازه‌سازی پس‌زمینه روشن است':'حالت رایگان فعال · برای تازه‌سازی پس‌زمینه KV لازم است');return}
-  setStatus(data.background_refresh_enabled?'هوش مصنوعی متصل · تازه‌سازی پس‌زمینه روشن':'هوش مصنوعی متصل · تازه‌سازی پس‌زمینه خاموش');
+  if(data.free_forecast_enabled){setStatus(data.database_configured?(data.background_refresh_enabled?'موتور پیش‌بینی رایگان · ذخیره‌سازی و KV فعال':'موتور پیش‌بینی رایگان · ذخیره‌سازی قیمت فعال؛ KV خاموش'):'موتور رایگان آماده؛ اتصال پایگاه داده نیازمند بررسی');return}
+  setStatus('سرویس تحلیل در دسترس نیست');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
