@@ -16,8 +16,10 @@ export default {
     }
 
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const apiKey = request.headers.get("apikey") ?? "";
     const authorization = request.headers.get("authorization") ?? "";
-    if (!serviceRoleKey || authorization !== `Bearer ${serviceRoleKey}`) {
+    const suppliedKey = apiKey || authorization.replace(/^Bearer\s+/i, "");
+    if (!serviceRoleKey || suppliedKey !== serviceRoleKey) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
