@@ -155,7 +155,7 @@ async function fetchInputs(env,asset,marketPayload) {
 async function issueForecast(env,asset,horizon,input) {
   const issuedAt=new Date().toISOString(), targetAt=new Date(input.stamp+horizon*DAY).toISOString();
   const result=buildForecast(input.points,input.price,horizon);
-  if(!result.eligible) return {asset,horizon_days:horizon,status:"withheld",reason:result.reason,validation:result,observations:input.points.length};
+  if(!result.eligible) return {asset,horizon_days:horizon,model_version:MODEL_VERSION,status:"withheld",reason:result.reason,validation:result,observations:input.points.length};
   const payload={asset,horizon_days:horizon,model_version:MODEL_VERSION,issued_at:issuedAt,target_at:targetAt,
     reference_price:input.price,predicted_price:result.predicted_price,predicted_change_pct:result.predicted_change_pct,
     lower_price:result.lower_price,upper_price:result.upper_price,direction:result.direction,
