@@ -229,6 +229,42 @@ export async function handleForecastApi(url,env) {
       const data=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation&asset=eq."+asset+"&horizon_days=eq."+horizon+"&order=issued_at.desc&limit=30");
       return Response.json({asset,horizon_days:horizon,forecasts:data||[]},{headers:{"cache-control":"no-store"}});
     }
+    if(url.pathname==="/forecast/v2"){
+      const horizon=Number(url.searchParams.get("horizon_days")||7);
+      if(!HORIZONS.includes(horizon)) return Response.json({error:"افق باید ۱، ۳ یا ۷ روز باشد."},{status:400});
+      const params=new URLSearchParams({
+        select:"asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,validation",
+        asset:"eq."+asset,
+        horizon_days:"eq."+horizon,
+        status:"in.(pending,evaluated)",
+        order:"issued_at.desc",
+        limit:"1"
+      });
+      const rows=await db(env,"market_forecast_runs?"+params.toString());
+      const latest=rows?.[0];
+      if(!latest) return Response.json({error:"هنوز پیش‌بینی معتبر و زمان‌بندی‌شده‌ای برای این دارایی ثبت نشده است."},{status:404});
+      return Response.json({
+        asset,
+        forecast:{
+          status:"issued",
+          horizon_days:Number(latest.horizon_days),
+          model_version:latest.model_version,
+          issued_at:latest.issued_at,
+          target_at:latest.target_at,
+          reference_price:Number(latest.reference_price),
+          quote_source:latest.quote_source,
+          quote_observed_at:latest.quote_observed_at,
+          predicted_price:Number(latest.predicted_price),
+          predicted_change_pct:Number(latest.predicted_change_pct),
+          lower_price:Number(latest.lower_price),
+          upper_price:Number(latest.upper_price),
+          direction:latest.direction,
+          validation:latest.validation
+        },
+        generated_at:latest.issued_at,
+        note_fa:"این پیش‌بینی از دفتر ثبت زمان‌بندی‌شده خوانده شده و با درخواست بازدیدکننده محاسبه یا ذخیره نمی‌شود."
+      },{headers:{"cache-control":"no-store"}});
+    }
     const horizon=Number(url.searchParams.get("horizon_days")||7);
     if(!HORIZONS.includes(horizon)) return Response.json({error:"افق باید ۱، ۳ یا ۷ روز باشد."},{status:400});
     const input=await fetchInputs(env,asset);
