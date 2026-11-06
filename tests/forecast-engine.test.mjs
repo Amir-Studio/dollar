@@ -22,7 +22,7 @@ test('forecast refuses to publish a flat series that does not beat the no-change
   const points = series(90, 0);
   const result = buildForecast(points, points.at(-1).p, 7);
   assert.equal(result.eligible, false);
-  assert.equal(result.validation.samples >= 20, true);
+  assert.equal(result.samples >= 20, true);
   assert.match(result.reason, /۵٪/);
 });
 
