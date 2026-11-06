@@ -1,0 +1,5 @@
+[functions.market-api]
+verify_jwt = false
+
+[functions.market-refresh]
+verify_jwt = true
