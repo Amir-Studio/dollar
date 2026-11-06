@@ -77,6 +77,23 @@ test('Worker module parses and exposes its HTTP handler', async () => {
   assert.equal(typeof module.default.fetch, 'function');
 });
 
+test('health endpoint distinguishes missing credentials from working database storage', async () => {
+  const module = await import('../worker/index.js');
+  const response = await module.default.fetch(new Request('https://worker.example/health'), {});
+  assert.equal(response.status, 200);
+  const health = await response.json();
+  assert.equal(health.ok, true);
+  assert.equal(health.free_forecast_enabled, true);
+  assert.equal(health.database_configured, false);
+  assert.equal(health.database_schema_ready, false);
+  assert.equal(health.forecast_ledger_enabled, false);
+  assert.equal(health.news_storage_enabled, false);
+  assert.equal(health.news_pipeline_schema_ready, false);
+  assert.equal(health.kv_binding_present, false);
+  assert.deepEqual(health.database_tables, {});
+  assert.ok(health.capabilities.includes('database-schema-diagnostics'));
+});
+
 test('market data limitations and risk disclosure are visible', () => {
   assert.ok(html.includes('id="marketStatus"'), 'market data status should exist');
   assert.match(html, /توصیهٔ سرمایه‌گذاری|توصیهٔ خریدوفروش/);
