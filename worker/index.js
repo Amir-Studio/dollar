@@ -386,7 +386,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
-    if (url.pathname === "/forecast/v2" || url.pathname === "/forecast/history") return handleForecastApi(url,env);
+    if (url.pathname === "/forecast/v2" || url.pathname === "/forecast/history" || url.pathname === "/forecast/performance") return handleForecastApi(url,env);
     if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || null,free_mode:true,background_refresh_enabled:Boolean(env.MARKET_CACHE),quote_persistence_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),capabilities:["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","free-news-rss","topic-classification"]},200,{"cache-control":"no-store"});
     if (url.pathname === "/catalog") return reply({
       currency_and_gold:{tracked_quote_assets:Object.keys(ASSETS).map(symbol=>({symbol,name_fa:ASSETS[symbol],quote_tracking:true,analysis_enabled:ANALYSIS_ASSETS.has(symbol)}))},
