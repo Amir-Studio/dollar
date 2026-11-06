@@ -357,7 +357,7 @@ async function persistQuotesToSupabase(env, market) {
 }
 
 async function readNewsFromSupabase(env) {
-  const base = String(env.SUPABASE_URL || "").replace(/\\/+$/, "");
+  const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return [];
   const params = new URLSearchParams({
@@ -375,7 +375,7 @@ async function readNewsFromSupabase(env) {
 }
 
 async function syncNewsToSupabase(env) {
-  const base = String(env.SUPABASE_URL || "").replace(/\\/+$/, "");
+  const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return { enabled:false, refreshed:false, items:[] };
   const headers = { apikey:key, authorization:"Bearer "+key, "content-type":"application/json" };
