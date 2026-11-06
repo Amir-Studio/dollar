@@ -114,7 +114,7 @@ function drawHistoryChart(){
  const model=showForecast?trendModel(all):null,quote=liveQuotes.get(symbol);
  const quoteFresh=quote&&Date.now()-quote.receivedAt<8*60*1000&&Date.now()-quote.sourceTime<45*60*1000;
  const aiData=aiForecastCache.get(symbol)?.data,aiStamp=Date.parse(aiData?.quote?.source_time||''),aiFresh=!!(showForecast&&aiData?.forecast&&Number.isFinite(aiStamp)&&Date.now()-aiStamp<45*60*1000&&aiStamp<=Date.now()+5*60*1000);
- const aiForecast=aiFresh?aiData.forecast:null,freeAnalysis=aiFresh&&aiData.mode==='free-algorithmic';
+ const aiForecast=aiFresh?aiData.forecast:null,freeAnalysis=aiFresh&&aiData.mode==='free-algorithmic',adaptiveAnalysis=aiFresh&&aiData.mode==='adaptive-ensemble';
  const base=aiFresh&&Number(aiData.quote.price)>0?Number(aiData.quote.price):quoteFresh?quote.price:rows[rows.length-1].close;
  const W=960,H=360,L=82,R=25,T=22,B=38,ph=H-T-B;
  const futureSpace=showForecast&&model?180:0,pw=W-L-R-futureSpace;
@@ -140,8 +140,8 @@ function drawHistoryChart(){
  }
  const pred=projected.length?projected[projected.length-1]:null;
  const down=!!(pred&&pred.value<base),direction=pred?(down?'تمایل نزولی احتمالی':'تمایل صعودی احتمالی'):'پیش‌بینی در دسترس نیست';
- setText('forecastLegendText',aiForecast?(freeAnalysis?'خط زرد: روند آماری با پوشش خبرهای تازه':'خط زرد: ترکیب روند و تحلیل خبرهای زنده با هوش مصنوعی'):'خط زرد: برآورد آماری ۷روزه');
- setText('chartNoteText',aiForecast?(freeAnalysis?'سایهٔ زرد محدودهٔ برآورد آماری است؛ خبرها فقط گردآوری و دسته‌بندی شده‌اند و تحلیل زبانی انجام نشده است.':'سایهٔ زرد محدودهٔ برآورد مدل خبری و آماری است؛ منابع و تاریخ انتشار در گزارش هوشمند آمده‌اند. این پیش‌بینی تضمین قیمت نیست.'):'سایهٔ زرد محدودهٔ عدم‌قطعیت برآورد آماری است؛ خبرهای تازه هنوز به نمودار متصل نشده‌اند.');
+ setText('forecastLegendText',aiForecast?(adaptiveAnalysis?'خط زرد: مدل آماری تطبیقی با آزمون تاریخی':freeAnalysis?'خط زرد: روند آماری با پوشش خبرهای تازه':'خط زرد: ترکیب روند و تحلیل خبرهای زنده با هوش مصنوعی'):'خط زرد: برآورد آماری ۷روزه');
+ setText('chartNoteText',aiForecast?(adaptiveAnalysis?'سایهٔ زرد محدودهٔ عدم‌قطعیت مدل آماری تطبیقی است؛ خبرها در مقدار پیش‌بینی دخالت داده نشده‌اند و مدل فقط در صورت عبور از آزمون تاریخی خروجی می‌دهد.':freeAnalysis?'سایهٔ زرد محدودهٔ برآورد آماری است؛ خبرها فقط گردآوری و دسته‌بندی شده‌اند و تحلیل زبانی انجام نشده است.':'سایهٔ زرد محدودهٔ برآورد مدل خبری و آماری است؛ منابع و تاریخ انتشار در گزارش هوشمند آمده‌اند. این پیش‌بینی تضمین قیمت نیست.'):'سایهٔ زرد محدودهٔ عدم‌قطعیت برآورد آماری است؛ خبرهای تازه هنوز به نمودار متصل نشده‌اند.');
  const forecastColor='#f2cc4d';
  const allForScale=vals.concat(projected.flatMap(p=>[p.lo,p.hi,p.value]));
  const min=Math.min(...allForScale),max=Math.max(...allForScale),span=Math.max(1,max-min),lo=Math.max(0,min-span*.08),hi=max+span*.08;
@@ -183,12 +183,12 @@ function drawHistoryChart(){
   setText('scenarioTitle',down?'سناریوی غالب: احتمال کاهش':'سناریوی غالب: احتمال رشد');
   setText('scenarioPill',down?'روند نزولی':'روند صعودی');
   const pill=$('scenarioPill');if(pill){pill.classList.remove('neutral','up','down');pill.classList.add(down?'down':'up')}
-  setText('scenarioSummary',aiForecast?(freeAnalysis?'سناریو از روند آماری تاریخچه ساخته شده و خبرهای تازه فقط به‌صورت موضوعی دسته‌بندی شده‌اند؛ این حالت از مدل زبانی استفاده نمی‌کند.':'برآورد ۷روزه با ترکیب تحلیل هوش مصنوعی، خبرهای وب و روند آماری ساخته شده است. جهت نمودار سناریو است، نه تضمین قیمت.'):'برآورد آماری تاریخچه برای ۷ روز آینده '+(down?'تمایل نزولی':'تمایل صعودی')+' نشان می‌دهد.');
+  setText('scenarioSummary',aiForecast?(adaptiveAnalysis?'سناریو از ترکیب drift، trend، momentum و mean-reversion با وزن‌دهی مبتنی بر آزمون walk-forward ساخته شده است؛ خبرها در مقدار پیش‌بینی دخالت داده نشده‌اند.':freeAnalysis?'سناریو از روند آماری تاریخچه ساخته شده و خبرهای تازه فقط به‌صورت موضوعی دسته‌بندی شده‌اند؛ این حالت از مدل زبانی استفاده نمی‌کند.':'برآورد ۷روزه با ترکیب تحلیل هوش مصنوعی، خبرهای وب و روند آماری ساخته شده است. جهت نمودار سناریو است، نه تضمین قیمت.'):'برآورد آماری تاریخچه برای ۷ روز آینده '+(down?'تمایل نزولی':'تمایل صعودی')+' نشان می‌دهد.');
   setText('scenarioTarget',toman(pred.value));
   setText('scenarioChange',(p>0?'+':'')+number(p,2)+'٪');
   if(scenarioChange){scenarioChange.classList.remove('up','down');scenarioChange.classList.add(down?'down':'up')}
   setText('scenarioRange',toman(pred.lo)+' تا '+toman(pred.hi));
-  setText('scenarioMethod',aiForecast?(freeAnalysis?'مبنا: قیمت تازه، تاریخچهٔ آماری و تیترهای RSS دسته‌بندی‌شده؛ اثر خبری به‌صورت خودکار تعیین نشده است.':'مبنا: قیمت تازه، تاریخچه، جست‌وجوی زنده وب و منابع لینک‌شده. بازه عدم‌قطعیت تقریبی است و دقت آینده باید با نتایج واقعی سنجیده شود.'):'مبنا: روند آماری تاریخچه؛ خبرهای تازه هنوز در این سناریو دخالت ندارند.');
+  setText('scenarioMethod',aiForecast?(adaptiveAnalysis?'مبنا: تاریخچهٔ قیمت، اعتبارسنجی walk-forward و خطای واقعی مدل‌ها؛ پوشش خبرها جداگانه است و در پیش‌بینی عددی وارد نشده است.':freeAnalysis?'مبنا: قیمت تازه، تاریخچهٔ آماری و تیترهای RSS دسته‌بندی‌شده؛ اثر خبری به‌صورت خودکار تعیین نشده است.':'مبنا: قیمت تازه، تاریخچه، جست‌وجوی زنده وب و منابع لینک‌شده. بازه عدم‌قطعیت تقریبی است و دقت آینده باید با نتایج واقعی سنجیده شود.'):'مبنا: روند آماری تاریخچه؛ خبرهای تازه هنوز در این سناریو دخالت ندارند.');
   const dot=document.querySelector('.scenario-dot');if(dot){dot.classList.remove('up','down');dot.classList.add(down?'down':'up')}
  }else{
   setText('forecastValue','—');setText('forecastRange','برای نمایش پیش‌بینی، تاریخچه لازم است.');
@@ -198,7 +198,7 @@ function drawHistoryChart(){
   setText('scenarioTarget','—');setText('scenarioChange','—');setText('scenarioRange','—');
   setText('scenarioMethod','سناریو تا زمان دریافت داده معتبر نمایش داده نمی‌شود.');
  }
- setText('historyStatus',aiForecast?(freeAnalysis?'تحلیل رایگان آماری + خبرخوان · '+(aiData.generated_at||'برآورد ۷روزه'):'تحلیل هوش مصنوعی + روند آماری · '+(aiData.generated_at||'برآورد ۷روزه')):quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
+ setText('historyStatus',aiForecast?(adaptiveAnalysis?'مدل تطبیقی اعتبارسنجی‌شده · '+(aiData.generated_at||'برآورد ۷روزه'):freeAnalysis?'تحلیل رایگان آماری + خبرخوان · '+(aiData.generated_at||'برآورد ۷روزه'):'تحلیل هوش مصنوعی + روند آماری · '+(aiData.generated_at||'برآورد ۷روزه')):quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
 }
 
 let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
