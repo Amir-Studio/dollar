@@ -33,7 +33,7 @@ jobs:
           curl --fail-with-body --silent --show-error \
             --max-time 100 \
             --request POST \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             --header "Content-Type: application/json" \
             --data '{}' \
             "https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-refresh"
