@@ -421,7 +421,7 @@ async function syncNewsToSupabase(env) {
   return { enabled:true, refreshed:true, items };
 }
 
-async function refreshBackground(env) {
+export async function refreshBackground(env) {
   const market = await getJson(env.MARKET_DATA_URL || MARKET_URL);
   const persistence = await persistQuotesToSupabase(env, market);
   if (persistence.enabled) console.log("Supabase market quote sync completed:", persistence.saved);
