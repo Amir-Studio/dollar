@@ -2,13 +2,16 @@
 const $=id=>document.getElementById(id);
 const endpointInput=$('aiEndpoint'),runBtn=$('runAiBtn'),output=$('aiOutput'),pill=$('aiStatusPill');
 const STORAGE_KEY='dollar_ai_worker_endpoint_v1';
+const DEFAULT_ENDPOINT='https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api';
+if(endpointInput){endpointInput.value=DEFAULT_ENDPOINT;endpointInput.readOnly=true}
+$('saveAiEndpoint')?.setAttribute('hidden','');
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toman=n=>Number.isFinite(Number(n))?new Intl.NumberFormat('fa-IR',{maximumFractionDigits:0}).format(Number(n))+' تومان':'—';
 function setStatus(t){if(pill)pill.textContent=t}
-function endpoint(){try{return localStorage.getItem(STORAGE_KEY)||''}catch{return ''}}
+function endpoint(){return DEFAULT_ENDPOINT}
 function validUrl(s){try{const u=new URL(s);return u.protocol==='https:'&&u.hostname.endsWith('.workers.dev')||u.protocol==='https:'&&u.hostname.includes('.')}catch{return false}}
 function saveEndpoint(){const v=(endpointInput?.value||'').trim().replace(/\/$/,'');if(!v){setStatus('آدرس تنظیم نشده');return}if(!validUrl(v)){setStatus('آدرس HTTPS معتبر وارد کن');return}try{localStorage.setItem(STORAGE_KEY,v);window.dispatchEvent(new CustomEvent('dollar-ai-endpoint-updated'));setStatus('آدرس ذخیره شد');if(output)output.innerHTML='<strong>اتصال ذخیره شد.</strong><p>اکنون می‌توانی گزارش هوشمند را اجرا کنی. اگر سرویس هنوز مستقر نشده باشد، خطای اتصال نشان داده می‌شود.</p>'}catch{setStatus('ذخیره‌سازی در دسترس نیست')}}
-function showError(message){output.innerHTML='<span class="ai-error">گزارش آماده نشد</span><p>'+escapeHtml(message)+'</p><p>آدرس Worker و وضعیت سرویس را بررسی کن. کلید API را داخل سایت وارد نکن.</p>'}
+function showError(message){output.innerHTML='<span class="ai-error">گزارش آماده نشد</span><p>'+escapeHtml(message)+'</p><p>اتصال Supabase و وضعیت سرویس را بررسی کن. کلید API را داخل سایت وارد نکن.</p>'}
 function render(data){
  const f=data.forecast||{};
  if(f.model_version==='iran-ensemble-wf-1.0'){
@@ -55,7 +58,7 @@ function render(data){
  output.innerHTML=html;setStatus(freeMode?'تحلیل رایگان آماده شد · بدون مدل مولد':(sources.length>=2?'گزارش هوش مصنوعی آماده شد · منابع پیوست شد':'گزارش آماده شد · منابع محدود'));
 }
 async function run(){
- const base=endpoint();if(!base){setStatus('نیازمند اتصال');output.innerHTML='<strong>سرویس هوش مصنوعی هنوز به این سایت متصل نشده.</strong><p>در بخش «تنظیم اتصال تحلیلگر»، آدرس Worker مستقرشده را وارد و ذخیره کن. برای امنیت، کلید API فقط باید در Secretهای Cloudflare باشد.</p>';document.querySelector('.ai-setup details')?.setAttribute('open','');return}
+ const base=endpoint();if(!base){setStatus('نیازمند اتصال');output.innerHTML='<strong>سرویس هوش مصنوعی هنوز به این سایت متصل نشده.</strong><p>در بخش «تنظیم اتصال تحلیلگر»، اتصال Supabase به‌صورت خودکار تنظیم شده است. برای امنیت، کلید API فقط باید در Secretهای Cloudflare باشد.</p>';document.querySelector('.ai-setup details')?.setAttribute('open','');return}
  const asset=$('aiAsset')?.value||'USD_IRR_FREE';const horizon=$('aiHorizon')?.value||'7';runBtn.disabled=true;runBtn.innerHTML='<span class="ai-spark">✳</span> در حال آزمون مدل و داده‌ها…';setStatus('در حال بررسی');output.innerHTML='<strong>در حال ارزیابی بازار…</strong><p>قیمت و تاریخچه بررسی می‌شود؛ سپس مدل‌های آماری با آزمون walk-forward و معیارهای خطا سنجیده می‌شوند. اگر شواهد کافی نباشد، پیش‌بینی منتشر نمی‌شود.</p>';
  try{const healthRes=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});const health=await healthRes.json();if(!healthRes.ok||!health.ok)throw new Error('سرویس تحلیل در دسترس نیست.');const adaptive=Array.isArray(health.capabilities)&&health.capabilities.includes('adaptive-ensemble-forecast')&&health.forecast_ledger_enabled===true;const route=adaptive?'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon):'/analysis?asset='+encodeURIComponent(asset);const res=await fetch(base.replace(/\/$/,'')+route,{headers:{accept:'application/json'},cache:'no-store'});const data=await res.json();if(!res.ok)throw new Error(data.error||'سرویس پاسخ موفق نداد ('+res.status+')');render(data)}
  catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای اتصال')}
@@ -68,7 +71,7 @@ async function checkHealth(){
   const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error('health check failed');
-  if(data.free_forecast_enabled){if(!data.database_configured){setStatus('تحلیل رایگان آماده · پایگاه داده متصل نیست');return}if(data.database_schema_ready!==true){setStatus('تحلیل رایگان آماده · طرح پایگاه داده ناقص است');return}setStatus(data.background_refresh_prerequisites_ready?'پیش‌بینی تطبیقی · پایگاه داده و KV آماده':'پیش‌بینی تطبیقی · KV هنوز متصل نیست');return}
+  if(data.free_forecast_enabled){if(!data.database_configured){setStatus('تحلیل رایگان آماده · پایگاه داده متصل نیست');return}if(data.database_schema_ready!==true){setStatus('تحلیل رایگان آماده · طرح پایگاه داده ناقص است');return}setStatus(data.background_refresh_prerequisites_ready?'پیش‌بینی تطبیقی · پایگاه داده و زمان‌بندی Supabase آماده':'پیش‌بینی تطبیقی · زمان‌بندی Supabase هنوز آماده نیست');return}
   setStatus('سرویس تحلیل در دسترس نیست');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
