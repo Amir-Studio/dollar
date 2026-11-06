@@ -67,51 +67,46 @@ function candidates(points,h) {
   return {raw,dailyVol};
 }
 function backtest(points,h) {
-  const start=Math.max(18,points.length-100), errors={drift:[],trend:[],momentum:[],reversion:[]}, base=[], actualReturns=[];
+  const start=Math.max(18,points.length-100), records=[];
   for(let i=start;i<points.length-1;i++){
     const origin=points[i], targetTime=origin.t+h*DAY;
     let j=i+1; while(j<points.length&&points[j].t<targetTime) j++;
     if(j>=points.length) continue;
     const actual=Math.log(points[j].p/origin.p);
     const pred=candidates(points.slice(0,i+1),h).raw;
-    for(const k of Object.keys(errors)) errors[k].push(Math.abs((Math.exp(pred[k])-Math.exp(actual))*100));
-    base.push(Math.abs((Math.exp(0)-Math.exp(actual))*100));
+    records.push({actual,pred,baselineError:Math.abs((1-Math.exp(actual))*100)});
   }
-  const n=base.length;
+  const n=records.length;
   if(n<10) return {eligible:false,samples:n,reason:"برای اعتبارسنجی خارج از نمونه، تاریخچه کافی نیست."};
-  const mae={}; for(const k of Object.keys(errors)) mae[k]=errors[k].reduce((s,v)=>s+v,0)/n;
-  const inv=Object.fromEntries(Object.keys(mae).map(k=>[k,1/Math.max(0.03,mae[k])**2]));
-  const total=Object.values(inv).reduce((a,b)=>a+b,0), weights=Object.fromEntries(Object.keys(inv).map(k=>[k,inv[k]/total]));
-  const ensembleErrors=[];
+  const keys=["drift","trend","momentum","reversion"];
+  const candidateMae=Object.fromEntries(keys.map(k=>[k,records.reduce((s,r)=>s+Math.abs((Math.exp(r.pred[k])-Math.exp(r.actual))*100),0)/n]));
+  const weightsFor=sample=>{
+    const errors=Object.fromEntries(keys.map(k=>[k,sample.reduce((s,r)=>s+Math.abs((Math.exp(r.pred[k])-Math.exp(r.actual))*100),0)/Math.max(1,sample.length)]));
+    const inv=Object.fromEntries(keys.map(k=>[k,1/Math.max(0.03,errors[k])**2]));
+    const total=Object.values(inv).reduce((a,b)=>a+b,0);
+    return Object.fromEntries(keys.map(k=>[k,inv[k]/total]));
+  };
+  const ensembleErrors=[], baselineErrors=records.map(r=>r.baselineError);
+  let hits=0,directionalN=0;
   for(let i=0;i<n;i++){
-    const originIndex=start+i;
-    const origin=points[originIndex], targetTime=origin.t+h*DAY;
-    let j=originIndex+1; while(j<points.length&&points[j].t<targetTime) j++;
-    if(j>=points.length) continue;
-    const actual=Math.log(points[j].p/origin.p);
-    const pred=candidates(points.slice(0,originIndex+1),h).raw;
-    const blend=Object.keys(weights).reduce((s,k)=>s+weights[k]*pred[k],0);
+    // Strict walk-forward: weights use only outcomes that were already known before this origin.
+    const prior=records.slice(0,i);
+    const weights=prior.length>=8?weightsFor(prior):Object.fromEntries(keys.map(k=>[k,1/keys.length]));
+    const blend=keys.reduce((s,k)=>s+weights[k]*records[i].pred[k],0);
+    const actual=records[i].actual;
     ensembleErrors.push(Math.abs((Math.exp(blend)-Math.exp(actual))*100));
+    const actualPct=Math.exp(actual)-1, forecastPct=Math.exp(blend)-1;
+    if(Math.abs(actualPct)>0.001){directionalN++;if(Math.sign(actualPct)===Math.sign(forecastPct))hits++;}
   }
-  const ensembleMae=ensembleErrors.reduce((s,v)=>s+v,0)/Math.max(1,ensembleErrors.length);
-  const baselineMae=base.reduce((s,v)=>s+v,0)/n;
-  let hits=0, directionalN=0, walk=0;
-  for(let i=start;i<points.length-1;i++){
-    const origin=points[i], targetTime=origin.t+h*DAY;
-    let j=i+1; while(j<points.length&&points[j].t<targetTime) j++;
-    if(j>=points.length) continue;
-    const raw=candidates(points.slice(0,i+1),h).raw;
-    const blend=Object.keys(weights).reduce((s,k)=>s+weights[k]*raw[k],0);
-    const a=points[j].p/origin.p-1, f=Math.exp(blend)-1;
-    if(Math.abs(a)>0.001){directionalN++; if(Math.sign(a)===Math.sign(f)) hits++;}
-    walk++;
-  }
+  const ensembleMae=ensembleErrors.reduce((s,v)=>s+v,0)/n;
+  const baselineMae=baselineErrors.reduce((s,v)=>s+v,0)/n;
+  const liveWeights=weightsFor(records);
   const beatsNaive=ensembleMae<baselineMae*0.98;
   return {eligible:beatsNaive,samples:n,mae_pct:Number(ensembleMae.toFixed(4)),naive_mae_pct:Number(baselineMae.toFixed(4)),
     directional_accuracy_pct:directionalN?Number((hits/directionalN*100).toFixed(1)):null,directional_samples:directionalN,
-    candidate_mae_pct:Object.fromEntries(Object.entries(mae).map(([k,v])=>[k,Number(v.toFixed(4))])),
-    weights,range_error_p80_pct:Number((quantile(ensembleErrors,0.8)??0).toFixed(4)),
-    reason:beatsNaive?null:"در آزمون تاریخی، مدل هنوز از پیش‌بینی سادهٔ بدون تغییر بهتر نیست."};
+    candidate_mae_pct:Object.fromEntries(Object.entries(candidateMae).map(([k,v])=>[k,Number(v.toFixed(4))])),
+    weights:liveWeights,range_error_p80_pct:Number((quantile(ensembleErrors,0.8)??0).toFixed(4)),
+    reason:beatsNaive?null:"در آزمون walk-forward، مدل هنوز از پیش‌بینی سادهٔ بدون تغییر بهتر نیست."};
 }
 export function buildForecast(points,price,horizon) {
   const min={1:25,3:35,7:45}[horizon]||45;
