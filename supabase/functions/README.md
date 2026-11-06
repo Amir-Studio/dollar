@@ -5,7 +5,7 @@ This migration keeps the existing database and reuses the current market and for
 ## Functions
 
 - `market-api`: public read-only API used by the GitHub Pages frontend.
-- `market-refresh`: scheduled writer. It requires the exact service-role bearer token and writes quotes, RSS headlines and forecast runs.
+- `market-refresh`: scheduled writer. It requires the exact service-role key in the `apikey` header and writes quotes, RSS headlines and forecast runs.
 
 Both functions reuse the existing code in `worker/`; no forecast algorithm or existing database table is replaced.
 
