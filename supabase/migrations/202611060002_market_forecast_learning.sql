@@ -9,6 +9,8 @@ create table if not exists public.market_forecast_runs (
   issued_at timestamptz not null,
   target_at timestamptz not null,
   reference_price numeric(24,8) not null check (reference_price > 0),
+  quote_source text not null,
+  quote_observed_at timestamptz not null,
   predicted_price numeric(24,8) not null check (predicted_price > 0),
   predicted_change_pct numeric(12,6) not null,
   lower_price numeric(24,8) not null check (lower_price > 0),
