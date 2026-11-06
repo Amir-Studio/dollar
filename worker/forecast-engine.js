@@ -6,11 +6,11 @@ const HORIZONS = [1,3,7];
 const DAY = 86400000;
 
 const num = v => {
-  const x = Number(String(v ?? "").replace(/[٬,\\s]/g,"").replace(/٫/g,"."));
+  const x = Number(String(v ?? "").replace(/[٬,\s]/g,"").replace(/٫/g,"."));
   return Number.isFinite(x) ? x : NaN;
 };
 const dateMs = v => {
-  if (typeof v === "number" || /^\\d{10,13}$/.test(String(v ?? ""))) {
+  if (typeof v === "number" || /^\d{10,13}$/.test(String(v ?? ""))) {
     const s=String(v), x=Number(v); return s.length===10 ? x*1000 : x;
   }
   return Date.parse(String(v ?? ""));
@@ -131,12 +131,12 @@ export function buildForecast(points,price,horizon) {
     uncertainty_pct:band*100};
 }
 function headers(env,extra={}) {
-  const key=env.SUPABASE_SERVICE_ROLE_KEY, base=String(env.SUPABASE_URL||"").replace(/\\/+$/,"");
+  const key=env.SUPABASE_SERVICE_ROLE_KEY, base=String(env.SUPABASE_URL||"").replace(/\/+$/,"");
   if(!key||!base) throw Error("Supabase service credentials are not configured");
   return {apikey:key,authorization:"Bearer "+key,"content-type":"application/json",...extra};
 }
 async function db(env,path,options={}) {
-  const base=String(env.SUPABASE_URL||"").replace(/\\/+$/,"");
+  const base=String(env.SUPABASE_URL||"").replace(/\/+$/,"");
   const r=await fetch(base+"/rest/v1/"+path,{...options,headers:headers(env,options.headers),signal:AbortSignal.timeout(15000)});
   if(!r.ok) throw Error("Forecast database HTTP "+r.status+": "+(await r.text()).slice(0,240));
   if(r.status===204) return null;
