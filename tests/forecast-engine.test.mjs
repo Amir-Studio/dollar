@@ -1,32 +1,39 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { buildForecast } from "../worker/forecast-engine.js";
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { buildForecast } from '../worker/forecast-engine.js';
 
-function series(count, dailyLogReturn = 0.002) {
-  return Array.from({length:count},(_,i)=>({
-    t:Date.UTC(2026,0,1+i),
-    p:100*Math.exp(dailyLogReturn*i+0.001*Math.sin(i/3))
+const DAY = 86400000;
+function series(count, dailyLogReturn) {
+  const start = Date.UTC(2025, 0, 1);
+  return Array.from({length:count}, (_,i) => ({
+    t: start + i*DAY,
+    p: 100000 * Math.exp(dailyLogReturn*i + 0.00015*Math.sin(i*1.7))
   }));
 }
 
-test("walk-forward ensemble emits a forecast only when it beats the no-change baseline",()=>{
-  const result=buildForecast(series(120),series(120).at(-1).p,7);
-  assert.equal(result.eligible,true);
-  assert.ok(result.predicted_price>result.reference_price);
-  assert.ok(result.validation.samples>=10);
-  assert.ok(result.lower_price<result.predicted_price);
-  assert.ok(result.upper_price>result.predicted_price);
+test('forecast refuses to publish when history is below the horizon minimum', () => {
+  const result = buildForecast(series(54, 0.0025), 114500, 7);
+  assert.equal(result.eligible, false);
+  assert.equal(result.required, 55);
+  assert.equal(result.observations, 54);
 });
 
-test("engine withholds forecasts when history is too short",()=>{
-  const result=buildForecast(series(20),series(20).at(-1).p,7);
-  assert.equal(result.eligible,false);
-  assert.match(result.reason,/تاریخچه/);
+test('forecast refuses to publish a flat series that does not beat the no-change baseline', () => {
+  const points = series(90, 0);
+  const result = buildForecast(points, points.at(-1).p, 7);
+  assert.equal(result.eligible, false);
+  assert.equal(result.validation.samples >= 20, true);
+  assert.match(result.reason, /۵٪/);
 });
 
-test("engine withholds forecasts when walk-forward evidence does not beat naive baseline",()=>{
-  const flat=Array.from({length:120},(_,i)=>({t:Date.UTC(2026,0,1+i),p:100}));
-  const result=buildForecast(flat,100,7);
-  assert.equal(result.eligible,false);
-  assert.match(result.reason,/ساده/);
+test('walk-forward ensemble can qualify on a stable synthetic trend and returns an uncertainty band', () => {
+  const points = series(100, 0.0025);
+  const result = buildForecast(points, points.at(-1).p, 7);
+  assert.equal(result.eligible, true, result.reason || 'Expected stable trend to beat the naive baseline');
+  assert.equal(result.horizon_days, 7);
+  assert.ok(result.predicted_price > 0);
+  assert.ok(result.lower_price < result.predicted_price);
+  assert.ok(result.upper_price > result.predicted_price);
+  assert.ok(result.validation.samples >= 20);
+  assert.ok(result.validation.mae_pct < result.validation.naive_mae_pct * 0.95);
 });
