@@ -74,12 +74,12 @@ function backtest(points,h) {
     if(j>=points.length) continue;
     const actual=Math.log(points[j].p/origin.p);
     const pred=candidates(points.slice(0,i+1),h).raw;
-    records.push({actual,pred,baselineError:Math.abs((1-Math.exp(actual))*100)});
+    records.push({actual,pred,baselineError:Math.abs((1/Math.exp(actual)-1)*100)});
   }
   const n=records.length;
-  if(n<10) return {eligible:false,samples:n,reason:"برای اعتبارسنجی خارج از نمونه، تاریخچه کافی نیست."};
+  if(n<20) return {eligible:false,samples:n,reason:"حداقل ۲۰ پیش‌بینی تاریخی خارج از نمونه لازم است؛ فعلاً انتشار متوقف شد."};
   const keys=["drift","trend","momentum","reversion"];
-  const candidateMae=Object.fromEntries(keys.map(k=>[k,records.reduce((s,r)=>s+Math.abs((Math.exp(r.pred[k])-Math.exp(r.actual))*100),0)/n]));
+  const candidateMae=Object.fromEntries(keys.map(k=>[k,records.reduce((s,r)=>s+Math.abs((Math.exp(r.pred[k])/Math.exp(r.actual)-1)*100),0)/n]));
   const weightsFor=sample=>{
     const errors=Object.fromEntries(keys.map(k=>[k,sample.reduce((s,r)=>s+Math.abs((Math.exp(r.pred[k])-Math.exp(r.actual))*100),0)/Math.max(1,sample.length)]));
     const inv=Object.fromEntries(keys.map(k=>[k,1/Math.max(0.03,errors[k])**2]));
@@ -91,25 +91,25 @@ function backtest(points,h) {
   for(let i=0;i<n;i++){
     // Strict walk-forward: weights use only outcomes that were already known before this origin.
     const prior=records.slice(0,i);
-    const weights=prior.length>=8?weightsFor(prior):Object.fromEntries(keys.map(k=>[k,1/keys.length]));
+    const weights=prior.length>=12?weightsFor(prior):Object.fromEntries(keys.map(k=>[k,1/keys.length]));
     const blend=keys.reduce((s,k)=>s+weights[k]*records[i].pred[k],0);
     const actual=records[i].actual;
-    ensembleErrors.push(Math.abs((Math.exp(blend)-Math.exp(actual))*100));
+    ensembleErrors.push(Math.abs((Math.exp(blend)/Math.exp(actual)-1)*100));
     const actualPct=Math.exp(actual)-1, forecastPct=Math.exp(blend)-1;
     if(Math.abs(actualPct)>0.001){directionalN++;if(Math.sign(actualPct)===Math.sign(forecastPct))hits++;}
   }
   const ensembleMae=ensembleErrors.reduce((s,v)=>s+v,0)/n;
   const baselineMae=baselineErrors.reduce((s,v)=>s+v,0)/n;
   const liveWeights=weightsFor(records);
-  const beatsNaive=ensembleMae<baselineMae*0.98;
+  const beatsNaive=ensembleMae<baselineMae*0.95;
   return {eligible:beatsNaive,samples:n,mae_pct:Number(ensembleMae.toFixed(4)),naive_mae_pct:Number(baselineMae.toFixed(4)),
     directional_accuracy_pct:directionalN?Number((hits/directionalN*100).toFixed(1)):null,directional_samples:directionalN,
     candidate_mae_pct:Object.fromEntries(Object.entries(candidateMae).map(([k,v])=>[k,Number(v.toFixed(4))])),
     weights:liveWeights,range_error_p80_pct:Number((quantile(ensembleErrors,0.8)??0).toFixed(4)),
-    reason:beatsNaive?null:"در آزمون walk-forward، مدل هنوز از پیش‌بینی سادهٔ بدون تغییر بهتر نیست."};
+    reason:beatsNaive?null:"مدل باید در آزمون walk-forward دست‌کم ۵٪ بهتر از پیش‌بینی سادهٔ بدون تغییر باشد؛ در غیر این صورت خروجی منتشر نمی‌شود."};
 }
 export function buildForecast(points,price,horizon) {
-  const min={1:25,3:35,7:45}[horizon]||45;
+  const min={1:32,3:42,7:55}[horizon]||55;
   if(points.length<min) return {eligible:false,reason:"تاریخچه برای این افق کافی نیست.",observations:points.length,required:min};
   const validation=backtest(points,horizon);
   if(!validation.eligible) return {...validation,observations:points.length};
@@ -118,7 +118,7 @@ export function buildForecast(points,price,horizon) {
   const change=Math.exp(logChange)-1;
   const band=Math.max(validation.range_error_p80_pct/100,dailyVol*Math.sqrt(horizon)*1.28,0.003);
   const predicted=price*(1+change), low=price*Math.exp(logChange-band), high=price*Math.exp(logChange+band);
-  const confidence=validation.samples>=40&&validation.mae_pct<validation.naive_mae_pct*0.8?"higher":validation.samples>=20?"moderate":"low";
+  const confidence=validation.samples>=60&&validation.mae_pct<validation.naive_mae_pct*0.75?"higher":validation.samples>=35&&validation.mae_pct<validation.naive_mae_pct*0.9?"moderate":"low";
   return {eligible:true,model_version:MODEL_VERSION,horizon_days:horizon,reference_price:price,predicted_price:predicted,
     predicted_change_pct:change*100,lower_price:low,upper_price:high,
     direction:change>0.001?"up":change< -0.001?"down":"sideways",
@@ -152,7 +152,7 @@ async function issueForecast(env,asset,horizon,input) {
   const result=buildForecast(input.points,input.price,horizon);
   if(!result.eligible) return {asset,horizon_days:horizon,model_version:MODEL_VERSION,status:"withheld",reason:result.reason,validation:result,observations:input.points.length};
   const payload={asset,horizon_days:horizon,model_version:MODEL_VERSION,issued_at:issuedAt,target_at:targetAt,
-    reference_price:input.price,quote_source:"Iran Market Data / "+input.source,quote_observed_at:new Date(input.stamp).toISOString(),predicted_price:result.predicted_price,predicted_change_pct:result.predicted_change_pct,
+    status:"pending",reference_price:input.price,quote_source:"Iran Market Data / "+input.source,quote_observed_at:new Date(input.stamp).toISOString(),predicted_price:result.predicted_price,predicted_change_pct:result.predicted_change_pct,
     lower_price:result.lower_price,upper_price:result.upper_price,direction:result.direction,
     model_weights:result.model_weights,validation:result.validation,input_fingerprint:input.stamp+":"+input.points.length+":"+input.points[input.points.length-1].t};
   const recent=await db(env,"market_forecast_runs?select=id&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&issued_at=gte."+encodeURIComponent(new Date(Date.now()-6*3600000).toISOString())+"&limit=1");
