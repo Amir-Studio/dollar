@@ -152,7 +152,7 @@ async function issueForecast(env,asset,horizon,input) {
   const result=buildForecast(input.points,input.price,horizon);
   if(!result.eligible) return {asset,horizon_days:horizon,model_version:MODEL_VERSION,status:"withheld",reason:result.reason,validation:result,observations:input.points.length};
   const payload={asset,horizon_days:horizon,model_version:MODEL_VERSION,issued_at:issuedAt,target_at:targetAt,
-    reference_price:input.price,predicted_price:result.predicted_price,predicted_change_pct:result.predicted_change_pct,
+    reference_price:input.price,quote_source:"Iran Market Data / "+input.source,quote_observed_at:new Date(input.stamp).toISOString(),predicted_price:result.predicted_price,predicted_change_pct:result.predicted_change_pct,
     lower_price:result.lower_price,upper_price:result.upper_price,direction:result.direction,
     model_weights:result.model_weights,validation:result.validation,input_fingerprint:input.stamp+":"+input.points.length+":"+input.points[input.points.length-1].t};
   const recent=await db(env,"market_forecast_runs?select=id&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&issued_at=gte."+encodeURIComponent(new Date(Date.now()-6*3600000).toISOString())+"&limit=1");
@@ -222,7 +222,7 @@ export async function handleForecastApi(url,env) {
     }
     if(url.pathname==="/forecast/history"){
       const horizon=Math.max(1,Math.min(7,Number(url.searchParams.get("horizon_days")||7)));
-      const data=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,issued_at,target_at,reference_price,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation&asset=eq."+asset+"&horizon_days=eq."+horizon+"&order=issued_at.desc&limit=30");
+      const data=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation&asset=eq."+asset+"&horizon_days=eq."+horizon+"&order=issued_at.desc&limit=30");
       return Response.json({asset,horizon_days:horizon,forecasts:data||[]},{headers:{"cache-control":"no-store"}});
     }
     const horizon=Number(url.searchParams.get("horizon_days")||7);
