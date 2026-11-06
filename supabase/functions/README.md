@@ -11,7 +11,7 @@ Both functions reuse the existing code in `worker/`; no forecast algorithm or ex
 
 ## Deploy
 
-From the repository root, link the existing project and deploy with the Supabase CLI:
+The workflow `.github/workflows/deploy-supabase.yml` deploys both functions after changes to the backend are merged to `main`. Add a GitHub Actions secret named `SUPABASE_ACCESS_TOKEN` (created in Supabase account settings). You can also deploy manually from the repository root:
 
 ```sh
 npx supabase@latest link --project-ref oolfbjxclhzlbwjmzxxx
@@ -19,7 +19,7 @@ npx supabase@latest functions deploy market-api --use-api
 npx supabase@latest functions deploy market-refresh --use-api
 ```
 
-The Edge Functions runtime supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Do not add the service-role key to frontend files, repository files, or committed workflow YAML.
+The Edge Functions runtime supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Do not add the service-role key to frontend files, repository files, or committed workflow YAML. Add the existing service-role key only as a GitHub Actions secret named `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Schedule
 
