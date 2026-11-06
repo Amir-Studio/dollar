@@ -66,7 +66,9 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /quote_persistence_enabled:Boolean/);
   assert.ok(wrangler.includes('crons = ["*/5 * * * *"]'));
   assert.match(worker, /readFreshCache\(env,"market:latest"/);
-  assert.match(aiJs, /health.configured\?\'/);
+  assert.match(aiJs, /health.forecast_ledger_enabled===true/);
+  assert.match(aiJs, /\/analysis\?asset=/);
+  assert.doesNotMatch(aiJs, /health.configured\?'/, 'the browser must never select the paid legacy route');
   assert.match(aiJs, /FREE MARKET ANALYSIS/);
   assert.match(js, /freeAnalysis/);
 });
