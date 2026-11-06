@@ -115,16 +115,19 @@ async function readNews(query, locale = "fa") {
   });
   if (!response.ok) throw Error("News feed HTTP " + response.status);
   const xml = await response.text(), items = [];
-  for (const match of xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)) {
+  const rawItems = [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)];
+  let invalidItems = 0, outsideWindow = 0;
+  for (const match of rawItems) {
     const block = match[1], title = rssTag(block,"title"), link = rssTag(block,"link");
     const published = Date.parse(rssTag(block,"pubDate"));
     const sourceMatch = block.match(/<source(?:\s[^>]*)?>([\s\S]*?)<\/source>/i);
     let domain = "";
     try { domain = new URL(link).hostname.replace(/^www\./,""); } catch {}
-    if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) continue;
-    if (published > Date.now() + 5*60*1000 || Date.now() - published > 72*60*60*1000) continue;
+    if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) { invalidItems++; continue; }
+    if (published > Date.now() + 5*60*1000 || Date.now() - published > 72*60*60*1000) { outsideWindow++; continue; }
     items.push({ title, url: link, domain: xmlText(sourceMatch?.[1] || domain), published_at: new Date(published).toISOString(), published_ms: published });
   }
+  console.log("News RSS feed parsed:", locale, "http", response.status, "raw", rawItems.length, "accepted", items.length, "invalid", invalidItems, "outside_72h", outsideWindow);
   return items;
 }
 async function collectNews() {
@@ -136,15 +139,22 @@ async function collectNews() {
   ];
   const results = await Promise.allSettled(queries.map(([q,locale]) => readNews(q,locale)));
   const seen = new Set(), items = [];
-  for (const result of results) {
-    if (result.status !== "fulfilled") continue;
+  results.forEach((result,index) => {
+    const locale = queries[index][1];
+    if (result.status !== "fulfilled") {
+      console.error("News RSS feed failed:", locale, String(result.reason?.message || result.reason).slice(0,180));
+      return;
+    }
+    console.log("News RSS query completed:", locale, "items", result.value.length);
     for (const item of result.value) {
       const key = item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
       if (!key || seen.has(key)) continue;
       seen.add(key); delete item.published_ms; items.push(item);
     }
-  }
-  return items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,20);
+  });
+  const sorted = items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,20);
+  console.log("News RSS collection completed:", "feeds", results.filter(x=>x.status==="fulfilled").length, "failed", results.filter(x=>x.status==="rejected").length, "unique", sorted.length);
+  return sorted;
 }
 function newsTopics(items) {
   const groups = [
