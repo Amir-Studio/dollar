@@ -4,9 +4,15 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const ASSETS = {
   USD_IRR_FREE: "دلار آزاد (USD/IRR)",
   EUR_IRR_FREE: "یورو آزاد (EUR/IRR)",
+  GBP_IRR_FREE: "پوند آزاد (GBP/IRR)",
   GOLD_18K_IRR: "طلای ۱۸ عیار",
-  COIN_EMAMI_IRR: "سکه امامی"
+  COIN_EMAMI_IRR: "سکه امامی",
+  USDT_IRR: "تتر به تومان"
 };
+// Only assets whose historical-series endpoint has been verified are enabled for forecasts.
+const ANALYSIS_ASSETS = new Set([
+  "USD_IRR_FREE", "EUR_IRR_FREE", "GOLD_18K_IRR", "COIN_EMAMI_IRR"
+]);
 const H = {
   "content-type": "application/json; charset=utf-8",
   "access-control-allow-origin": ORIGIN,
@@ -160,6 +166,7 @@ function newsTopics(items) {
   }).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
 }
 async function makeFreeAnalysis(env, asset) {
+  if (!ANALYSIS_ASSETS.has(asset)) return reply({error:"تاریخچهٔ معتبر این دارایی هنوز بررسی نشده؛ فقط قیمت آن در کاتالوگ ثبت می‌شود."},424);
   const [cachedMarket, rawHistory, cachedNews] = await Promise.all([
     readFreshCache(env,"market:latest",10*60*1000),
     getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json"),
@@ -193,7 +200,7 @@ async function makeFreeAnalysis(env, asset) {
   risks.push("تیتر خبرها به‌تنهایی جهت اثر بر قیمت را مشخص نمی‌کند؛ اثر واقعی به متن کامل، زمان‌بندی و واکنش بازار بستگی دارد.");
   return reply({
     mode:"free-algorithmic",asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
-    quote:{price,source_time:new Date(stamp).toISOString(),source:"Iran Market Data / TGJU"},
+    quote:{price,source_time:new Date(stamp).toISOString(),source:"Iran Market Data / " + String(item.source || "unknown").toUpperCase()},
     forecast:{horizon_days:7,direction,headline_fa:directionFa,summary_fa:summary,
       expected_change_pct:Number(expected.toFixed(2)),target_price:Math.round(target),
       range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),
@@ -213,6 +220,7 @@ async function makeFreeAnalysis(env, asset) {
 }
 
 async function makeForecast(env, asset) {
+  if (!ANALYSIS_ASSETS.has(asset)) return reply({error:"تاریخچهٔ معتبر این دارایی هنوز بررسی نشده است."},424);
   if (!env.OPENAI_API_KEY) return reply({error:"OPENAI_API_KEY secret is not configured."},503);
   const [market, rawHistory] = await Promise.all([
     getJson(env.MARKET_DATA_URL || MARKET_URL),
@@ -323,7 +331,7 @@ async function persistQuotesToSupabase(env, market) {
     return [{
       asset,
       price,
-      source: "Iran Market Data / TGJU",
+      source: "Iran Market Data / " + String(item.source || "unknown").toUpperCase(),
       observed_at: new Date(stamp).toISOString()
     }];
   });
@@ -376,8 +384,14 @@ export default {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
-    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || "gpt-5.5",free_mode:true,background_refresh_enabled:Boolean(env.MARKET_CACHE),quote_persistence_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),capabilities:["fresh-market-quote","historical-momentum","free-news-rss","topic-classification","seven-day-statistical-scenario","optional-openai-analysis"]},200,{"cache-control":"no-store"});
-    if (url.pathname !== "/forecast" && url.pathname !== "/analysis") return reply({error:"Use /health, /analysis?asset=USD_IRR_FREE or /forecast?asset=USD_IRR_FREE"},404);
+    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || null,free_mode:true,background_refresh_enabled:Boolean(env.MARKET_CACHE),quote_persistence_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),capabilities:["multi-asset-market-quotes","historical-momentum","free-news-rss","topic-classification","seven-day-statistical-scenario"]},200,{"cache-control":"no-store"});
+    if (url.pathname === "/catalog") return reply({
+      currency_and_gold:{tracked_quote_assets:Object.keys(ASSETS).map(symbol=>({symbol,name_fa:ASSETS[symbol],quote_tracking:true,analysis_enabled:ANALYSIS_ASSETS.has(symbol)}))},
+      housing:{status:"planned",frequency:"monthly_or_quarterly",required_dimensions:["province","city","property_type","transaction_or_listing","price_per_sqm","sample_count","source","observed_at"]},
+      vehicles:{status:"planned",frequency:"monthly_or_weekly_when_reliable",required_dimensions:["province","city","make","model","model_year","condition","transaction_or_listing","price","sample_count","source","observed_at"]},
+      note_fa:"قیمت مسکن و خودرو تا زمان تأمین دادهٔ معتبر و قابل‌مقایسه، به‌عنوان قیمت زنده منتشر نمی‌شود."
+    },200,{"cache-control":"no-store"});
+    if (url.pathname !== "/forecast" && url.pathname !== "/analysis") return reply({error:"Use /health, /catalog, /analysis?asset=USD_IRR_FREE or /forecast?asset=USD_IRR_FREE"},404);
     const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
     if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
     try { return url.pathname === "/analysis" ? await makeFreeAnalysis(env,asset) : await makeForecast(env,asset); }
