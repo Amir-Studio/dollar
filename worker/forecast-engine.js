@@ -76,7 +76,6 @@ function backtest(points,h) {
     const pred=candidates(points.slice(0,i+1),h).raw;
     for(const k of Object.keys(errors)) errors[k].push(Math.abs((Math.exp(pred[k])-Math.exp(actual))*100));
     base.push(Math.abs((Math.exp(0)-Math.exp(actual))*100));
-    actualReturns.push(actual);
   }
   const n=base.length;
   if(n<10) return {eligible:false,samples:n,reason:"برای اعتبارسنجی خارج از نمونه، تاریخچه کافی نیست."};
@@ -96,13 +95,6 @@ function backtest(points,h) {
   }
   const ensembleMae=ensembleErrors.reduce((s,v)=>s+v,0)/Math.max(1,ensembleErrors.length);
   const baselineMae=base.reduce((s,v)=>s+v,0)/n;
-  const directionHits=[];
-  for(let i=0;i<actualReturns.length;i++){
-    const sign=x=>x>0.001?1:x< -0.001?-1:0;
-    const pred=Object.keys(weights).reduce((s,k)=>s+weights[k]*0,0);
-    void pred;
-    // Directional hit-rate is computed from the ensemble errors' matching walk-forward predictions below.
-  }
   let hits=0, directionalN=0, walk=0;
   for(let i=start;i<points.length-1;i++){
     const origin=points[i], targetTime=origin.t+h*DAY;
@@ -211,6 +203,23 @@ export async function handleForecastApi(url,env) {
   if(!ASSETS.has(asset)) return Response.json({error:"دارایی برای موتور پیش‌بینی تأیید نشده است."},{status:400});
   if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({error:"پایگاه داده پیش‌بینی پیکربندی نشده است."},{status:503});
   try{
+    if(url.pathname==="/forecast/performance"){
+      const data=await db(env,"market_forecast_runs?select=horizon_days,absolute_error_pct,direction_correct,status,actual_at&asset=eq."+asset+"&status=eq.evaluated&order=actual_at.desc&limit=500");
+      const grouped={};
+      for(const row of data||[]){
+        const key=String(row.horizon_days);
+        (grouped[key] ||= []).push(row);
+      }
+      const metrics=Object.fromEntries(Object.entries(grouped).map(([h,items])=>{
+        const errors=items.map(x=>Number(x.absolute_error_pct)).filter(Number.isFinite);
+        const directional=items.filter(x=>typeof x.direction_correct==="boolean");
+        return [h,{samples:items.length,mean_absolute_error_pct:errors.length?Number((errors.reduce((a,b)=>a+b,0)/errors.length).toFixed(4)):null,
+          directional_accuracy_pct:directional.length?Number((directional.filter(x=>x.direction_correct).length/directional.length*100).toFixed(1)):null,
+          directional_samples:directional.length}];
+      }));
+      return Response.json({asset,model_version:MODEL_VERSION,evaluated_forecasts:(data||[]).length,by_horizon_days:metrics,
+        note_fa:"این معیارها فقط از پیش‌بینی‌های ثبت‌شده و ارزیابی‌شده محاسبه می‌شوند؛ با افزایش نمونه‌ها پایدارتر خواهند شد."},{headers:{"cache-control":"no-store"}});
+    }
     if(url.pathname==="/forecast/history"){
       const horizon=Math.max(1,Math.min(7,Number(url.searchParams.get("horizon_days")||7)));
       const data=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,issued_at,target_at,reference_price,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation&asset=eq."+asset+"&horizon_days=eq."+horizon+"&order=issued_at.desc&limit=30");
