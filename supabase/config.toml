@@ -2,4 +2,4 @@
 verify_jwt = false
 
 [functions.market-refresh]
-verify_jwt = true
+verify_jwt = false
