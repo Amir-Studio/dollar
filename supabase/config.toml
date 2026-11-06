@@ -1,0 +1,2 @@
+[functions.market-api]
+verify_jwt = false
