@@ -145,6 +145,10 @@ async function fetchInputs(env,asset,marketPayload) {
   const history=await json((env.HISTORY_BASE_URL||HISTORY_URL)+encodeURIComponent(asset)+".json");
   const points=rowsFrom(history);
   if(points.length>1&&points[points.length-1].t>Date.now()+300000) throw Error("تاریخچه شامل زمان آینده است.");
+  const latest=points[points.length-1];
+  if(!latest||stamp-latest.t>10*DAY||latest.t>stamp+300000) throw Error("تاریخچهٔ روزانه قدیمی یا ناسازگار با زمان نرخ مرجع است.");
+  const divergence=Math.abs(price/latest.p-1);
+  if(divergence>0.25) throw Error("اختلاف نرخ زنده و آخرین بسته‌شدن تاریخی بیش از ۲۵٪ است؛ احتمال اختلاف واحد یا منبع وجود دارد.");
   return {price,stamp,source:String(item.source||"unknown"),points};
 }
 async function issueForecast(env,asset,horizon,input) {
