@@ -192,8 +192,13 @@ export async function runForecastCycle(env,marketPayload) {
   const issued=[];
   for(const asset of ASSETS){
     try{
+      const since=new Date(Date.now()-6*3600000).toISOString();
+      const recent=await db(env,"market_forecast_runs?select=horizon_days&asset=eq."+asset+"&issued_at=gte."+encodeURIComponent(since)+"&limit=10");
+      const existing=new Set((recent||[]).map(x=>Number(x.horizon_days)));
+      const missing=HORIZONS.filter(h=>!existing.has(h));
+      if(!missing.length) continue;
       const input=await fetchInputs(env,asset,market);
-      for(const horizon of HORIZONS) issued.push(await issueForecast(env,asset,horizon,input));
+      for(const horizon of missing) issued.push(await issueForecast(env,asset,horizon,input));
     }catch(error){console.log("Forecast cycle skipped",asset,error?.message||error);}
   }
   return {enabled:true,issued:issued.length,evaluated:evaluated.length};
