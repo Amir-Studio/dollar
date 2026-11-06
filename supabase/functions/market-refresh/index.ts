@@ -1,4 +1,4 @@
-// Private scheduled refresh endpoint. Requires the exact service-role bearer token.
+// Private scheduled refresh endpoint. Requires the exact service-role key in the apikey header.
 import { refreshBackground } from "../../../worker/index.js";
 import { runForecastCycle } from "../../../worker/forecast-engine.js";
 
@@ -18,7 +18,7 @@ export default {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const apiKey = request.headers.get("apikey") ?? "";
     const authorization = request.headers.get("authorization") ?? "";
-    const suppliedKey = apiKey || authorization.replace(/^Bearer\\s+/i, "");
+    const suppliedKey = apiKey || authorization.replace(/^Bearer\s+/i, "");
     if (!serviceRoleKey || suppliedKey !== serviceRoleKey) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
