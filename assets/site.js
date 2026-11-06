@@ -72,10 +72,24 @@ async function loadAiForecast(symbol){
   const healthResponse=await fetch(endpoint.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
   const health=await healthResponse.json();
   if(!healthResponse.ok||!health.ok)throw Error('analysis service unavailable');
-  const route=health.configured?'/forecast':'/analysis';
-  const response=await fetch(endpoint.replace(/\/$/,'')+route+'?asset='+encodeURIComponent(symbol),{headers:{accept:'application/json'},cache:'no-store'});
-  const data=await response.json();
-  if(!response.ok||!data.forecast||!Number.isFinite(Number(data.forecast.target_price)))throw Error(data.error||'market analysis unavailable');
+  const adaptive=Array.isArray(health.capabilities)&&health.capabilities.includes('adaptive-ensemble-forecast');
+  const route=adaptive?'/forecast/v2?asset='+encodeURIComponent(symbol)+'&horizon_days=7':(health.configured?'/forecast?asset='+encodeURIComponent(symbol):'/analysis?asset='+encodeURIComponent(symbol));
+  const response=await fetch(endpoint.replace(/\/$/,'')+route,{headers:{accept:'application/json'},cache:'no-store'});
+  const payload=await response.json();
+  if(!response.ok)throw Error(payload.error||'market analysis unavailable');
+  let data=payload;
+  if(adaptive){
+   const f=payload.forecast||{};
+   if(f.status==='withheld')throw Error(f.reason||'آزمون تاریخی هنوز شواهد کافی برای انتشار پیش‌بینی ندارد.');
+   if(!Number.isFinite(Number(f.predicted_price)))throw Error('پیش‌بینی معتبر در دسترس نیست.');
+   data={...payload,mode:'adaptive-ensemble',
+    quote:{price:f.reference_price,source_time:f.quote_observed_at},
+    forecast:{target_price:f.predicted_price,range_low:f.lower_price,range_high:f.upper_price,
+     expected_change_pct:f.predicted_change_pct,direction:f.direction,
+     headline_fa:f.direction==='up'?'تمایل آماری صعودی':f.direction==='down'?'تمایل آماری نزولی':'روند آماری کم‌جهت'},
+    note_fa:'پیش‌بینی ترکیبی آماری با آزمون walk-forward؛ خبرها در مقدار پیش‌بینی دخالت داده نشده‌اند.'};
+  }
+  if(!data.forecast||!Number.isFinite(Number(data.forecast.target_price)))throw Error('market analysis unavailable');
   aiForecastCache.set(symbol,{data,fetchedAt:Date.now()});
   if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)drawHistoryChart();
  }catch(error){
