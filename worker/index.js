@@ -356,10 +356,76 @@ async function persistQuotesToSupabase(env, market) {
   return { enabled: true, saved: rows.length };
 }
 
+async function readNewsFromSupabase(env) {
+  const base = String(env.SUPABASE_URL || "").replace(/\\/+$/, "");
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !key) return [];
+  const params = new URLSearchParams({
+    select: "title,url,domain,published_at",
+    published_at: "gte." + new Date(Date.now()-72*60*60*1000).toISOString(),
+    order: "published_at.desc",
+    limit: "30"
+  });
+  const response = await fetch(base + "/rest/v1/market_news_items?" + params.toString(), {
+    headers: { apikey:key, authorization:"Bearer "+key, accept:"application/json" },
+    signal: AbortSignal.timeout(12000)
+  });
+  if (!response.ok) throw Error("Supabase news read HTTP " + response.status);
+  return response.json();
+}
+
+async function syncNewsToSupabase(env) {
+  const base = String(env.SUPABASE_URL || "").replace(/\\/+$/, "");
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !key) return { enabled:false, refreshed:false, items:[] };
+  const headers = { apikey:key, authorization:"Bearer "+key, "content-type":"application/json" };
+  const stateResponse = await fetch(base + "/rest/v1/market_news_sync_state?select=last_fetched_at&id=eq.1&limit=1", {
+    headers, signal:AbortSignal.timeout(12000)
+  });
+  if (!stateResponse.ok) throw Error("Supabase news state HTTP " + stateResponse.status);
+  const stateRows = await stateResponse.json();
+  const lastFetched = Date.parse(stateRows?.[0]?.last_fetched_at || "");
+  if (Number.isFinite(lastFetched) && Date.now()-lastFetched < 15*60*1000) {
+    return { enabled:true, refreshed:false, items:await readNewsFromSupabase(env) };
+  }
+
+  const items = await collectNews();
+  const fetchedAt = new Date().toISOString();
+  if (items.length) {
+    const rows = items.map(item => ({
+      url:item.url, title:item.title, domain:item.domain || "unknown",
+      published_at:item.published_at, fetched_at:fetchedAt
+    }));
+    const response = await fetch(base + "/rest/v1/market_news_items?on_conflict=url", {
+      method:"POST",
+      headers:{ ...headers, prefer:"resolution=merge-duplicates,return=minimal" },
+      body:JSON.stringify(rows), signal:AbortSignal.timeout(15000)
+    });
+    if (!response.ok) throw Error("Supabase news insert HTTP " + response.status + ": " + (await response.text()).slice(0,180));
+  }
+  const stateUpdate = await fetch(base + "/rest/v1/market_news_sync_state?id=eq.1", {
+    method:"PATCH", headers:{ ...headers, prefer:"return=minimal" },
+    body:JSON.stringify({last_fetched_at:fetchedAt}), signal:AbortSignal.timeout(12000)
+  });
+  if (!stateUpdate.ok) throw Error("Supabase news state update HTTP " + stateUpdate.status);
+  return { enabled:true, refreshed:true, items };
+}
+
 async function refreshBackground(env) {
   const market = await getJson(env.MARKET_DATA_URL || MARKET_URL);
   const persistence = await persistQuotesToSupabase(env, market);
   if (persistence.enabled) console.log("Supabase market quote sync completed:", persistence.saved);
+
+  let backgroundNews = null;
+  try {
+    const sync = await syncNewsToSupabase(env);
+    if (sync.enabled) {
+      backgroundNews = sync.items;
+      console.log("Supabase market news sync:", sync.refreshed ? "refreshed" : "within 15-minute cache", sync.items.length);
+    }
+  } catch (error) {
+    console.error("Background news sync failed:",error?.message || error);
+  }
 
   if (env.MARKET_CACHE) {
     await env.MARKET_CACHE.put("market:latest",JSON.stringify({
@@ -367,13 +433,13 @@ async function refreshBackground(env) {
     }),{expirationTtl:3600});
     const cachedNews = await readFreshCache(env,"news:latest",15*60*1000);
     if (!cachedNews) {
-      const items = await collectNews();
+      const items = backgroundNews || await collectNews();
       await env.MARKET_CACHE.put("news:latest",JSON.stringify({
         fetched_at:new Date().toISOString(),items
       }),{expirationTtl:3600});
     }
   } else {
-    console.log("MARKET_CACHE KV is not configured; quote persistence can still run through Supabase.");
+    console.log("MARKET_CACHE KV is not configured; Supabase is used for persistent quotes and RSS headlines.");
   }
   return market;
 }
@@ -391,7 +457,8 @@ export default {
       if (!response.ok) return response;
       const data = await response.json();
       const cachedNews = await readFreshCache(env,"news:latest",45*60*1000);
-      const news = cachedNews?.items || await collectNews().catch(() => []);
+      const storedNews = cachedNews?.items ? null : await readNewsFromSupabase(env).catch(() => []);
+      const news = cachedNews?.items || (storedNews?.length ? storedNews : await collectNews().catch(() => []));
       data.news_context = {
         collected_at: cachedNews?.fetched_at || new Date().toISOString(),
         window_hours: 72,
@@ -403,7 +470,7 @@ export default {
       return reply(data,200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance") return handleForecastApi(url,env);
-    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),llm_configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || null,free_mode:true,free_forecast_enabled:true,database_configured:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),forecast_ledger_table:"market_forecast_runs",background_refresh_enabled:Boolean(env.MARKET_CACHE),quote_persistence_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),capabilities:["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification"]},200,{"cache-control":"no-store"});
+    if (url.pathname === "/health") return reply({ok:true,service:"dollar-market-intelligence",configured:Boolean(env.OPENAI_API_KEY),llm_configured:Boolean(env.OPENAI_API_KEY),model:env.OPENAI_MODEL || null,free_mode:true,free_forecast_enabled:true,database_configured:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),forecast_ledger_table:"market_forecast_runs",news_store_table:"market_news_items",background_refresh_enabled:Boolean(env.MARKET_CACHE),background_news_refresh_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),quote_persistence_enabled:Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),capabilities:["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification"]},200,{"cache-control":"no-store"});
     if (url.pathname === "/catalog") return reply({
       currency_and_gold:{tracked_quote_assets:Object.keys(ASSETS).map(symbol=>({symbol,name_fa:ASSETS[symbol],quote_tracking:true,analysis_enabled:ANALYSIS_ASSETS.has(symbol)}))},
       housing:{status:"planned",frequency:"monthly_or_quarterly",required_dimensions:["province","city","property_type","transaction_or_listing","price_per_sqm","sample_count","source","observed_at"]},
