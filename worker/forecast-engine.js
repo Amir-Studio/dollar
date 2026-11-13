@@ -58,7 +58,7 @@ async function json(url) {
 }
 function utcStamp(value) {
   const text=String(value??"");
-  return dateMs(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\\.\d+)?$/.test(text)?text+"Z":text);
+  return dateMs(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(text)?text+"Z":text);
 }
 function normalizeNerkhara(payload) {
   const items=Array.isArray(payload?.items)?payload.items:payload?.item?[payload.item]:[];
