@@ -150,7 +150,7 @@ const MARKET_GLOSSARY = [
  {id:"disinflation",terms:["disinflation","disinflationary"],fa:"کاهش سرعت افزایش قیمت‌ها، نه لزوماً کاهش قیمت"},
  {id:"deflation",terms:["deflation","deflationary"],fa:"کاهش عمومی سطح قیمت‌ها"},
  {id:"stagflation",terms:["stagflation"],fa:"رکود تورمی؛ رشد ضعیف همراه با تورم بالا"},
- {id:"interest_rate",terms:["interest rate","policy rate","benchmark rate"],fa:"نرخ بهره؛ هزینه وام‌گرفتن یا بازده وام‌دادن"},
+ {id:"interest_rate",terms:["interest rate","interest rates","rates","policy rate","benchmark rate"],fa:"نرخ بهره؛ هزینه وام‌گرفتن یا بازده وام‌دادن"},
  {id:"real_interest_rate",terms:["real interest rate","real rates"],fa:"نرخ بهره واقعی؛ نرخ بهره پس از تعدیل تورم"},
  {id:"rate_hike",terms:["rate hike","raise rates","tighten monetary policy"],fa:"افزایش نرخ بهره یا انقباض پولی"},
  {id:"rate_cut",terms:["rate cut","cut rates","ease monetary policy"],fa:"کاهش نرخ بهره یا تسهیل پولی"},
@@ -176,14 +176,14 @@ const MARKET_GLOSSARY = [
  {id:"correction",terms:["market correction","correction"],fa:"اصلاح قیمت؛ حرکت خلاف روند غالب"},
  {id:"drawdown",terms:["drawdown","peak-to-trough decline"],fa:"افت از اوج تا کف بعدی"},
  {id:"market_cap",terms:["market capitalization","market cap"],fa:"ارزش بازار؛ قیمت ضربدر تعداد واحدهای در گردش"},
- {id:"safe_haven_gold",terms:["gold demand","gold bullion","spot gold"],fa:"تقاضا یا طلای نقدی"},
+ {id:"safe_haven_gold",terms:["gold","gold demand","gold bullion","spot gold"],fa:"تقاضا یا طلای نقدی"},
  {id:"ounce",terms:["troy ounce","ounce"],fa:"اونس تروا؛ واحد رایج وزن فلزات گران‌بها"},
- {id:"crude_oil",terms:["crude oil","brent crude","wti"],fa:"نفت خام؛ از جمله شاخص‌های برنت و WTI"},
+ {id:"crude_oil",terms:["crude oil","brent crude","wti","oil","oil exports"],fa:"نفت خام؛ از جمله شاخص‌های برنت و WTI"},
  {id:"oil_inventory",terms:["oil inventories","crude stockpiles","inventory draw"],fa:"ذخایر نفتی؛ تغییر آن‌ها می‌تواند بر قیمت اثر بگذارد"},
  {id:"supply",terms:["supply","spare capacity","production output"],fa:"عرضه؛ مقدار کالای ارائه‌شده به بازار"},
  {id:"demand",terms:["demand","consumer demand","industrial demand"],fa:"تقاضا؛ مقدار کالای موردنیاز خریداران"},
  {id:"opec",terms:["opec","opec+"],fa:"اوپک و ائتلاف اوپک‌پلاس"},
- {id:"exchange_rate",terms:["exchange rate","fx rate","currency pair"],fa:"نرخ ارز؛ قیمت یک ارز بر حسب ارز دیگر"},
+ {id:"exchange_rate",terms:["exchange rate","fx rate","currency pair","currency"],fa:"نرخ ارز؛ قیمت یک ارز بر حسب ارز دیگر"},
  {id:"appreciation",terms:["currency appreciation","appreciate"],fa:"تقویت ارزش پول"},
  {id:"depreciation",terms:["currency depreciation","depreciate"],fa:"تضعیف ارزش پول"},
  {id:"devaluation",terms:["devaluation","devalue"],fa:"کاهش رسمی ارزش پول توسط مرجع پولی"},
@@ -192,7 +192,7 @@ const MARKET_GLOSSARY = [
  {id:"fiscal_deficit",terms:["fiscal deficit","budget deficit"],fa:"کسری بودجه؛ بیشتر بودن مخارج از درآمد دولت"},
  {id:"public_debt",terms:["public debt","sovereign debt","government debt"],fa:"بدهی عمومی یا بدهی دولت"},
  {id:"sanctions",terms:["sanctions","trade embargo","sanctions relief"],fa:"تحریم‌ها یا کاهش محدودیت‌های تحریمی"},
- {id:"geopolitical_risk",terms:["geopolitical risk","geopolitical tensions"],fa:"ریسک ژئوپلیتیک؛ ریسک ناشی از تنش‌های سیاسی و بین‌المللی"},
+ {id:"geopolitical_risk",terms:["geopolitical risk","geopolitical tensions","geopolitical uncertainty","tensions"],fa:"ریسک ژئوپلیتیک؛ ریسک ناشی از تنش‌های سیاسی و بین‌المللی"},
  {id:"ceasefire",terms:["ceasefire","truce"],fa:"آتش‌بس؛ توقف درگیری با شرایط مشخص"},
  {id:"recession",terms:["recession","economic contraction"],fa:"رکود اقتصادی؛ کاهش فعالیت اقتصادی"},
  {id:"gdp",terms:["gross domestic product","gdp"],fa:"تولید ناخالص داخلی"},
@@ -259,7 +259,7 @@ const PERSIAN_MARKET_GLOSSARY = [
  {id:"volatility",terms:["نوسان‌پذیری","شدت نوسان قیمت"],fa:"نوسان‌پذیری؛ شدت تغییرات قیمت"},
  {id:"spread",terms:["فاصله قیمت خرید و فروش","اختلاف بازده","اسپرد"],fa:"فاصله قیمت‌ها یا اختلاف بازده؛ وابسته به زمینه"},
  {id:"risk_premium",terms:["صرف ریسک","پاداش ریسک"],fa:"صرف ریسک؛ بازده اضافه برای پذیرش ریسک"},
- {id:"safe_haven",terms:["دارایی امن","پناهگاه امن سرمایه"],fa:"دارایی امن؛ دارایی مورد توجه در دوره نااطمینانی"},
+ {id:"safe_haven",terms:["دارایی امن","پناهگاه امن سرمایه","طلا"],fa:"دارایی امن؛ دارایی مورد توجه در دوره نااطمینانی"},
  {id:"risk_appetite",terms:["ریسک پذیری","تمایل به پذیرش ریسک"],fa:"تمایل سرمایه‌گذاران به پذیرش ریسک"},
  {id:"risk_aversion",terms:["ریسک گریزی","فرار از ریسک"],fa:"ریسک‌گریزی؛ کاهش تمایل به دارایی‌های پرریسک"},
  {id:"bull_market",terms:["بازار صعودی","روند صعودی","دیدگاه افزایشی"],fa:"بازار صعودی یا دیدگاه افزایشی"},
@@ -271,7 +271,7 @@ const PERSIAN_MARKET_GLOSSARY = [
  {id:"drawdown",terms:["افت از سقف","افت از اوج تا کف","حداکثر افت"],fa:"افت از اوج تا کف بعدی"},
  {id:"market_cap",terms:["ارزش بازار","ارزش کل بازار"],fa:"ارزش بازار؛ قیمت ضربدر تعداد واحدهای در گردش"},
  {id:"ounce",terms:["اونس تروا","اونس طلا"],fa:"اونس تروا؛ واحد رایج وزن فلزات گران‌بها"},
- {id:"crude_oil",terms:["نفت خام","نفت برنت","نفت وست تگزاس"],fa:"نفت خام؛ از جمله شاخص‌های برنت و WTI"},
+ {id:"crude_oil",terms:["نفت خام","نفت برنت","نفت وست تگزاس","صادرات نفت","نفت"],fa:"نفت خام؛ از جمله شاخص‌های برنت و WTI"},
  {id:"oil_inventory",terms:["ذخایر نفت","موجودی نفت","انبارهای نفت"],fa:"ذخایر نفتی؛ تغییر آن‌ها می‌تواند بر قیمت اثر بگذارد"},
  {id:"supply",terms:["عرضه","میزان عرضه","ظرفیت تولید"],fa:"عرضه؛ مقدار کالای ارائه‌شده به بازار"},
  {id:"demand",terms:["تقاضا","میزان تقاضا","نیاز خریداران"],fa:"تقاضا؛ مقدار کالای موردنیاز خریداران"},
@@ -285,9 +285,9 @@ const PERSIAN_MARKET_GLOSSARY = [
  {id:"fiscal_deficit",terms:["کسری بودجه","کسری بودجه دولت"],fa:"کسری بودجه؛ بیشتر بودن مخارج از درآمد دولت"},
  {id:"public_debt",terms:["بدهی عمومی","بدهی دولت","بدهی دولتی"],fa:"بدهی عمومی یا بدهی دولت"},
  {id:"sanctions",terms:["تحریم","تحریم اقتصادی","رفع تحریم","تشدید تحریم"],fa:"تحریم‌ها یا کاهش محدودیت‌های تحریمی"},
- {id:"geopolitical_risk",terms:["ریسک ژئوپلیتیک","تنش ژئوپلیتیک","تنش سیاسی بین‌المللی"],fa:"ریسک ناشی از تنش‌های سیاسی و بین‌المللی"},
+ {id:"geopolitical_risk",terms:["ریسک ژئوپلیتیک","تنش ژئوپلیتیک","تنش سیاسی بین‌المللی","تنش سیاسی"],fa:"ریسک ناشی از تنش‌های سیاسی و بین‌المللی"},
  {id:"ceasefire",terms:["آتش بس","توافق آتش بس","توقف درگیری"],fa:"آتش‌بس؛ توقف درگیری با شرایط مشخص"},
- {id:"recession",terms:["رکود اقتصادی","انقباض اقتصادی"],fa:"رکود اقتصادی؛ کاهش فعالیت اقتصادی"},
+ {id:"recession",terms:["رکود اقتصادی","انقباض اقتصادی","رکود"],fa:"رکود اقتصادی؛ کاهش فعالیت اقتصادی"},
  {id:"gdp",terms:["تولید ناخالص داخلی","تولید ناخالص ملی"],fa:"تولید ناخالص داخلی؛ ارزش کالاها و خدمات نهایی تولیدشده"},
  {id:"employment",terms:["نرخ بیکاری","بازار کار","اشتغال","آمار اشتغال"],fa:"اشتغال، بیکاری و وضعیت بازار کار"},
  {id:"pmi",terms:["شاخص مدیران خرید","شاخص pmi"],fa:"شاخص مدیران خرید؛ سنجه‌ای از فعالیت اقتصادی"},
@@ -390,7 +390,8 @@ function languageComprehensionExam() {
    const t=normalize(c.text);
    const actual=dict.filter(x=>x.terms.some(term=>t.includes(normalize(term)))).map(x=>x.id);
    const missing=c.expected.filter(id=>!actual.includes(id));
-   return {passed:missing.length===0,missing,expected:c.expected.length,found:c.expected.length-missing.length};
+   const markerMissing=(c.checks||[]).filter(group=>!group.some(marker=>t.includes(normalize(marker))));
+   return {passed:missing.length===0&&markerMissing.length===0,missing,missing_semantic_markers:markerMissing,expected:c.expected.length,found:c.expected.length-missing.length};
   });
   const found=rows.reduce((n,x)=>n+x.found,0),total=rows.reduce((n,x)=>n+x.expected,0);
   return {passed:rows.filter(x=>x.passed).length,total_cases:rows.length,matched_concepts:found,total_concepts:total,recall_pct:Number((found/total*100).toFixed(1)),case_results:rows};
