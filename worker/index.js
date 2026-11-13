@@ -111,12 +111,19 @@ function googleNewsUrl(query, locale) {
   return "https://news.google.com/rss/search?" + params.toString();
 }
 const NEWS_SOURCES = [
-  {source_id:"google-news-fa",name:"Google News · Persian market search",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("(اقتصاد ایران OR بازار ارز OR دلار OR طلا OR تورم OR بانک مرکزی OR نرخ بهره OR نفت) when:3d","fa"),active:true,trust_tier:"unrated"},
-  {source_id:"google-news-en",name:"Google News · Iran economy search",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(Iran economy OR Iranian rial OR Iran currency OR Iran sanctions OR Iran oil OR Iran gold) when:3d","en"),active:true,trust_tier:"unrated"},
-  {source_id:"google-news-global",name:"Google News · Global market search",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(gold price OR oil price OR inflation OR central bank OR interest rates OR currency markets) when:3d","en"),active:true,trust_tier:"unrated"},
-  {source_id:"irna-en",name:"IRNA English",country_code:"IR",language_code:"en",site_url:"https://en.irna.ir",feed_url:"https://en.irna.ir/rss",active:true,trust_tier:"unrated"},
-  {source_id:"tasnim-en",name:"Tasnim English (paused: HTML endpoint)",country_code:"IR",language_code:"en",site_url:"https://www.tasnimnews.ir/en",feed_url:"https://www.tasnimnews.ir/en/rss",active:false,trust_tier:"unrated"},
+  {source_id:"google-news-fa",name:"Google News · Persian search (temporarily unavailable)",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("(اقتصاد ایران OR بازار ارز OR دلار OR طلا OR تورم OR بانک مرکزی OR نرخ بهره OR نفت) when:3d","fa"),active:false,trust_tier:"unrated"},
+  {source_id:"google-news-en",name:"Google News · Iran economy (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(Iran economy OR Iranian rial OR Iran currency OR Iran sanctions OR Iran oil OR Iran gold) when:3d","en"),active:false,trust_tier:"unrated"},
+  {source_id:"google-news-global",name:"Google News · Global markets (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(gold price OR oil price OR inflation OR central bank OR interest rates OR currency markets) when:3d","en"),active:false,trust_tier:"unrated"},
+  {source_id:"irna-fa",name:"IRNA Persian",country_code:"IR",language_code:"fa",site_url:"https://www.irna.ir",feed_url:"https://www.irna.ir/rss",active:true,trust_tier:"unrated"},
+  {source_id:"isna-fa",name:"ISNA",country_code:"IR",language_code:"fa",site_url:"https://www.isna.ir",feed_url:"https://www.isna.ir/rss",active:true,trust_tier:"unrated"},
+  {source_id:"yjc-fa",name:"YJC News",country_code:"IR",language_code:"fa",site_url:"https://www.yjc.ir",feed_url:"https://www.yjc.ir/fa/rss/allnews",active:true,trust_tier:"unrated"},
+  {source_id:"tabnak-fa",name:"Tabnak",country_code:"IR",language_code:"fa",site_url:"https://www.tabnak.ir",feed_url:"https://www.tabnak.ir/fa/rss/allnews",active:true,trust_tier:"unrated"},
+  {source_id:"khabaronline-fa",name:"Khabaronline",country_code:"IR",language_code:"fa",site_url:"https://www.khabaronline.ir",feed_url:"https://www.khabaronline.ir/rss",active:true,trust_tier:"unrated"},
+  {source_id:"asriran-fa",name:"Asr Iran",country_code:"IR",language_code:"fa",site_url:"https://www.asriran.com",feed_url:"https://www.asriran.com/fa/rss/allnews",active:true,trust_tier:"unrated"},
+  {source_id:"tasnim-fa",name:"Tasnim Persian",country_code:"IR",language_code:"fa",site_url:"https://www.tasnimnews.com",feed_url:"https://www.tasnimnews.com/fa/rss/feed/0/8/0/%D9%85%D9%87%D9%85%D8%AA%D8%B1%DB%8C%D9%86-%D8%A7%D8%AE%D8%A8%D8%A7%D8%B1-%D8%AA%D8%B3%D9%86%DB%8C%D9%85",active:true,trust_tier:"unrated"},
   {source_id:"mehr-fa",name:"Mehr News",country_code:"IR",language_code:"fa",site_url:"https://www.mehrnews.com",feed_url:"https://www.mehrnews.com/rss",active:true,trust_tier:"unrated"},
+  {source_id:"irna-en",name:"IRNA English",country_code:"IR",language_code:"en",site_url:"https://en.irna.ir",feed_url:"https://en.irna.ir/rss",active:true,trust_tier:"unrated"},
+  {source_id:"tasnim-en",name:"Tasnim English",country_code:"IR",language_code:"en",site_url:"https://www.tasnimnews.ir/en",feed_url:"https://www.tasnimnews.ir/en/rss",active:false,trust_tier:"unrated"},
   {source_id:"bbc-business",name:"BBC Business",country_code:"GB",language_code:"en",site_url:"https://www.bbc.com/news/business",feed_url:"https://feeds.bbci.co.uk/news/business/rss.xml",active:true,trust_tier:"unrated"},
   {source_id:"aljazeera-all",name:"Al Jazeera",country_code:"QA",language_code:"en",site_url:"https://www.aljazeera.com",feed_url:"https://www.aljazeera.com/xml/rss/all.xml",active:true,trust_tier:"unrated"},
   {source_id:"guardian-business",name:"The Guardian · Business",country_code:"GB",language_code:"en",site_url:"https://www.theguardian.com/business",feed_url:"https://www.theguardian.com/business/rss",active:true,trust_tier:"unrated"},
@@ -126,15 +133,16 @@ const NEWS_SOURCES = [
 const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
   .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
 const MARKET_NEWS_TERMS = [
-  "دلار","یورو","پوند","نرخ ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","ریال",
-  "سکه","قیمت طلا","بازار طلا","طلای ۱۸ عیار","تورم","بانک مرکزی","نرخ بهره","نرخ سود",
-  "نقدینگی","کسری بودجه","اقتصاد ایران","اقتصاد جهانی","بازار سرمایه","بورس","صادرات نفت",
-  "واردات نفت","قیمت نفت","نفت خام","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی",
-  "تجارت خارجی","شاخص کل بورس","قیمت انرژی","قیمت سوخت",
-  "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market",
+  "دلار","یورو","پوند","درهم","ریال","تومان","نرخ ارز","قیمت ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","دلار توافقی",
+  "سکه","قیمت سکه","قیمت طلا","بازار طلا","طلای ۱۸ عیار","اونس طلا","تورم","نرخ تورم","بانک مرکزی","مرکز مبادله","نرخ بهره","نرخ سود","تسهیلات بانکی",
+  "نقدینگی","کسری بودجه","بودجه","اقتصاد ایران","اقتصاد جهانی","اقتصاد","اقتصادی","رشد اقتصادی","تولید ناخالص","بازار سرمایه","بورس","شاخص کل بورس","سهام",
+  "صادرات نفت","نفت ایران","واردات نفت","قیمت نفت","نفت خام","برنت","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی","تجارت خارجی","گمرک",
+  "مالیات","یارانه","اشتغال","دستمزد","مسکن","قیمت مسکن","خودرو","قیمت خودرو","سرمایه گذاری","سرمایه‌گذاری","تولید","صنعت","قیمت کالا","بازار جهانی",
+  "تحریم اقتصادی","تحریم‌های ایران","ارزش پول ملی",
+  "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market","precious metals",
   "central bank","interest rate","interest rates","rate hike","rate hikes","rate cut","rate cuts",
   "federal reserve","fed rate","fed rates","fed cuts","fed hikes","fed decision","fed chair",
-  "treasury yield","treasury yields","bond yield","bond yields","oil price","oil prices",
+  "treasury yield","treasury yields","bond yield","bond yields","oil price","oil prices","brent crude",
   "crude oil","oil futures","oil supply","oil production","oil exports","oil demand","oil shock",
   "fuel prices","diesel prices","energy prices","energy shock","energy market","energy supply",
   "trade deficit","budget deficit","gdp","forex","stock market","stocks","shares","bonds",
@@ -144,8 +152,7 @@ const MARKET_NEWS_TERMS = [
   "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
   "market volatility","tariffs","export prices","import prices","sanctions","sanction relief","iran sanctions",
   "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency",
-  "foreign exchange","currency market","exchange market","oil market","gold market","gold price",
-  "oil price","oil market","iran economy","iranian economy","iran oil","iran gold","fx market"
+  "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market"
 ];
 const EXCLUDED_NEWS_TERMS = [
   "family dollar","venture capitalism","naval mine","explodes","explosion","caught fire",
@@ -224,6 +231,8 @@ function newsTopics(items) {
     {name:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","gold","bullion","precious metal"]},
     {name:"تورم و اقتصاد",terms:["تورم","قیمت‌ها","اقتصاد","inflation","economy","prices","cpi"]},
     {name:"انرژی و نفت",terms:["نفت","انرژی","oil","energy","opec"]},
+    {name:"تجارت و اقتصاد داخلی",terms:["اقتصاد","اقتصادی","بودجه","صادرات","واردات","تجارت","گمرک","اشتغال","تولید","مالیات","یارانه"]},
+    {name:"مسکن و خودرو",terms:["مسکن","خودرو","housing","property","vehicle","car prices"]},
     {name:"سیاست خارجی و ریسک منطقه‌ای",terms:["تحریم","مذاکره","جنگ","ایران","sanction","iran","war","nuclear","geopolit"]}
   ];
   return groups.map(group => {
