@@ -58,7 +58,7 @@ async function json(url) {
 }
 function utcStamp(value) {
   const text=String(value??"");
-  return dateMs(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?$/.test(text)?text+"Z":text);
+  return dateMs(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\\.\d+)?$/.test(text)?text+"Z":text);
 }
 function normalizeNerkhara(payload) {
   const items=Array.isArray(payload?.items)?payload.items:payload?.item?[payload.item]:[];
@@ -317,7 +317,7 @@ async function db(env,path,options={}) {
 function headlineTokens(value) {
   const stop=new Set(["the","and","for","from","with","that","this","در","از","به","با","برای","و","را","که","این","آن","یک","های","شود","شد"]);
   return String(value||"").normalize("NFKC").toLocaleLowerCase("fa").replace(/[ي]/g,"ی").replace(/[ك]/g,"ک")
-    .match(/[\\p{L}\\p{N}]{2,}/gu)?.filter(x=>!stop.has(x))||[];
+    .match(/[\p{L}\p{N}]{2,}/gu)?.filter(x=>!stop.has(x))||[];
 }
 export function headlineConflictCandidates(items) {
   const positive=["افزایش","رشد","صعود","بالا رفت","تقویت","increase","rise","rises","surge","gain","up"];
@@ -333,7 +333,7 @@ export function headlineConflictCandidates(items) {
     const at=String(a.title||a.original_title||"").toLocaleLowerCase(),bt=String(b.title||b.original_title||"").toLocaleLowerCase();
     const polarity=text=>({positive:positive.some(x=>text.includes(x)),negative:negative.some(x=>text.includes(x))});
     const pa=polarity(at),pb=polarity(bt);
-    const na=(at.match(/\\d+(?:[.,]\\d+)?/g)||[]).sort().join(","),nb=(bt.match(/\\d+(?:[.,]\\d+)?/g)||[]).sort().join(",");
+    const na=(at.match(/\d+(?:[.,]\d+)?/g)||[]).sort().join(","),nb=(bt.match(/\d+(?:[.,]\d+)?/g)||[]).sort().join(",");
     const opposite=(pa.positive&&pb.negative)||(pa.negative&&pb.positive),numeric=Boolean(na&&nb&&na!==nb);
     if(!opposite&&!numeric) continue;
     pairs.push({headline_a:at.slice(0,240),headline_b:bt.slice(0,240),source_a:da,source_b:dbb,
