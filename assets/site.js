@@ -94,7 +94,7 @@ async function loadAiForecast(symbol){
   if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)drawHistoryChart();
  }catch(error){
   aiForecastCache.delete(symbol);
-  if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)setText('historyStatus','پیش‌بینی هوش مصنوعی فعلاً در دسترس نیست؛ نمایش روند آماری');
+  if(($('chartAsset')?.value||'USD_IRR_FREE')===symbol)setText('historyStatus','مدل تطبیقی از آزمون تاریخی عبور نکرد؛ نمایش روند آماری');
  }finally{aiForecastPending.delete(symbol)}
 }
 window.addEventListener('dollar-ai-endpoint-updated',()=>{aiForecastCache.clear();loadAiForecast($('chartAsset')?.value||'USD_IRR_FREE')});
