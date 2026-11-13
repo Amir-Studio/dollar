@@ -133,11 +133,11 @@ const NEWS_SOURCES = [
 const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
   .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
 const MARKET_NEWS_TERMS = [
-  "دلار","یورو","پوند","درهم","ریال","تومان","نرخ ارز","قیمت ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","دلار توافقی",
+  "دلار","یورو","پوند","درهم","ریال","نرخ ارز","قیمت ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","دلار توافقی",
   "سکه","قیمت سکه","قیمت طلا","بازار طلا","طلای ۱۸ عیار","اونس طلا","تورم","نرخ تورم","بانک مرکزی","مرکز مبادله","نرخ بهره","نرخ سود","تسهیلات بانکی",
   "نقدینگی","کسری بودجه","بودجه","اقتصاد ایران","اقتصاد جهانی","اقتصاد","اقتصادی","رشد اقتصادی","تولید ناخالص","بازار سرمایه","بورس","شاخص کل بورس","سهام",
   "صادرات نفت","نفت ایران","واردات نفت","قیمت نفت","نفت خام","برنت","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی","تجارت خارجی","گمرک",
-  "مالیات","یارانه","اشتغال","دستمزد","مسکن","قیمت مسکن","خودرو","قیمت خودرو","سرمایه گذاری","سرمایه‌گذاری","تولید","صنعت","قیمت کالا","بازار جهانی",
+  "مالیات","یارانه","اشتغال","دستمزد","مسکن","قیمت مسکن","خودرو","قیمت خودرو","سرمایه گذاری","سرمایه‌گذاری","تولید","صنعت خودرو","صنعت فولاد","صنعت نفت","صنعت پتروشیمی","قیمت کالا","بازار جهانی",
   "تحریم اقتصادی","تحریم‌های ایران","ارزش پول ملی",
   "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market","precious metals",
   "central bank","interest rate","interest rates","rate hike","rate hikes","rate cut","rate cuts",
@@ -158,7 +158,8 @@ const EXCLUDED_NEWS_TERMS = [
   "family dollar","venture capitalism","naval mine","explodes","explosion","caught fire",
   "catch fire","oil tanker","gas carrier","missile","casualties","killed","drug",
   "illegal importation","arrest","court case","court cases","lawsuit","settlement",
-  "fraud","theft","criminal"
+  "fraud","theft","criminal","موشک","حمله","مسلحانه","سلاح","انفجار","تشییع","شهید",
+  "کشته","درگیری مسلحانه","پلیس راهور","دودزا","معاینه فنی","تصادف","حادثه"
 ];
 function isMarketNews(title) {
   const value = String(title || "").toLocaleLowerCase();
@@ -233,7 +234,7 @@ function newsTopics(items) {
     {name:"انرژی و نفت",terms:["نفت","انرژی","oil","energy","opec"]},
     {name:"تجارت و اقتصاد داخلی",terms:["اقتصاد","اقتصادی","بودجه","صادرات","واردات","تجارت","گمرک","اشتغال","تولید","مالیات","یارانه"]},
     {name:"مسکن و خودرو",terms:["مسکن","خودرو","housing","property","vehicle","car prices"]},
-    {name:"سیاست خارجی و ریسک منطقه‌ای",terms:["تحریم","مذاکره","جنگ","ایران","sanction","iran","war","nuclear","geopolit"]}
+    {name:"سیاست خارجی و ریسک منطقه‌ای",terms:["تحریم","تحریم اقتصادی","مذاکره","جنگ","سیاست خارجی","ریسک منطقه‌ای","sanction","iran sanctions","iran war","war","nuclear","geopolit"]}
   ];
   return groups.map(group => {
     const matches = items.filter(item => {
