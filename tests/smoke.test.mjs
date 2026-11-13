@@ -140,6 +140,6 @@ test('production entrypoint forwards private OpenAI configuration and uses the l
   assert.match(forecastEngine, /fetchNewsContext/);
   assert.match(forecastEngine, /selectWeights/);
   assert.match(forecastEngine, /isMarketRelevantHeadline/);
-  assert.match(worker, /web_search_enabled: Boolean\\(env\\.OPENAI_API_KEY\\)/);
+  assert.match(worker, /web_search_enabled: Boolean\(env\.OPENAI_API_KEY\)/);
   assert.match(aiJs, /وب‌پژوهی هوشمند نیازمند کلید API/);
 });
