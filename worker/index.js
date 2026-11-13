@@ -40,10 +40,10 @@ async function getJson(url) {
   return r.json();
 }
 function historyRows(payload) {
-  const raw = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.history) ? payload.history : [];
+  const raw = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.history) ? payload.history : Array.isArray(payload?.items) ? payload.items : Array.isArray(payload?.points) ? payload.points : Array.isArray(payload?.samples) ? payload.samples : [];
   return raw.map(r => ({
-    date: dateMs(r.date ?? r.datetime ?? r.timestamp ?? r.time ?? r.date_gregorian ?? r.t),
-    close: n(r.close ?? r.c ?? r.price ?? r.value ?? r.last ?? r.close_price)
+    date: dateMs(r.date ?? r.datetime ?? r.timestamp ?? r.time ?? r.date_gregorian ?? r.observed_at ?? r.day ?? r.t),
+    close: n(r.close ?? r.c ?? r.price ?? r.value ?? r.last ?? r.close_price ?? r.mean ?? r.average ?? r.avg)
   })).filter(r => Number.isFinite(r.date) && Number.isFinite(r.close) && r.close > 0).sort((a,b) => a.date-b.date);
 }
 function stats(rows) {
@@ -219,7 +219,7 @@ async function makeFreeAnalysis(env, asset) {
   if (!ANALYSIS_ASSETS.has(asset)) return reply({error:"تاریخچهٔ معتبر این دارایی هنوز بررسی نشده؛ فقط قیمت آن در کاتالوگ ثبت می‌شود."},424);
   const [cachedMarket, rawHistory, cachedNews] = await Promise.all([
     readFreshCache(env,"market:latest",10*60*1000),
-    getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json"),
+    getJson((env.NERKHARA_HISTORY_URL || "https://nerkhara.com/api/v1/history/") + ({USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"}[asset]) + ".json").catch(() => getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json")),
     readFreshCache(env,"news:latest",45*60*1000)
   ]);
   const market = cachedMarket?.payload || await getMarketSnapshot(env);
@@ -228,7 +228,7 @@ async function makeFreeAnalysis(env, asset) {
   const item = (market.data || []).find(x => x.symbol === asset);
   if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
   const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
-  if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 72*60*60*1000 || stamp>Date.now()+5*60*1000)
+  if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 24*60*60*1000 || stamp>Date.now()+5*60*1000)
     return reply({error:"آخرین نرخ ثبت‌شده بیش از ۷۲ ساعت قدیمی است؛ تحلیل جدید ساخته نشد."},424);
   const rows = historyRows(rawHistory);
   if (rows.length < 12) return reply({error:"تاریخچه کافی برای تحلیل در دسترس نیست."},424);
