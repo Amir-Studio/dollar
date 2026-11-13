@@ -72,7 +72,8 @@ function extractNumbers(text) {
 }
 function classifyOne(item) {
   const title = String(item?.title || item?.original_title || "");
-  const text = normalize(title);
+  const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,3000);
+  const text = normalize(title + " " + body);
   const themeHits = THEMES.map(t=>({...t,matches:containsAny(text,t.terms)})).filter(t=>t.matches.length);
   const events = EVENT_TERMS.filter(e=>containsAny(text,e.terms).length).map(e=>({id:e.id,label_fa:e.label_fa,market_effect:e.direction}));
   const uncertain = containsAny(text,UNCERTAIN).length>0;
@@ -83,6 +84,7 @@ function classifyOne(item) {
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
     language:/[\u0600-\u06ff]/.test(title)?"fa":"en",
+    content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
     numbers:numberMentions,confidence:Number(confidence.toFixed(2)),
     limitations:["headline_only","lexicon_based"]
@@ -151,12 +153,15 @@ export function analyzeMarketLanguage(items,rows) {
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
     language_coverage:["fa","en"],news_analyzed:analyses.length,
+    news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
+    excerpt_coverage_pct:analyses.length?Number((analyses.filter(x=>x.content_chars>0).length/analyses.length*100).toFixed(1)):0,
     themes:buildTopics(analyses,input),events:events.slice(0,30),
     numeric_mentions:numberMentions.slice(0,30),
     possible_conflicts:compareHeadlines(analyses),
     historical_context:hist,
     quality:{
-      title_only:analyses.length>0,
+      title_only:analyses.length>0&&analyses.every(x=>x.content_chars===0),
+      rss_excerpt_available:analyses.some(x=>x.content_chars>0),
       full_article_text_available:false,
       source_independence_verified:false,
       sentiment_is_market_direction:false,
