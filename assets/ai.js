@@ -58,6 +58,9 @@ function render(data){
   const v=data.adaptive_validation||{};
   html+='<div class="ai-driver"><h4>کنترل کیفیت مدل تطبیقی</h4><p>'+escapeHtml(data.adaptive_reason)+'</p><p>خطای مدل تطبیقی: '+(v.mae_pct==null?'—':new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(v.mae_pct)+'٪')+' · خطای مدل بدون تغییر: '+(v.naive_mae_pct==null?'—':new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(v.naive_mae_pct)+'٪')+'</p><p>به همین دلیل، عدد بالا فقط سناریوی روند آماریِ غیرتأییدشده است؛ نه پیش‌بینی معتبر و نه توصیهٔ خریدوفروش.</p></div>';
  }
+ const quoteTime=data.quote?.source_time?new Intl.DateTimeFormat('fa-IR',{dateStyle:'short',timeStyle:'short'}).format(new Date(data.quote.source_time)):'نامشخص';
+ if(data.quote?.warning_fa)html+='<p class="ai-summary">'+escapeHtml(data.quote.warning_fa)+'</p>';
+ html+='<p>زمان نرخ مرجع: '+escapeHtml(quoteTime)+' · منبع قیمت: '+escapeHtml(data.quote?.source||'—')+'</p>';
  html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · منابع پیوندشده: '+escapeHtml(data.news_sources_count??sources.length)+' · منابع دارای تاریخِ قابل‌تأیید در ۷۲ ساعت اخیر: '+escapeHtml(data.recent_sources_count??'—')+' · '+escapeHtml(data.note_fa||'این خروجی احتمالی است، نه توصیهٔ معامله.')+'</p>';
  output.innerHTML=html;setStatus(data.adaptive_reason?'سناریوی آماری غیرتأییدشده · خبرخوان فعال':freeMode?'تحلیل رایگان آماده شد · بدون مدل مولد':(sources.length>=2?'گزارش هوش مصنوعی آماده شد · منابع پیوست شد':'گزارش آماده شد · منابع محدود'));
 }
