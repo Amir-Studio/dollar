@@ -7,6 +7,8 @@ const js = readFileSync(new URL('../assets/site.js', import.meta.url), 'utf8');
 const aiJs = readFileSync(new URL('../assets/ai.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../assets/site.css', import.meta.url), 'utf8');
 const worker = readFileSync(new URL('../worker/index.js', import.meta.url), 'utf8');
+const forecastEngine = readFileSync(new URL('../worker/forecast-engine.js', import.meta.url), 'utf8');
+const supabaseEntry = readFileSync(new URL('../supabase/functions/market-api/index.ts', import.meta.url), 'utf8');
 const wrangler = readFileSync(new URL('../worker/wrangler.toml', import.meta.url), 'utf8');
 
 test('homepage references external stylesheet and deferred scripts', () => {
@@ -127,4 +129,14 @@ test('application JavaScript parses', () => {
 test('stylesheet contains mobile responsive breakpoints', () => {
   assert.match(css, /@media\s*\(max-width:\s*900px\)/);
   assert.match(css, /@media\s*\(max-width:\s*680px\)/);
+});
+
+
+test('production entrypoint forwards private OpenAI configuration and uses the live adaptive engine', () => {
+  assert.match(supabaseEntry, /OPENAI_API_KEY: Deno\\.env\\.get\\("OPENAI_API_KEY"\\)/);
+  assert.match(supabaseEntry, /OPENAI_MODEL: Deno\\.env\\.get\\("OPENAI_MODEL"\\)/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\\.1"/);
+  assert.match(forecastEngine, /skill>=2/);
+  assert.match(forecastEngine, /fetchNewsContext/);
+  assert.match(forecastEngine, /selectWeights/);
 });
