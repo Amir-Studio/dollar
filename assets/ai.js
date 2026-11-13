@@ -113,12 +113,12 @@ async function run(){
  output.innerHTML='<strong>در حال ارزیابی موتور اختصاصی بازار…</strong><p>قیمت، تاریخچه و خبرهای تازه بررسی می‌شوند. فقط اگر آزمون خارج از نمونه کیفیت کافی نشان بدهد، پیش‌بینی عددی منتشر خواهد شد.</p>';
  try{
   const root=base.replace(/\/$/,'');
-  const healthRes=await fetch(root+'/health',{headers:{accept:'application/json'},cache:'no-store'});
+  const healthRes=await fetch(root+'/health',{headers:{accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(25000)});
   const health=await healthRes.json();
   if(!healthRes.ok||!health.ok)throw new Error('سرویس تحلیل در دسترس نیست.');
   const adaptive=Array.isArray(health.capabilities)&&health.capabilities.includes('adaptive-ensemble-forecast')&&health.forecast_ledger_enabled===true;
   if(!adaptive)throw new Error('موتور اختصاصی پیش‌بینی یا دفتر ثبت نتایج هنوز آماده نیست.');
-  const res=await fetch(root+'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon),{headers:{accept:'application/json'},cache:'no-store'});
+  const res=await fetch(root+'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon),{headers:{accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(25000)});
   const data=await res.json();
   if(!res.ok)throw new Error(data.error||'موتور اختصاصی پاسخ معتبر نداد ('+res.status+').');
   render(data);
