@@ -81,23 +81,24 @@ const B1_PHRASES = [
   {id:"condition",terms:["if","unless","provided that","in case"]}
 ];
 function analyzeB1English(text) {
-  const sentences=text.split(/(?<=[.!?])\\s+|;\\s+/).filter(Boolean).slice(0,20);
+  const sentences=text.split(/(?<=[.!?])\s+|;\s+/).filter(Boolean).slice(0,20);
   const vocabulary=B1_VOCAB.filter(v=>containsAny(text,v.terms).length).map(v=>v.id);
   const phrases=B1_PHRASES.filter(p=>containsAny(text,p.terms).length).map(p=>p.id);
   const frames=sentences.map(sentence=>{
     const t=sentence.toLowerCase();
-    const tense=/\\b(will|shall|tomorrow|next week|next month|is expected to|are expected to)\\b/.test(t)?"future":
-      /\\b(yesterday|last week|last month|ago|announced|rose|fell|was imposed|were imposed|increased|decreased)\\b/.test(t)?"past":
-      /\\b(is|are|am|currently|today|now|remains|remain)\\b/.test(t)?"present":"unspecified";
-    const voice=/\\b(was|were|is|are|been|be)\\s+\\w+(ed|en)\\b/.test(t)?"possibly_passive":"active_or_unclear";
-    const condition=/\\b(if|unless|provided that|in case)\\b/.test(t);
-    const comparison=/\\b(more|less|higher|lower|greater|fewer)\\s+(than|by)\\b|\\b(as .* as)\\b/.test(t);
+    const tense=/\b(will|shall|tomorrow|next week|next month|is expected to|are expected to)\b/.test(t)?"future":
+      /\b(yesterday|last week|last month|ago|announced|rose|fell|was imposed|were imposed|increased|decreased)\b/.test(t)?"past":
+      /\b(is|are|am|currently|today|now|remains|remain)\b/.test(t)?"present":"unspecified";
+    const voice=/\b(was|were|is|are|been|be)\s+\w+(ed|en)\b/.test(t)?"possibly_passive":"active_or_unclear";
+    const condition=/\b(if|unless|provided that|in case)\b/.test(t);
+    const comparison=/\b(more|less|higher|lower|greater|fewer)\s+(than|by)\b|\b(as .* as)\b/.test(t);
     const cause=containsAny(t,["because","because of","due to","as a result","therefore","led to","resulted in"]).length>0;
     return {sentence:sentence.slice(0,500),tense,voice,conditional:condition,comparison,cause_or_result:cause};
   });
   return {coverage_level:"b1_oriented_domain_english_not_cefr_certification",vocabulary_concepts:vocabulary,common_phrase_functions:phrases,grammar_frames:frames,limitations:["rule_based_grammar_approximation","not_a_formal_cefr_assessment"]};
 }
-\nconst THEMES = [
+
+const THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -227,7 +228,8 @@ function languageIsEnglish(title) { return !/[\\u0600-\\u06ff]/.test(String(titl
   const pos = polarity(text,POSITIVE), neg = polarity(text,NEGATIVE);
   const tone = pos===neg?"neutral_or_unclear":pos>neg?"positive_wording":"negative_wording";
   const numberMentions = extractNumbers(text);
-  const english = englishAdvancedSemantics(text);\n  const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
+  const english = englishAdvancedSemantics(text);
+  const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
