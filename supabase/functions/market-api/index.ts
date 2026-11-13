@@ -36,7 +36,7 @@ function constantTimeEqual(a: string, b: string) {
 async function verifyRefreshSecret(request: Request) {
   const supplied = request.headers.get("x-cron-secret") ?? "";
   if (!supplied || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return false;
-  const base = env.SUPABASE_URL.replace(/\\/+$/, "");
+  const base = env.SUPABASE_URL.replace(/\/+$/, "");
   const response = await fetch(base + "/rest/v1/market_refresh_gate?select=secret_sha256&id=eq.1", {
     headers: {
       apikey: env.SUPABASE_SERVICE_ROLE_KEY,
