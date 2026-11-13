@@ -22,7 +22,7 @@ function render(data){
   }
   const dir=f.direction==='up'?'تمایل صعودی':f.direction==='down'?'تمایل نزولی':'کم‌جهت';
   const acc=v.directional_accuracy_pct==null?'هنوز نمونه کافی نیست':fa(v.directional_accuracy_pct)+'٪';
-  const html='<div class="ai-kicker">ADAPTIVE FORECAST ENGINE · '+escapeHtml(data.asset||'بازار')+' · '+fa(f.horizon_days)+' روز</div><h3 class="ai-headline">'+dir+'</h3><p class="ai-summary">برآورد آماری ترکیبی با وزن‌دهی بر اساس آزمون walk-forward. پیش‌بینی قبلی بازنویسی نمی‌شود و نتیجهٔ هر افق پس از رسیدن زمان هدف ارزیابی خواهد شد.</p><div class="ai-metrics"><article><small>قیمت مبنا</small><b>'+toman(f.reference_price)+'</b></article><article><small>قیمت برآوردی</small><b>'+toman(f.predicted_price)+'</b></article><article><small>تغییر برآوردی</small><b>'+(Number(f.predicted_change_pct)>0?'+':'')+fa(f.predicted_change_pct)+'٪</b></article><article><small>بازهٔ سناریو</small><b>'+toman(f.range?.low)+' تا '+toman(f.range?.high)+'</b></article></div><div class="ai-driver"><h4>کارنامهٔ آزمون تاریخی خارج از نمونه</h4><p>دقت تشخیص جهت: '+acc+' · تعداد نمونه‌های جهت: '+fa(v.directional_samples)+' · خطای مطلق مدل ترکیبی: '+fa(v.mae_pct)+'٪ · خطای مدل بدون تغییر: '+fa(v.naive_mae_pct)+'٪ · نمونه‌های آزمون: '+fa(v.samples)+'</p><p>مدل‌های ترکیبی: '+escapeHtml(JSON.stringify(f.model_weights||{}))+'</p></div><p>نسخهٔ مدل: '+escapeHtml(f.model_version)+' · زمان صدور: '+escapeHtml(f.issued_at||data.generated_at||'—')+' · منبع قیمت: '+escapeHtml(f.source||'—')+'</p><p>این خروجی سناریوی آماری است، نه تضمین یا توصیهٔ خریدوفروش.</p>';
+  let html='<div class="ai-kicker">ADAPTIVE FORECAST ENGINE · '+escapeHtml(data.asset||'بازار')+' · '+fa(f.horizon_days)+' روز</div><h3 class="ai-headline">'+dir+'</h3><p class="ai-summary">برآورد آماری ترکیبی با وزن‌دهی بر اساس آزمون walk-forward. پیش‌بینی قبلی بازنویسی نمی‌شود و نتیجهٔ هر افق پس از رسیدن زمان هدف ارزیابی خواهد شد.</p><div class="ai-metrics"><article><small>قیمت مبنا</small><b>'+toman(f.reference_price)+'</b></article><article><small>قیمت برآوردی</small><b>'+toman(f.predicted_price)+'</b></article><article><small>تغییر برآوردی</small><b>'+(Number(f.predicted_change_pct)>0?'+':'')+fa(f.predicted_change_pct)+'٪</b></article><article><small>بازهٔ سناریو</small><b>'+toman(f.range?.low)+' تا '+toman(f.range?.high)+'</b></article></div><div class="ai-driver"><h4>کارنامهٔ آزمون تاریخی خارج از نمونه</h4><p>دقت تشخیص جهت: '+acc+' · تعداد نمونه‌های جهت: '+fa(v.directional_samples)+' · خطای مطلق مدل ترکیبی: '+fa(v.mae_pct)+'٪ · خطای مدل بدون تغییر: '+fa(v.naive_mae_pct)+'٪ · نمونه‌های آزمون: '+fa(v.samples)+'</p><p>مدل‌های ترکیبی: '+escapeHtml(JSON.stringify(f.model_weights||{}))+'</p></div><p>نسخهٔ مدل: '+escapeHtml(f.model_version)+' · زمان صدور: '+escapeHtml(f.issued_at||data.generated_at||'—')+' · منبع قیمت: '+escapeHtml(f.source||'—')+'</p><p>این خروجی سناریوی آماری است، نه تضمین یا توصیهٔ خریدوفروش.</p>';
   const news=data.news_context||{},topics=Array.isArray(news.topics)?news.topics:[],headlines=Array.isArray(news.headlines)?news.headlines:[];
   if(topics.length){
    html+='<div class="ai-driver"><h4>زمینهٔ خبری ۷۲ ساعت اخیر · '+fa(news.headline_count)+' تیتر</h4><p>خبرها از RSS گردآوری و موضوع‌بندی شده‌اند؛ به‌دلیل نبود ارزیابی معتبر اثر خبر، در جهت یا عدد پیش‌بینی دخالت داده نشده‌اند.</p>'+topics.map(t=>'<div class="ai-driver"><b>'+escapeHtml(t.title_fa)+'</b><p>'+fa(t.count)+' تیتر · '+escapeHtml(t.explanation_fa||'')+'</p></div>').join('')+'</div>';
@@ -61,6 +61,40 @@ function render(data){
  html+='<p>زمان تولید: '+escapeHtml(data.generated_at||'—')+' · منابع پیوندشده: '+escapeHtml(data.news_sources_count??sources.length)+' · منابع دارای تاریخِ قابل‌تأیید در ۷۲ ساعت اخیر: '+escapeHtml(data.recent_sources_count??'—')+' · '+escapeHtml(data.note_fa||'این خروجی احتمالی است، نه توصیهٔ معامله.')+'</p>';
  output.innerHTML=html;setStatus(data.adaptive_reason?'سناریوی آماری غیرتأییدشده · خبرخوان فعال':freeMode?'تحلیل رایگان آماده شد · بدون مدل مولد':(sources.length>=2?'گزارش هوش مصنوعی آماده شد · منابع پیوست شد':'گزارش آماده شد · منابع محدود'));
 }
+
+function formatNewsDate(value){
+ const stamp=Date.parse(value||'');if(!Number.isFinite(stamp))return 'زمان انتشار نامشخص';
+ return new Intl.DateTimeFormat('fa-IR',{dateStyle:'short',timeStyle:'short'}).format(new Date(stamp));
+}
+function safeNewsUrl(value){
+ try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)?url.href:''}catch{return ''}
+}
+function renderNews(data){
+ const content=$('marketNewsContent'),status=$('marketNewsStatus');if(!content)return;
+ const items=Array.isArray(data.items)?data.items:[],topics=Array.isArray(data.topics)?data.topics:[];
+ if(status)status.textContent=items.length?new Intl.NumberFormat('fa-IR').format(items.length)+' خبر · '+new Intl.NumberFormat('fa-IR').format(data.source_count||0)+' منبع':'خبر تازه‌ای دریافت نشد';
+ if(!items.length){content.innerHTML='<p class="market-news-empty">در ۷۲ ساعت اخیر خبر مرتبط و قابل‌تأییدی از منابع متصل پیدا نشد. خبر قدیمی یا نامرتبط به‌عنوان خبر تازه نمایش داده نمی‌شود.</p>';return}
+ const topicHtml=topics.length?'<div class="market-news-topics">'+topics.slice(0,4).map(t=>'<span>'+escapeHtml(t.title_fa)+' · '+new Intl.NumberFormat('fa-IR').format(t.count||0)+'</span>').join('')+'</div>':'';
+ content.innerHTML=topicHtml+'<div class="market-news-list">'+items.slice(0,8).map(item=>{
+  const href=safeNewsUrl(item.url);if(!href)return '';
+  return '<article class="market-news-item"><div class="market-news-meta"><span>'+escapeHtml(item.domain||'منبع خبری')+'</span><time>'+escapeHtml(formatNewsDate(item.published_at))+'</time></div><a href="'+escapeHtml(href)+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(item.title||'خبر بازار')+' ↗</a></article>';
+ }).join('')+'</div><p class="market-news-foot">خبرها از خوراک‌های خبری عمومی گردآوری شده‌اند؛ تیتر به‌تنهایی اثبات‌کنندهٔ اثر آن بر قیمت نیست.</p>';
+}
+async function loadNews(){
+ const content=$('marketNewsContent'),status=$('marketNewsStatus'),base=endpoint();
+ if(!content||!base)return;
+ if(status)status.textContent='در حال به‌روزرسانی…';
+ try{
+  const response=await fetch(base.replace(/\/$/,'')+'/news',{headers:{accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(25000)});
+  const data=await response.json();
+  if(!response.ok||data.ok!==true)throw new Error(data.error||'خبرخوان پاسخ معتبر نداد.');
+  renderNews(data);
+ }catch(error){
+  if(status)status.textContent='اتصال خبرخوان برقرار نشد';
+  content.innerHTML='<p class="market-news-empty">خبرها فعلاً بارگیری نشدند. وضعیت سرویس تحلیل را بررسی کن؛ از نمایش تیترهای قدیمی به‌عنوان خبر تازه خودداری می‌شود.</p>';
+ }
+}
+
 async function run(){
  const base=endpoint();if(!base){setStatus('نیازمند اتصال');output.innerHTML='<strong>سرویس هوش مصنوعی هنوز به این سایت متصل نشده.</strong><p>در بخش «تنظیم اتصال تحلیلگر»، آدرس Worker مستقرشده را وارد و ذخیره کن. برای امنیت، کلید API فقط باید در Secretهای Cloudflare باشد.</p>';document.querySelector('.ai-setup details')?.setAttribute('open','');return}
  const asset=$('aiAsset')?.value||'USD_IRR_FREE';const horizon=$('aiHorizon')?.value||'7';runBtn.disabled=true;runBtn.innerHTML='<span class="ai-spark">✳</span> در حال آزمون مدل و داده‌ها…';setStatus('در حال بررسی');output.innerHTML='<strong>در حال ارزیابی بازار…</strong><p>قیمت و تاریخچه بررسی می‌شود؛ سپس مدل‌های آماری با آزمون walk-forward و معیارهای خطا سنجیده می‌شوند. اگر شواهد کافی نباشد، پیش‌بینی منتشر نمی‌شود.</p>';
@@ -82,5 +116,7 @@ async function checkHealth(){
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
 $('saveAiEndpoint')?.addEventListener('click',saveEndpoint);runBtn?.addEventListener('click',run);
 checkHealth();
-window.addEventListener('dollar-ai-endpoint-updated',checkHealth);
+loadNews();
+window.setInterval(loadNews,15*60*1000);
+window.addEventListener('dollar-ai-endpoint-updated',()=>{checkHealth();loadNews()});
 })();
