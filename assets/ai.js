@@ -119,8 +119,8 @@ async function run(){
   if(!res.ok)throw new Error(data.error||'موتور اختصاصی پاسخ معتبر نداد ('+res.status+').');
   data.llm_configured = health.llm_configured === true;
   render(data);
-  if(data.forecast?.status==='withheld')setStatus(health.llm_configured===true?'کنترل کیفیت فعال · فعلاً بدون پیش‌بینی عددی':'کنترل کیفیت فعال · خبرخوان RSS روشن؛ وب‌پژوهی AI نیازمند کلید API');
-  else setStatus(health.llm_configured===true?'موتور آماری و وب‌پژوهی AI فعال':'موتور آماری و خبرخوان RSS فعال · وب‌پژوهی AI نیازمند کلید API');
+  if(data.forecast?.status==='withheld')setStatus(health.llm_configured===true?'کنترل کیفیت فعال · فعلاً بدون پیش‌بینی عددی':'کنترل کیفیت فعال · خبرخوان رایگان RSS روشن؛ مدل زبانی اختیاری متصل نیست');
+  else setStatus(health.llm_configured===true?'موتور آماری و وب‌پژوهی AI فعال':'موتور آماری و خبرخوان رایگان RSS فعال · بدون نیاز به کلید AI');
  }catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای تحلیل')}
  finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش بازار <span>↗</span>'}
 }
@@ -135,7 +135,7 @@ async function checkHealth(){
   const adaptive=Array.isArray(data.capabilities)&&data.capabilities.includes('adaptive-ensemble-forecast')&&data.forecast_ledger_enabled===true;
   if(!adaptive){setStatus('موتور اختصاصی هنوز آماده نیست');return}
   const refreshStatus=data.background_refresh_prerequisites_ready?'موتور آماری و خبرخوان RSS فعال · به‌روزرسانی خودکار روشن':'موتور آماری فعال · زمان‌بندی خودکار نیازمند بررسی';
-  setStatus(data.llm_configured===true?refreshStatus+' · وب‌پژوهی هوشمند فعال':refreshStatus+' · وب‌پژوهی هوشمند نیازمند کلید API');
+  setStatus(data.llm_configured===true?refreshStatus+' · جست‌وجوی وب با مدل زبانی فعال':refreshStatus+' · حالت رایگان بدون کلید فعال');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
