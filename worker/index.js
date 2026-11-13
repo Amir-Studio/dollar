@@ -1,4 +1,4 @@
-import { handleForecastApi, runForecastCycle } from "./forecast-engine.js";
+import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline } from "./forecast-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -132,40 +132,7 @@ const NEWS_SOURCES = [
 ];
 const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
   .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
-const MARKET_NEWS_TERMS = [
-  "دلار","یورو","پوند","درهم","ریال","نرخ ارز","قیمت ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","دلار توافقی",
-  "سکه","قیمت سکه","قیمت طلا","بازار طلا","طلای ۱۸ عیار","اونس طلا","تورم","نرخ تورم","بانک مرکزی","مرکز مبادله","نرخ بهره","نرخ سود","تسهیلات بانکی",
-  "نقدینگی","کسری بودجه","بودجه","اقتصاد ایران","اقتصاد جهانی","اقتصاد","اقتصادی","رشد اقتصادی","تولید ناخالص","بازار سرمایه","بورس","شاخص کل بورس","سهام",
-  "صادرات نفت","نفت ایران","واردات نفت","قیمت نفت","نفت خام","برنت","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی","تجارت خارجی","گمرک",
-  "مالیات","یارانه","اشتغال","دستمزد","مسکن","قیمت مسکن","خودرو","قیمت خودرو","سرمایه گذاری","سرمایه‌گذاری","تولید","صنعت خودرو","صنعت فولاد","صنعت نفت","صنعت پتروشیمی","قیمت کالا","بازار جهانی",
-  "تحریم اقتصادی","تحریم‌های ایران","ارزش پول ملی",
-  "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market","precious metals",
-  "central bank","interest rate","interest rates","rate hike","rate hikes","rate cut","rate cuts",
-  "federal reserve","fed rate","fed rates","fed cuts","fed hikes","fed decision","fed chair",
-  "treasury yield","treasury yields","bond yield","bond yields","oil price","oil prices","brent crude",
-  "crude oil","oil futures","oil supply","oil production","oil exports","oil demand","oil shock",
-  "fuel prices","diesel prices","energy prices","energy shock","energy market","energy supply",
-  "trade deficit","budget deficit","gdp","forex","stock market","stocks","shares","bonds",
-  "monetary policy","commodity prices","opec","dollar index","us dollar","dollar exchange",
-  "dollar rate","dollar price","dollar rises","dollar falls","dollar strengthens","dollar weakens",
-  "eurozone","euro currency","euro exchange rate","euro rises","euro falls","sterling exchange rate",
-  "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
-  "market volatility","tariffs","export prices","import prices","sanctions","sanction relief","iran sanctions",
-  "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency",
-  "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market"
-];
-const EXCLUDED_NEWS_TERMS = [
-  "family dollar","venture capitalism","naval mine","explodes","explosion","caught fire",
-  "catch fire","oil tanker","gas carrier","missile","casualties","killed","drug",
-  "illegal importation","arrest","court case","court cases","lawsuit","settlement",
-  "fraud","theft","criminal","موشک","حمله","مسلحانه","سلاح","انفجار","تشییع","شهید",
-  "کشته","درگیری مسلحانه","پلیس راهور","دودزا","معاینه فنی","تصادف","حادثه"
-];
-function isMarketNews(title) {
-  const value = String(title || "").toLocaleLowerCase();
-  if (EXCLUDED_NEWS_TERMS.some(term => value.includes(term))) return false;
-  return MARKET_NEWS_TERMS.some(term => value.includes(term.toLocaleLowerCase()));
-}
+function isMarketNews(title) { return isMarketRelevantHeadline(title); }
 function rssTag(block, tag) {
   const safe = tag.replace(/[.*+?^$()|[\]\\]/g,"\\$&");
   const match = block.match(new RegExp("<" + safe + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + safe + ">", "i"));
@@ -646,6 +613,7 @@ export default {
         background_refresh_prerequisites_ready: backgroundRefreshEnabled && quotePersistenceReady,
         background_news_refresh_enabled: backgroundRefreshEnabled && newsStorageReady,
         quote_persistence_enabled: quotePersistenceReady,
+        web_search_enabled: Boolean(env.OPENAI_API_KEY),
         capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","database-schema-diagnostics"]
       }, 200, { "cache-control": "no-store" });
     }
