@@ -236,7 +236,8 @@ function terminologySelfTest() {
  const passed=results.filter(x=>x.passed).length;
  return {passed,total:results.length,accuracy_pct:Number((passed/results.length*100).toFixed(1)),status:passed===results.length?"pass":"needs_revision",cases:results};
 }
-\nconst THEMES = [
+
+const THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -369,7 +370,8 @@ function classifyOne(item) {
   const numberMentions = extractNumbers(text);
   const english = englishAdvancedSemantics(text);
   const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
-  const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;\n  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : [];
+  const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
+  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : [];
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
