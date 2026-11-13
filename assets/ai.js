@@ -117,9 +117,10 @@ async function run(){
   const res=await fetch(root+'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon),{headers:{accept:'application/json'},cache:'no-store'});
   const data=await res.json();
   if(!res.ok)throw new Error(data.error||'موتور اختصاصی پاسخ معتبر نداد ('+res.status+').');
+  data.llm_configured = health.llm_configured === true;
   render(data);
-  if(data.forecast?.status==='withheld')setStatus('کنترل کیفیت فعال · فعلاً بدون پیش‌بینی عددی');
-  else setStatus('موتور اختصاصی فعال · پیش‌بینی آزمون‌شده و خبرها آماده');
+  if(data.forecast?.status==='withheld')setStatus(health.llm_configured===true?'کنترل کیفیت فعال · فعلاً بدون پیش‌بینی عددی':'کنترل کیفیت فعال · خبرخوان RSS روشن؛ وب‌پژوهی AI نیازمند کلید API');
+  else setStatus(health.llm_configured===true?'موتور آماری و وب‌پژوهی AI فعال':'موتور آماری و خبرخوان RSS فعال · وب‌پژوهی AI نیازمند کلید API');
  }catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای تحلیل')}
  finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش بازار <span>↗</span>'}
 }
@@ -133,7 +134,8 @@ async function checkHealth(){
   if(data.database_configured!==true||data.database_schema_ready!==true){setStatus('پایگاه داده نیازمند بررسی است');return}
   const adaptive=Array.isArray(data.capabilities)&&data.capabilities.includes('adaptive-ensemble-forecast')&&data.forecast_ledger_enabled===true;
   if(!adaptive){setStatus('موتور اختصاصی هنوز آماده نیست');return}
-  setStatus(data.background_refresh_prerequisites_ready?'موتور اختصاصی و خبرخوان فعال · به‌روزرسانی خودکار روشن':'موتور اختصاصی فعال · زمان‌بندی خودکار نیازمند بررسی');
+  const refreshStatus=data.background_refresh_prerequisites_ready?'موتور آماری و خبرخوان RSS فعال · به‌روزرسانی خودکار روشن':'موتور آماری فعال · زمان‌بندی خودکار نیازمند بررسی';
+  setStatus(data.llm_configured===true?refreshStatus+' · وب‌پژوهی هوشمند فعال':refreshStatus+' · وب‌پژوهی هوشمند نیازمند کلید API');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
