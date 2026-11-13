@@ -141,7 +141,7 @@ async function fetchInputs(env,asset,marketPayload) {
   const market=marketPayload||await json(env.MARKET_DATA_URL||MARKET_URL);
   const item=(market.data||[]).find(x=>x.symbol===asset);
   const stamp=dateMs(item?.timestamp||market.meta?.published_at||market.meta?.timestamp), price=num(item?.price);
-  if(!item||!(price>0)||!Number.isFinite(stamp)||stamp>Date.now()+300000||Date.now()-stamp>45*60000) throw Error("قیمت منبع تازه و معتبر نیست.");
+  if(!item||!(price>0)||!Number.isFinite(stamp)||stamp>Date.now()+300000||Date.now()-stamp>72*60*60*1000) throw Error("آخرین نرخ ثبت‌شده بیش از ۷۲ ساعت قدیمی یا نامعتبر است.");
   const history=await json((env.HISTORY_BASE_URL||HISTORY_URL)+encodeURIComponent(asset)+".json");
   const points=rowsFrom(history);
   if(points.length>1&&points[points.length-1].t>Date.now()+300000) throw Error("تاریخچه شامل زمان آینده است.");
@@ -152,7 +152,7 @@ async function fetchInputs(env,asset,marketPayload) {
   return {price,stamp,source:String(item.source||"unknown"),points};
 }
 async function issueForecast(env,asset,horizon,input) {
-  const issuedAt=new Date().toISOString(), targetAt=new Date(input.stamp+horizon*DAY).toISOString();
+  const issuedAt=new Date().toISOString(), targetAt=new Date(Math.max(input.stamp,Date.now())+horizon*DAY).toISOString();
   const result=buildForecast(input.points,input.price,horizon);
   if(!result.eligible) return {asset,horizon_days:horizon,model_version:MODEL_VERSION,status:"withheld",reason:result.reason,validation:result,observations:input.points.length};
   const payload={asset,horizon_days:horizon,model_version:MODEL_VERSION,issued_at:issuedAt,target_at:targetAt,
