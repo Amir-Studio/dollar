@@ -1,6 +1,6 @@
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
-const MODEL_VERSION = "iran-ensemble-wf-2.2-baseline-calibration";
+const MODEL_VERSION = "iran-ensemble-wf-2.3-fresh-quote-calibration";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -335,7 +335,7 @@ async function fetchInputs(env,asset,marketPayload) {
   const market=marketPayload||await json(env.MARKET_DATA_URL||MARKET_URL);
   const item=(market.data||[]).find(x=>x.symbol===asset);
   const stamp=dateMs(item?.timestamp||market.meta?.published_at||market.meta?.timestamp), price=num(item?.price);
-  if(!item||!(price>0)||!Number.isFinite(stamp)||stamp>Date.now()+300000||Date.now()-stamp>72*60*60*1000) throw Error("آخرین نرخ ثبت‌شده بیش از ۷۲ ساعت قدیمی یا نامعتبر است.");
+  if(!item||!(price>0)||!Number.isFinite(stamp)||stamp>Date.now()+300000||Date.now()-stamp>24*60*60*1000) throw Error("آخرین نرخ ثبت‌شده بیش از ۲۴ ساعت قدیمی یا نامعتبر است؛ برای جلوگیری از تحلیل با قیمت کهنه، پیش‌بینی متوقف شد.");
   const history=await json((env.HISTORY_BASE_URL||HISTORY_URL)+encodeURIComponent(asset)+".json");
   const points=rowsFrom(history);
   if(points.length>1&&points[points.length-1].t>Date.now()+300000) throw Error("تاریخچه شامل زمان آینده است.");
@@ -349,15 +349,16 @@ async function fetchInputs(env,asset,marketPayload) {
 
 async function issueForecast(env,asset,horizon,input) {
   const issuedAt=new Date().toISOString();
-  // Forecast horizon is anchored to the quote's observation time, not server request time.
-  const targetAt=new Date(input.stamp+horizon*DAY).toISOString();
+  // The horizon starts when the forecast is issued; stale quotes are rejected in fetchInputs.
+  const targetAt=new Date(Date.parse(issuedAt)+horizon*DAY).toISOString();
   const result=buildForecast(input.points,input.price,horizon,input.newsContext);
   if(!result.eligible) return {
     asset,horizon_days:horizon,model_version:MODEL_VERSION,status:"withheld",
     reason:result.reason,validation:result,observations:input.points.length,
     news_context:input.newsContext
   };
-  const validation={...result.validation,news_context:{
+  const quoteAgeHours=Math.max(0,(Date.parse(issuedAt)-input.stamp)/3600000);
+  const validation={...result.validation,quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
     event_risk_score:input.newsContext?.event_risk_score??0,
     headline_count:input.newsContext?.headline_count??0,
     source_count:input.newsContext?.source_count??0,
@@ -423,7 +424,7 @@ export async function runForecastCycle(env,marketPayload) {
         if(result?.status==="issued") issued.push(result);
         else if(result?.status==="withheld") withheld.push({asset,horizon_days:horizon,reason:result.reason});
       }
-    }catch(error){console.log("Forecast cycle skipped",asset,error?.message||error);}
+    }catch(error){const reason=String(error?.message||error).slice(0,180);withheld.push({asset,reason});console.log("Forecast cycle skipped",asset,reason);}
   }
   console.log("Forecast cycle completed: published",issued.length,"withheld",withheld.length,"evaluated",evaluated.length);
   return {enabled:true,issued:issued.length,withheld:withheld.length,evaluated:evaluated.length,
