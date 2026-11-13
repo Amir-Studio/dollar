@@ -457,7 +457,7 @@ async function issueForecast(env,asset,horizon,input) {
     model_weights:result.model_weights,validation,
     input_fingerprint:input.stamp+":"+input.points.length+":"+input.points[input.points.length-1].t
   };
-  const recent=await db(env,"market_forecast_runs?select=id&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&issued_at=gte."+encodeURIComponent(new Date(Date.now()-6*3600000).toISOString())+"&limit=1");
+  const recent=await db(env,"market_forecast_runs?select=id&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=in.(pending,evaluated)&issued_at=gte."+encodeURIComponent(new Date(Date.now()-6*3600000).toISOString())+"&limit=1");
   if(!recent?.length) await db(env,"market_forecast_runs",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify(payload)});
   return {
     asset,asset_fa:asset,horizon_days:horizon,status:"issued",
