@@ -1,4 +1,5 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
+import { analyzeMarketLanguage } from "./language-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -213,7 +214,8 @@ async function makeFreeAnalysis(env, asset) {
   const target = price*(1+expected/100);
   const uncertainty = Math.max(2.5,Math.min(18,model.sigma*Math.sqrt(7)*100*1.5));
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
-  const topics = newsTopics(news);
+  const languageAnalysis = analyzeMarketLanguage(news, rows);
+  const topics = languageAnalysis.themes;
   const direction = expected>0.35?"up":expected< -0.35?"down":"sideways";
   const directionFa = direction==="up"?"تمایل آماری صعودی":direction==="down"?"تمایل آماری نزولی":"روند آماری کم‌جهت";
   const summary = "بر پایهٔ رگرسیون لگاریتمی " + model.count + " مشاهدهٔ اخیر، روند روزانه حدود " +
@@ -224,7 +226,8 @@ async function makeFreeAnalysis(env, asset) {
   if (recent.length < 3) risks.push("پوشش خبرهای دارای تاریخ در ۲۴ ساعت اخیر محدود است؛ ممکن است رویداد مهمی از دست رفته باشد.");
   if (rows.length < 30) risks.push("تاریخچه کمتر از ۳۰ مشاهده دارد؛ برآورد آماری ناپایدارتر است.");
   if (model.daily_volatility_pct > 2) risks.push("نوسان روزانهٔ تاریخی بالاست؛ محدودهٔ سناریو را با احتیاط بخوان.");
-  risks.push("تیتر خبرها به‌تنهایی جهت اثر بر قیمت را مشخص نمی‌کند؛ اثر واقعی به متن کامل، زمان‌بندی و واکنش بازار بستگی دارد.");
+  risks.push("هستهٔ زبانی نسخهٔ ۰.۱ تیترها را تحلیل می‌کند، نه متن کامل مقاله‌ها؛ جهت اثر خبر بدون شواهد تکمیلی قطعی نیست.");
+  if (languageAnalysis.possible_conflicts.length) risks.push("چند تیتر با چارچوب رویدادی متفاوت شناسایی شد؛ این موارد تناقض قطعی نیستند و نیاز به بررسی متن کامل دارند.");
   return reply({
     mode:"free-algorithmic",asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
     quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown"),provider_meta:item.provider_meta||null},
@@ -233,6 +236,7 @@ async function makeFreeAnalysis(env, asset) {
       range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),
       confidence:null,uncertainty_pct:Number(uncertainty.toFixed(2))},
     drivers:topics,risks_fa:risks,sources:news,
+    language_analysis:languageAnalysis,
     news_sources_count:news.length,recent_sources_count:recent.length,news_window_hours:72,
     coverage_score:Math.min(100,recent.length*12),
     baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),
@@ -242,7 +246,7 @@ async function makeFreeAnalysis(env, asset) {
       daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),
       max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),
       regression_target:Math.round(model.baseline7),observations:model.count},
-    note_fa:"تحلیل الگوریتمی رایگان بر پایهٔ تاریخچه و تیتر خبرهاست؛ مدل زبانی یا توصیهٔ خریدوفروش نیست."
+    note_fa:"تحلیل نسخهٔ نخست هستهٔ پردازش زبان تخصصی فارسی و انگلیسی به‌همراه تاریخچهٔ قیمت است؛ هنوز مدل زبانی مولد نیست و توصیهٔ خریدوفروش ارائه نمی‌کند."
   },200,{"cache-control":"public, max-age=300","vary":"Origin"});
 }
 
