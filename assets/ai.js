@@ -131,7 +131,7 @@ async function checkHealth(){
  const base=endpoint();
  if(!base){setStatus('اتصال سرویس تنظیم نشده');return}
  try{
-  const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
+  const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(25000)});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error('health check failed');
   if(data.database_configured!==true||data.database_schema_ready!==true){setStatus('پایگاه داده نیازمند بررسی است');return}
