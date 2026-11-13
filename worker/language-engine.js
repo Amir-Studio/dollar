@@ -1,6 +1,6 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-const VERSION = "dollar-domain-nlp-0.4.0";
+const VERSION = "dollar-domain-nlp-0.5.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -55,7 +55,49 @@ const ENGLISH_UNITS = [
   {id:"tonne",terms:["metric tons","tonnes","tons"]},{id:"million",terms:["million","mn"]},{id:"billion",terms:["billion","bn"]}
 ];
 
-const THEMES = [
+
+const B1_VOCAB = [
+  {id:"announce",terms:["announce","announces","announced","announcement","declare","declares","declared"]},
+  {id:"expect",terms:["expect","expects","expected","expectation","predict","predicts","predicted","forecast","forecasts","forecasted"]},
+  {id:"increase",terms:["increase","increases","increased","increasing","rise","rises","rose","risen","higher","higher than","up by"]},
+  {id:"decrease",terms:["decrease","decreases","decreased","decreasing","fall","falls","fell","fallen","lower","lower than","down by"]},
+  {id:"remain",terms:["remain","remains","remained","stay","stays","stayed","unchanged","stable"]},
+  {id:"affect",terms:["affect","affects","affected","impact","impacts","influence","influences","influenced"]},
+  {id:"cause",terms:["cause","causes","caused","lead to","leads to","led to","result in","results in","resulted in"]},
+  {id:"support",terms:["support","supports","supported","back","backs","backed","boost","boosts","boosted"]},
+  {id:"reduce",terms:["reduce","reduces","reduced","cut","cuts","cutting","lower","lowers","lowered"]},
+  {id:"delay",terms:["delay","delays","delayed","postpone","postpones","postponed","put off"]},
+  {id:"agree",terms:["agree","agrees","agreed","agreement","disagree","disagrees","disagreed"]},
+  {id:"discuss",terms:["discuss","discusses","discussed","talk","talks","talked","negotiate","negotiates","negotiated"]}
+];
+const B1_PHRASES = [
+  {id:"because_of",terms:["because of","due to","as a result of"]},
+  {id:"in_spite_of",terms:["despite","in spite of","although","even though"]},
+  {id:"compared_with",terms:["compared with","compared to","in comparison with","whereas"]},
+  {id:"according_to",terms:["according to","as reported by","officials said","the report says"]},
+  {id:"at_least",terms:["at least","at most","more than","less than","around","approximately","nearly"]},
+  {id:"future_plan",terms:["plan to","plans to","is expected to","are expected to","is likely to","are likely to"]},
+  {id:"past_event",terms:["has announced","have announced","was announced","were announced","took place","came into effect"]},
+  {id:"condition",terms:["if","unless","provided that","in case"]}
+];
+function analyzeB1English(text) {
+  const sentences=text.split(/(?<=[.!?])\\s+|;\\s+/).filter(Boolean).slice(0,20);
+  const vocabulary=B1_VOCAB.filter(v=>containsAny(text,v.terms).length).map(v=>v.id);
+  const phrases=B1_PHRASES.filter(p=>containsAny(text,p.terms).length).map(p=>p.id);
+  const frames=sentences.map(sentence=>{
+    const t=sentence.toLowerCase();
+    const tense=/\\b(will|shall|tomorrow|next week|next month|is expected to|are expected to)\\b/.test(t)?"future":
+      /\\b(yesterday|last week|last month|ago|announced|rose|fell|was imposed|were imposed|increased|decreased)\\b/.test(t)?"past":
+      /\\b(is|are|am|currently|today|now|remains|remain)\\b/.test(t)?"present":"unspecified";
+    const voice=/\\b(was|were|is|are|been|be)\\s+\\w+(ed|en)\\b/.test(t)?"possibly_passive":"active_or_unclear";
+    const condition=/\\b(if|unless|provided that|in case)\\b/.test(t);
+    const comparison=/\\b(more|less|higher|lower|greater|fewer)\\s+(than|by)\\b|\\b(as .* as)\\b/.test(t);
+    const cause=containsAny(t,["because","because of","due to","as a result","therefore","led to","resulted in"]).length>0;
+    return {sentence:sentence.slice(0,500),tense,voice,conditional:condition,comparison,cause_or_result:cause};
+  });
+  return {coverage_level:"b1_oriented_domain_english_not_cefr_certification",vocabulary_concepts:vocabulary,common_phrase_functions:phrases,grammar_frames:frames,limitations:["rule_based_grammar_approximation","not_a_formal_cefr_assessment"]};
+}
+\nconst THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -175,7 +217,7 @@ function extractEnglishAmounts(text) {
   return out.slice(0,12);
 }
 
-function classifyOne(item) {
+function languageIsEnglish(title) { return !/[\\u0600-\\u06ff]/.test(String(title||"")); }\nfunction classifyOne(item) {
   const title = String(item?.title || item?.original_title || "");
   const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,3000);
   const text = normalize(title + " " + body);
@@ -185,14 +227,14 @@ function classifyOne(item) {
   const pos = polarity(text,POSITIVE), neg = polarity(text,NEGATIVE);
   const tone = pos===neg?"neutral_or_unclear":pos>neg?"positive_wording":"negative_wording";
   const numberMentions = extractNumbers(text);
-  const english = englishAdvancedSemantics(text);
+  const english = englishAdvancedSemantics(text);\n  const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
     language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
-    english_semantics:language==="en"?english:null,
+    english_semantics:language==="en"?{...english,b1_analysis:b1}:null,
     numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
@@ -300,7 +342,7 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction"],news_analyzed:analyses.length,
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames"],news_analyzed:analyses.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
     excerpt_coverage_pct:analyses.length?Number((analyses.filter(x=>x.content_chars>0).length/analyses.length*100).toFixed(1)):0,
     themes:buildTopics(analyses,input),events:events.slice(0,30),
