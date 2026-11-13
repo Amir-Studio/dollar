@@ -1,6 +1,9 @@
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
-const MODEL_VERSION = "iran-ensemble-wf-2.3-fresh-quote-calibration";
+const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
+const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
+const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
+const MODEL_VERSION = "iran-ensemble-wf-2.4-multisource-feedback";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -53,9 +56,35 @@ async function json(url) {
   if(!r.ok) throw Error("HTTP "+r.status+" from market source");
   return r.json();
 }
+function utcStamp(value) {
+  const text=String(value??"");
+  return dateMs(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?$/.test(text)?text+"Z":text);
+}
+function normalizeNerkhara(payload) {
+  const items=Array.isArray(payload?.items)?payload.items:payload?.item?[payload.item]:[];
+  const byId=new Map(items.map(item=>[item.id,item]));
+  const data=Object.entries(NERKHARA_IDS).flatMap(([symbol,id])=>{
+    const item=byId.get(id),price=Number(item?.price),timestamp=utcStamp(item?.updated_utc||payload?.generated_utc);
+    if(!item||!(price>0)||!Number.isFinite(timestamp)) return [];
+    return [{symbol,price,timestamp:new Date(timestamp).toISOString(),stale:item.stale===true,
+      source:"NerkhAra",provider_meta:{provider:"NerkhAra",unit:item.unit,method:item.method,source_count:Number(item.sources)||0,
+        spread_pct:Number.isFinite(Number(item.spread_pct))?Number(item.spread_pct):null,updated_utc:item.updated_utc||payload?.generated_utc,
+        page:item.page?.en||item.page?.fa||null}}];
+  });
+  if(!data.length) throw Error("NerkhAra returned no supported market symbols");
+  return {meta:{source:"NerkhAra",published_at:payload.generated_utc||null},data};
+}
+export async function getMarketSnapshot(env,supplied=null) {
+  if(supplied?.data?.length) return supplied;
+  try { return normalizeNerkhara(await json(env.NERKHARA_URL||NERKHARA_URL)); }
+  catch(primaryError) {
+    try { return await json(env.MARKET_DATA_URL||MARKET_URL); }
+    catch(fallbackError) { throw Error("هر دو منبع قیمت در دسترس نیستند؛ NerkhAra: "+String(primaryError.message||primaryError).slice(0,90)+"؛ پشتیبان: "+String(fallbackError.message||fallbackError).slice(0,90)); }
+  }
+}
 function rowsFrom(payload) {
-  const raw=Array.isArray(payload)?payload:Array.isArray(payload?.data)?payload.data:Array.isArray(payload?.history)?payload.history:[];
-  const sorted=raw.map(r=>({t:dateMs(r.date??r.datetime??r.timestamp??r.time??r.date_gregorian??r.t),p:num(r.close??r.c??r.price??r.value??r.last??r.close_price)}))
+  const raw=Array.isArray(payload)?payload:Array.isArray(payload?.data)?payload.data:Array.isArray(payload?.history)?payload.history:Array.isArray(payload?.items)?payload.items:Array.isArray(payload?.points)?payload.points:Array.isArray(payload?.samples)?payload.samples:[];
+  const sorted=raw.map(r=>({t:utcStamp(r.date??r.datetime??r.timestamp??r.time??r.date_gregorian??r.observed_at??r.day??r.t),p:num(r.close??r.c??r.price??r.value??r.last??r.close_price??r.mean??r.average??r.avg)}))
     .filter(x=>Number.isFinite(x.t)&&x.p>0).sort((a,b)=>a.t-b.t);
   const byDay=new Map();
   for(const r of sorted) byDay.set(new Date(r.t).toISOString().slice(0,10),r);
@@ -332,19 +361,24 @@ async function fetchNewsContext(env,asset,asOf) {
   }
 }
 async function fetchInputs(env,asset,marketPayload) {
-  const market=marketPayload||await json(env.MARKET_DATA_URL||MARKET_URL);
+  const market=await getMarketSnapshot(env,marketPayload);
   const item=(market.data||[]).find(x=>x.symbol===asset);
   const stamp=dateMs(item?.timestamp||market.meta?.published_at||market.meta?.timestamp), price=num(item?.price);
   if(!item||!(price>0)||!Number.isFinite(stamp)||stamp>Date.now()+300000||Date.now()-stamp>24*60*60*1000) throw Error("آخرین نرخ ثبت‌شده بیش از ۲۴ ساعت قدیمی یا نامعتبر است؛ برای جلوگیری از تحلیل با قیمت کهنه، پیش‌بینی متوقف شد.");
-  const history=await json((env.HISTORY_BASE_URL||HISTORY_URL)+encodeURIComponent(asset)+".json");
-  const points=rowsFrom(history);
+  let points=[],historyProvider="NerkhAra";
+  try { points=rowsFrom(await json((env.NERKHARA_HISTORY_URL||NERKHARA_HISTORY_URL)+encodeURIComponent(NERKHARA_IDS[asset])+".json")); } catch {}
+  if(points.length<300) {
+    try { const fallback=rowsFrom(await json((env.HISTORY_BASE_URL||HISTORY_URL)+encodeURIComponent(asset)+".json"));
+      if(fallback.length>points.length){points=fallback;historyProvider="Iran Market Data";}
+    } catch {}
+  }
   if(points.length>1&&points[points.length-1].t>Date.now()+300000) throw Error("تاریخچه شامل زمان آینده است.");
   const latest=points[points.length-1];
   if(!latest||stamp-latest.t>10*DAY||latest.t>stamp+300000) throw Error("تاریخچهٔ روزانه قدیمی یا ناسازگار با زمان نرخ مرجع است.");
   const divergence=Math.abs(price/latest.p-1);
   if(divergence>0.25) throw Error("اختلاف نرخ زنده و آخرین بسته‌شدن تاریخی بیش از ۲۵٪ است؛ احتمال اختلاف واحد یا منبع وجود دارد.");
   const newsContext=await fetchNewsContext(env,asset,stamp);
-  return {price,stamp,source:String(item.source||"unknown"),points,newsContext};
+  return {price,stamp,source:String(item.source||"unknown"),provider_meta:item.provider_meta||null,history_provider:historyProvider,points,newsContext};
 }
 
 async function issueForecast(env,asset,horizon,input) {
@@ -408,7 +442,7 @@ async function evaluateDue(env,market) {
 }
 export async function runForecastCycle(env,marketPayload) {
   if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY) return {enabled:false,reason:"database-not-configured"};
-  const market=marketPayload||await json(env.MARKET_DATA_URL||MARKET_URL);
+  const market=await getMarketSnapshot(env,marketPayload);
   const evaluated=await evaluateDue(env,market);
   const issued=[],withheld=[];
   for(const asset of ASSETS){
