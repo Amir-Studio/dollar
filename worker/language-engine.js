@@ -123,7 +123,7 @@ const C1_DISCOURSE = [
 ];
 function analyzeC1English(text) {
  const lower=text.toLowerCase();
- const sentences=text.split(/(?<=[.!?])\\s+|;\\s+/).filter(Boolean).slice(0,24);
+ const sentences=text.split(/(?<=[.!?])\s+|;\s+/).filter(Boolean).slice(0,24);
  const lexicon=C1_LEXICON.filter(x=>containsAny(lower,x.terms).length).map(x=>x.id);
  const discourse=C1_DISCOURSE.filter(x=>containsAny(lower,x.terms).length).map(x=>x.id);
  const sentenceAnalysis=sentences.map(sentence=>{
@@ -134,7 +134,7 @@ function analyzeC1English(text) {
   const denial=containsAny(t,ENGLISH_NEGATIVE_PATTERNS).length>0 || containsAny(t,ENGLISH_NEGATIVE_CONTRACTIONS).length>0;
   const modality=containsAny(t,ENGLISH_MODAL).length>0;
   const causal=containsAny(t,["because","because of","due to","therefore","thereby","as a result","stems from","hinges on","leads to","led to","consequently"]).length>0;
-  const conditional=/\\b(if|unless|provided that|assuming that|subject to|conditional on)\\b/.test(t);
+  const conditional=/\b(if|unless|provided that|assuming that|subject to|conditional on)\b/.test(t);
   const counterfactual=containsAny(t,C1_DISCOURSE.find(x=>x.id==="counterfactual").terms).length>0;
   const quantifier=containsAny(t,["most","some","few","several","a minority","a majority","at least","no more than","roughly","approximately","marginally"]).length>0;
   return {text:sentence.slice(0,650),discourse_functions:markers,hedged:hedge,attributed:attribution,negated_or_denied:denial,modal:modality,causal_language:causal,conditional,counterfactual,qualified_quantity:quantifier};
@@ -142,7 +142,8 @@ function analyzeC1English(text) {
  const advancedCount=lexicon.length+discourse.length;
  return {coverage_level:"c1_oriented_financial_news_analysis_not_cefr_certification",advanced_domains:lexicon,discourse_functions:discourse,sentence_analysis:sentenceAnalysis,complexity_signals:advancedCount,limitations:["deterministic_pattern_analysis_not_full_semantic_parsing","does_not_certify_cefr_level","idiom_and_irony_detection_is_limited"]};
 }
-\nconst THEMES = [
+
+const THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
