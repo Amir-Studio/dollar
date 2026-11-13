@@ -367,7 +367,7 @@ function analyzePersianLiterature(text) {
   const hits=containsAny(t,item.terms);
   if(hits.length) found.push({id:item.id,label_fa:item.label_fa,meaning_fa:item.meaning_fa,matched_term:hits[0]});
  }
- const hasVerseLines=/\\n/.test(String(text)) || /[؛،].{0,30}[؛،]/.test(String(text));
+ const hasVerseLines=/\n/.test(String(text)) || /[؛،].{0,30}[؛،]/.test(String(text));
  return {detected_topics:found,form_hint:hasVerseLines?"possibly_verse_or_lineated_text":"prose_or_unknown",caution:"آرایه ادبی فقط با واژه‌های نشانگر قابل تشخیص قطعی نیست؛ تفسیر شعر و کنایه به بافت و خواندن انسانی نیاز دارد."};
 }
 function languageComprehensionExam() {
@@ -400,7 +400,8 @@ function languageComprehensionExam() {
  const passed=en.passed===en.total_cases&&fa.passed===fa.total_cases;
  return {exam_type:"internal_lexical_semantic_coverage_not_a_general_language_proficiency_test",english:en,persian:fa,overall_status:passed?"pass":"needs_revision",note_fa:"این آزمون داخلی، پوشش مفاهیم و چند نشانگر معنایی را می‌سنجد؛ جایگزین آزمون استاندارد فهم زبان یا ارزیابی انسانی نیست."};
 }
-\nconst THEMES = [
+
+const THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -534,14 +535,16 @@ function classifyOne(item) {
   const english = englishAdvancedSemantics(text);
   const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
   const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
-  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : extractPersianMarketGlossary(text);\n  const persianLiterature = languageIsEnglish(title) ? null : analyzePersianLiterature(title + " " + body);
+  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : extractPersianMarketGlossary(text);
+  const persianLiterature = languageIsEnglish(title) ? null : analyzePersianLiterature(title + " " + body);
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
     language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
-    english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,\n    persian_literature:persianLiterature,
+    english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,
+    persian_literature:persianLiterature,
     numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
@@ -651,7 +654,9 @@ export function analyzeMarketLanguage(items,rows) {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
     language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping","persian_literature_genres_and_rhetorical_devices","bilingual_internal_comprehension_exam"],news_analyzed:analyses.length,
     terminology_benchmark:terminologySelfTest(),
-    persian_terminology_benchmark:persianTerminologySelfTest(),\n    bilingual_comprehension_exam:languageComprehensionExam(),\n    persian_literary_topics_count:PERSIAN_LITERARY_TERMS.length,
+    persian_terminology_benchmark:persianTerminologySelfTest(),
+    bilingual_comprehension_exam:languageComprehensionExam(),
+    persian_literary_topics_count:PERSIAN_LITERARY_TERMS.length,
     persian_glossary_size:PERSIAN_MARKET_GLOSSARY.length,
     market_glossary_size:MARKET_GLOSSARY.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
