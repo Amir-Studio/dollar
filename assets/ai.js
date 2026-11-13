@@ -58,6 +58,20 @@ if(f.forecast_mode==='baseline_only'){
   const fmt=v=>v===null||v===undefined?'—':(Number(v)>0?'+':'')+new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(v))+'٪';
   html+='<div class="ai-driver"><h4>شاخص‌های مستقل روند</h4><p>روند ۳۰ نقطهٔ اخیر: '+fmt(data.baseline.daily_trend_pct)+' در روز · بازده ۷روزه: '+fmt(data.baseline.momentum_7d_pct)+' · نوسان روزانه: '+fmt(data.baseline.daily_volatility_pct)+' · دادهٔ مبنا: '+escapeHtml(data.baseline.observations||'—')+' نقطه</p></div>';
  }
+ const eventContext=data.language_analysis?.event_price_context;
+ if(eventContext){
+  const reactions=Array.isArray(eventContext.observations)?eventContext.observations:[];
+  const pct=v=>v==null?'دادهٔ کافی نیست':(Number(v)>0?'+':'')+new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(v))+'٪';
+  html+='<div class="ai-driver"><h4>پیوند خبر با تاریخچهٔ قیمت</h4><p>'+escapeHtml(eventContext.note_fa||'تغییرات پس از انتشار خبر؛ نه اثبات رابطهٔ علّی.')+'</p>';
+  if(reactions.length){
+   html+='<div class="ai-news-list">'+reactions.map(item=>{
+    const after=item.subsequent_price_observations||{};
+    const eventDate=item.event_date?new Intl.DateTimeFormat('fa-IR',{dateStyle:'short',timeStyle:'short'}).format(new Date(item.event_date)):'نامشخص';
+    return '<article class="ai-news-item"><div class="ai-news-meta"><span>'+escapeHtml(item.source||'منبع نامشخص')+'</span><small>'+escapeHtml(eventDate)+'</small></div><p>'+escapeHtml(item.title||'رویداد خبری')+'</p><p>پس از ۱ مشاهده: '+pct(after[1]?.change_pct)+' · پس از ۳ مشاهده: '+pct(after[3]?.change_pct)+' · پس از ۷ مشاهده: '+pct(after[7]?.change_pct)+'</p></article>';
+   }).join('')+'</div>';
+  }else html+='<p>در این بازه، رویداد خبری با تاریخچهٔ قیمتِ قابل‌مقایسه پیدا نشد.</p>';
+  html+='</div>';
+ }
  if(data.adaptive_reason){
   const v=data.adaptive_validation||{};
   html+='<div class="ai-driver"><h4>کنترل کیفیت مدل تطبیقی</h4><p>'+escapeHtml(data.adaptive_reason)+'</p><p>خطای مدل تطبیقی: '+(v.mae_pct==null?'—':new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(v.mae_pct)+'٪')+' · خطای مدل بدون تغییر: '+(v.naive_mae_pct==null?'—':new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(v.naive_mae_pct)+'٪')+'</p><p>به همین دلیل، عدد بالا فقط سناریوی روند آماریِ غیرتأییدشده است؛ نه پیش‌بینی معتبر و نه توصیهٔ خریدوفروش.</p></div>';
