@@ -1,6 +1,6 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-const VERSION = "dollar-domain-nlp-0.8.0";
+const VERSION = "dollar-domain-nlp-0.9.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -337,7 +337,70 @@ function persianTerminologySelfTest() {
  return {passed,total:results.length,accuracy_pct:Number((passed/results.length*100).toFixed(1)),status:passed===results.length?"pass":"needs_revision",cases:results};
 }
 
-const THEMES = [
+
+const PERSIAN_LITERARY_TERMS = [
+ {id:"simile",terms:["مانند","مثل","همچون","چون","گویی","همانند"],label_fa:"تشبیه",meaning_fa:"مانندکردن یک چیز به چیز دیگر برای روشن‌تر یا زیباتر کردن معنا"},
+ {id:"metaphor",terms:["استعاره","استعاری"],label_fa:"استعاره",meaning_fa:"به‌کاربردن واژه در معنایی غیرمستقیم بر پایه شباهت"},
+ {id:"personification",terms:["جان بخشی","تشخیص","دیوارها سخن می گویند","باد می خندد","ابر گریست"],label_fa:"تشخیص یا جان‌بخشی",meaning_fa:"نسبت‌دادن ویژگی یا رفتار انسانی به اشیا و پدیده‌ها"},
+ {id:"irony",terms:["طنز","کنایه","طعنه","وارونه نمایی"],label_fa:"طنز و کنایه",meaning_fa:"رساندن معنایی فراتر از ظاهر جمله؛ گاهی با وارونگی یا انتقاد"},
+ {id:"allusion",terms:["تلمیح","اشاره به داستان","اشاره به اسطوره","اشاره به شخصیت تاریخی"],label_fa:"تلمیح",meaning_fa:"اشاره کوتاه به داستان، آیه، رویداد یا شخصیت شناخته‌شده"},
+ {id:"hyperbole",terms:["اغراق","مبالغه","بزرگ نمایی"],label_fa:"اغراق",meaning_fa:"بزرگ یا کوچک نشان‌دادن بیش از اندازه برای تأکید"},
+ {id:"paradox",terms:["متناقض نما","پارادوکس"],label_fa:"متناقض‌نما",meaning_fa:"ترکیبی که در ظاهر ناسازگار است اما معنایی قابل تأمل می‌سازد"},
+ {id:"rhyme",terms:["قافیه"],label_fa:"قافیه",meaning_fa:"هماهنگی آوایی پایان مصراع‌ها یا بیت‌ها"},
+ {id:"radif",terms:["ردیف"],label_fa:"ردیف",meaning_fa:"واژه یا عبارت تکرارشونده پس از قافیه"},
+ {id:"meter",terms:["وزن شعر","وزن عروضی","بحر شعر"],label_fa:"وزن عروضی",meaning_fa:"الگوی آهنگین هجاها در شعر کلاسیک"},
+ {id:"imagery",terms:["تصویر سازی","تصویرپردازی","حس آمیزی"],label_fa:"تصویرسازی و حس‌آمیزی",meaning_fa:"ساخت تصویر ذهنی یا آمیختن دریافت‌های حسی"},
+ {id:"symbol",terms:["نماد","نمادپردازی"],label_fa:"نماد",meaning_fa:"عنصری که علاوه بر معنای ظاهری، مفهوم گسترده‌تری را نمایندگی می‌کند"},
+ {id:"repetition",terms:["تکرار","واج آرایی","جناس"],label_fa:"آرایه‌های آوایی و تکرار",meaning_fa:"ایجاد موسیقی یا تأکید از راه تکرار صدا، واژه یا ساخت"},
+ {id:"prose",terms:["نثر","نثر ادبی","نثر مرسل","نثر مسجع"],label_fa:"نثر",meaning_fa:"نوشتار غیرمنظوم؛ می‌تواند ساده، ادبی یا آهنگین باشد"},
+ {id:"poetry",terms:["شعر","غزل","قصیده","مثنوی","رباعی","دوبیتی","قطعه"],label_fa:"قالب‌های شعر",meaning_fa:"گونه‌های شعر با ساختار و ویژگی‌های متفاوت"},
+ {id:"narrative",terms:["روایت","راوی","زاویه دید","شخصیت پردازی","طرح داستان"],label_fa:"روایت و داستان",meaning_fa:"چگونگی بازگویی رخدادها، زاویه دید و ساخت شخصیت‌ها"},
+ {id:"theme",terms:["درون مایه","مضمون","بن مایه"],label_fa:"درون‌مایه",meaning_fa:"اندیشه یا مسئله اصلی اثر ادبی"},
+ {id:"classical_literature",terms:["ادبیات کلاسیک","ادبیات کهن","سبک خراسانی","سبک عراقی","سبک هندی"],label_fa:"ادبیات کلاسیک",meaning_fa:"سنت‌های تاریخی شعر و نثر فارسی و ویژگی‌های سبکی آن‌ها"},
+ {id:"modern_literature",terms:["ادبیات معاصر","شعر نو","شعر نیمایی","شعر سپید","داستان مدرن"],label_fa:"ادبیات معاصر",meaning_fa:"جریان‌های جدید شعر و داستان فارسی"},
+ {id:"proverb",terms:["ضرب المثل","مثل فارسی","اصطلاح عامیانه"],label_fa:"ضرب‌المثل و اصطلاح",meaning_fa:"عبارت جاافتاده‌ای که تجربه یا معنایی فشرده را منتقل می‌کند"}
+];
+function analyzePersianLiterature(text) {
+ const t=normalize(text);
+ const found=[];
+ for(const item of PERSIAN_LITERARY_TERMS) {
+  const hits=containsAny(t,item.terms);
+  if(hits.length) found.push({id:item.id,label_fa:item.label_fa,meaning_fa:item.meaning_fa,matched_term:hits[0]});
+ }
+ const hasVerseLines=/\\n/.test(String(text)) || /[؛،].{0,30}[؛،]/.test(String(text));
+ return {detected_topics:found,form_hint:hasVerseLines?"possibly_verse_or_lineated_text":"prose_or_unknown",caution:"آرایه ادبی فقط با واژه‌های نشانگر قابل تشخیص قطعی نیست؛ تفسیر شعر و کنایه به بافت و خواندن انسانی نیاز دارد."};
+}
+function languageComprehensionExam() {
+ const englishCases=[
+  {text:"The central bank held rates steady, although inflation remains above its target.",expected:["central_bank","interest_rate","inflation"],checks:["contrast"]},
+  {text:"Officials said the currency could weaken if oil exports fall.",expected:["exchange_rate","crude_oil"],checks:["conditional","reported"]},
+  {text:"Gold rose amid geopolitical uncertainty, but this does not prove the tensions caused the increase.",expected:["safe_haven","geopolitical_risk"],checks:["causal_caution"]},
+  {text:"A yield curve inversion may signal recession, though it is not a guarantee.",expected:["yield_curve","inversion","recession"],checks:["hedging","negation"]},
+  {text:"The government plans to reduce its fiscal deficit while public debt remains elevated.",expected:["fiscal_deficit","public_debt"],checks:["future_plan","contrast"]}
+ ];
+ const persianCases=[
+  {text:"بانک مرکزی با وجود تورم بالا، نرخ بهره را ثابت نگه داشت.",expected:["central_bank","inflation","interest_rate"],checks:["contrast"]},
+  {text:"مقام‌ها گفتند اگر صادرات نفت کاهش یابد، نرخ ارز ممکن است افزایش پیدا کند.",expected:["crude_oil","exchange_rate"],checks:["conditional","reported"]},
+  {text:"افزایش قیمت طلا هم‌زمان با تنش سیاسی رخ داد، اما این هم‌زمانی علت را ثابت نمی‌کند.",expected:["safe_haven","geopolitical_risk"],checks:["causal_caution"]},
+  {text:"معکوس شدن منحنی بازده می‌تواند نشانه رکود باشد، اما وقوع رکود قطعی نیست.",expected:["yield_curve","inversion","recession"],checks:["hedging","negation"]},
+  {text:"دولت قصد دارد کسری بودجه را کاهش دهد، در حالی که بدهی عمومی همچنان بالاست.",expected:["fiscal_deficit","public_debt"],checks:["future_plan","contrast"]}
+ ];
+ function score(cases,dict) {
+  const rows=cases.map(c=>{
+   const t=normalize(c.text);
+   const actual=dict.filter(x=>x.terms.some(term=>t.includes(normalize(term)))).map(x=>x.id);
+   const missing=c.expected.filter(id=>!actual.includes(id));
+   return {passed:missing.length===0,missing,expected:c.expected.length,found:c.expected.length-missing.length};
+  });
+  const found=rows.reduce((n,x)=>n+x.found,0),total=rows.reduce((n,x)=>n+x.expected,0);
+  return {passed:rows.filter(x=>x.passed).length,total_cases:rows.length,matched_concepts:found,total_concepts:total,recall_pct:Number((found/total*100).toFixed(1)),case_results:rows};
+ }
+ const en=score(englishCases,MARKET_GLOSSARY);
+ const fa=score(persianCases,PERSIAN_MARKET_GLOSSARY);
+ const passed=en.passed===en.total_cases&&fa.passed===fa.total_cases;
+ return {exam_type:"internal_lexical_semantic_coverage_not_a_general_language_proficiency_test",english:en,persian:fa,overall_status:passed?"pass":"needs_revision",note_fa:"این آزمون داخلی، پوشش مفاهیم و چند نشانگر معنایی را می‌سنجد؛ جایگزین آزمون استاندارد فهم زبان یا ارزیابی انسانی نیست."};
+}
+\nconst THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -471,14 +534,14 @@ function classifyOne(item) {
   const english = englishAdvancedSemantics(text);
   const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
   const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
-  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : extractPersianMarketGlossary(text);
+  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : extractPersianMarketGlossary(text);\n  const persianLiterature = languageIsEnglish(title) ? null : analyzePersianLiterature(title + " " + body);
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
     language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
-    english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,
+    english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,\n    persian_literature:persianLiterature,
     numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
@@ -586,9 +649,9 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping"],news_analyzed:analyses.length,
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping","persian_literature_genres_and_rhetorical_devices","bilingual_internal_comprehension_exam"],news_analyzed:analyses.length,
     terminology_benchmark:terminologySelfTest(),
-    persian_terminology_benchmark:persianTerminologySelfTest(),
+    persian_terminology_benchmark:persianTerminologySelfTest(),\n    bilingual_comprehension_exam:languageComprehensionExam(),\n    persian_literary_topics_count:PERSIAN_LITERARY_TERMS.length,
     persian_glossary_size:PERSIAN_MARKET_GLOSSARY.length,
     market_glossary_size:MARKET_GLOSSARY.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
