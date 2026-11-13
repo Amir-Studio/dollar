@@ -6,8 +6,6 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   MARKET_DATA_URL: Deno.env.get("MARKET_DATA_URL") ?? "",
   HISTORY_BASE_URL: Deno.env.get("HISTORY_BASE_URL") ?? "",
-  OPENAI_API_KEY: Deno.env.get("OPENAI_API_KEY") ?? "",
-  OPENAI_MODEL: Deno.env.get("OPENAI_MODEL") ?? "gpt-6-astra",
   // The recurring refresh is scheduled by Supabase Cron, not by a browser timer.
   BACKGROUND_REFRESH_ENABLED: "true",
 };
