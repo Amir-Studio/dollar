@@ -615,6 +615,10 @@ export default {
         background_refresh_provider: schedulerEnabled ? "supabase-cron" : kvBindingPresent ? "cloudflare-cron" : "none",
         background_refresh_prerequisites_ready: backgroundRefreshEnabled && quotePersistenceReady,
         background_news_refresh_enabled: backgroundRefreshEnabled && newsStorageReady,
+        multi_source_quotes_enabled: true,
+        quote_freshness_guard_hours: 24,
+        news_conflict_screening_enabled: true,
+        live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: Boolean(env.OPENAI_API_KEY),
         capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","database-schema-diagnostics",...(env.OPENAI_API_KEY?["openai-web-search"]:[])]
