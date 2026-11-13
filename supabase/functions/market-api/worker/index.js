@@ -252,7 +252,7 @@ async function makeFreeAnalysis(env, asset) {
   risks.push("تیتر خبرها به‌تنهایی جهت اثر بر قیمت را مشخص نمی‌کند؛ اثر واقعی به متن کامل، زمان‌بندی و واکنش بازار بستگی دارد.");
   return reply({
     mode:"free-algorithmic",asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
-    quote:{price,source_time:new Date(stamp).toISOString(),source:"Iran Market Data / " + String(item.source || "unknown").toUpperCase()},
+    quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown"),provider_meta:item.provider_meta||null},
     forecast:{horizon_days:7,direction,headline_fa:directionFa,summary_fa:summary,
       expected_change_pct:Number(expected.toFixed(2)),target_price:Math.round(target),
       range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),
@@ -378,12 +378,12 @@ async function persistQuotesToSupabase(env, market) {
     const asset = item?.symbol;
     const price = n(item?.price);
     const stamp = dateMs(item?.timestamp || market.meta?.published_at || market.meta?.timestamp);
-    if (!Object.hasOwn(ASSETS, asset) || !(price > 0) || !Number.isFinite(stamp) ||
-        stamp > Date.now() + 5 * 60 * 1000 || Date.now() - stamp > 72 * 60 * 60 * 1000) return [];
+    if (!Object.hasOwn(ASSETS, asset) || item?.stale === true || !(price > 0) || !Number.isFinite(stamp) ||
+        stamp > Date.now() + 5 * 60 * 1000 || Date.now() - stamp > 24 * 60 * 60 * 1000) return [];
     return [{
       asset,
       price,
-      source: "Iran Market Data / " + String(item.source || "unknown").toUpperCase(),
+      source: String(item.source || "unknown"),
       observed_at: new Date(stamp).toISOString()
     }];
   });
