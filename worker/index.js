@@ -131,6 +131,7 @@ async function readNewsFeed(feed) {
   let invalid=0, outsideWindow=0, irrelevant=0;
   for (const match of blocks) {
     const block=match[2], title=rssTag(block,"title"), link=rssLink(block,feed.url);
+    const articleText=(rssTag(block,"content:encoded") || rssTag(block,"description") || rssTag(block,"summary") || rssTag(block,"content")).slice(0,3000);
     const publishedText=rssTag(block,"pubDate") || rssTag(block,"published") || rssTag(block,"updated") || rssTag(block,"dc:date") || rssTag(block,"date");
     const published=Date.parse(publishedText);
     if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) { invalid++; continue; }
@@ -142,7 +143,8 @@ async function readNewsFeed(feed) {
     try { domain=new URL(sourceUrl || link).hostname.replace(/^www\./,""); } catch {}
     items.push({
       title,url:link,domain,published_at:new Date(published).toISOString(),
-      source_id:feed.source_id,language_code:feed.language_code,original_title:title
+      source_id:feed.source_id,language_code:feed.language_code,original_title:title,
+      original_text:articleText
     });
   }
   console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_72h",outsideWindow,"irrelevant",irrelevant);
@@ -321,7 +323,7 @@ async function readNewsFromSupabase(env) {
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return [];
   const params = new URLSearchParams({
-    select: "title,url,domain,published_at,source_id,language_code,original_title",
+    select: "title,url,domain,published_at,source_id,language_code,original_title,original_text,translated_text_fa,summary_fa,article_status",
     published_at: "gte." + new Date(Date.now()-72*60*60*1000).toISOString(),
     order: "published_at.desc",
     limit: "30"
@@ -361,7 +363,9 @@ async function syncNewsToSupabase(env) {
       url:item.url, title:item.title, domain:item.domain || "unknown",
       published_at:item.published_at, fetched_at:fetchedAt,
       source_id:item.source_id || null, language_code:item.language_code || null,
-      original_title:item.original_title || item.title, article_status:"headline_only"
+      original_title:item.original_title || item.title,
+      original_text:String(item.original_text || "").slice(0,3000) || null,
+      article_status:item.original_text ? "extracted" : "headline_only"
     }));
     const response = await fetch(base + "/rest/v1/market_news_items?on_conflict=url", {
       method:"POST",
