@@ -132,14 +132,16 @@ test('stylesheet contains mobile responsive breakpoints', () => {
 });
 
 
-test('production entrypoint forwards private OpenAI configuration and uses the live adaptive engine', () => {
-  assert.match(supabaseEntry, /OPENAI_API_KEY: Deno\.env\.get/);
-  assert.match(supabaseEntry, /OPENAI_MODEL: Deno\.env\.get/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.1"/);
+test('production market intelligence runs without an external AI key and preserves honest forecast calibration', () => {
+  assert.match(supabaseEntry, /SUPABASE_SERVICE_ROLE_KEY: Deno\.env\.get/);
+  assert.doesNotMatch(supabaseEntry, /OPENAI_API_KEY/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.2-baseline-calibration"/);
   assert.match(forecastEngine, /skill>=2/);
+  assert.match(forecastEngine, /forecast_mode:"baseline_only"/);
+  assert.match(forecastEngine, /directional_signal:false/);
   assert.match(forecastEngine, /fetchNewsContext/);
   assert.match(forecastEngine, /selectWeights/);
   assert.match(forecastEngine, /isMarketRelevantHeadline/);
-  assert.match(worker, /web_search_enabled: Boolean\(env\.OPENAI_API_KEY\)/);
-  assert.match(aiJs, /وب‌پژوهی هوشمند نیازمند کلید API/);
+  assert.match(aiJs, /بدون API خارجی/);
+  assert.match(aiJs, /baseline_only/);
 });
