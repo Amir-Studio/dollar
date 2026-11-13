@@ -122,6 +122,6 @@ const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
 $('saveAiEndpoint')?.addEventListener('click',saveEndpoint);runBtn?.addEventListener('click',run);
 checkHealth();
 loadNews();
-window.setInterval(loadNews,15*60*1000);
+window.setInterval(loadNews,5*60*1000);
 window.addEventListener('dollar-ai-endpoint-updated',()=>{checkHealth();loadNews()});
 })();
