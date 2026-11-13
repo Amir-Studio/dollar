@@ -135,7 +135,7 @@ test('stylesheet contains mobile responsive breakpoints', () => {
 test('production market intelligence runs without an external AI key and preserves honest forecast calibration', () => {
   assert.match(supabaseEntry, /SUPABASE_SERVICE_ROLE_KEY: Deno\.env\.get/);
   assert.doesNotMatch(supabaseEntry, /OPENAI_API_KEY/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.2-baseline-calibration"/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.3-fresh-quote-calibration"/);
   assert.match(forecastEngine, /skill>=2/);
   assert.match(forecastEngine, /forecast_mode:"baseline_only"/);
   assert.match(forecastEngine, /directional_signal:false/);
