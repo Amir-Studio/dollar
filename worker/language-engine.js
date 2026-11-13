@@ -1,6 +1,6 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-const VERSION = "dollar-domain-nlp-0.5.0";
+const VERSION = "dollar-domain-nlp-0.6.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -98,7 +98,51 @@ function analyzeB1English(text) {
   return {coverage_level:"b1_oriented_domain_english_not_cefr_certification",vocabulary_concepts:vocabulary,common_phrase_functions:phrases,grammar_frames:frames,limitations:["rule_based_grammar_approximation","not_a_formal_cefr_assessment"]};
 }
 
-const THEMES = [
+
+const C1_LEXICON = [
+ {id:"monetary_policy",terms:["quantitative easing","quantitative tightening","forward guidance","policy tightening","policy easing","real interest rates","terminal rate","rate differential"]},
+ {id:"market_liquidity",terms:["liquidity conditions","liquidity squeeze","market depth","bid-ask spread","funding stress","credit conditions"]},
+ {id:"risk_sentiment",terms:["risk appetite","risk aversion","safe-haven demand","flight to quality","risk premium","tail risk"]},
+ {id:"inflation_dynamics",terms:["core inflation","headline inflation","sticky inflation","disinflationary","inflationary pressure","wage-price spiral","second-round effects"]},
+ {id:"commodities",terms:["backwardation","contango","spare capacity","inventory draw","supply glut","demand destruction","marginal producer"]},
+ {id:"geopolitical_risk",terms:["geopolitical uncertainty","escalatory rhetoric","diplomatic breakthrough","fragile truce","ceasefire agreement","sanctions regime"]},
+ {id:"fiscal_debt",terms:["debt sustainability","fiscal consolidation","sovereign risk","debt-servicing costs","yield curve","term premium"]},
+ {id:"analytical_verbs",terms:["underscores","suggests","implies","signals","reinforces","undermines","constrains","offsets","exacerbates","mitigates","warrants","hinges on","stems from","is predicated on"]},
+ {id:"advanced_connectors",terms:["notwithstanding","nevertheless","nonetheless","conversely","thereby","insofar as","to the extent that","in the wake of","by contrast","in turn","all else equal"]},
+ {id:"hedging",terms:["arguably","conceivably","plausibly","tentatively","appears to","seems to","is unlikely to","cannot be ruled out","risks","may well","could potentially"]},
+ {id:"evidence_language",terms:["according to preliminary data","the available evidence","the data indicate","the figures suggest","market participants expect","analysts caution","officials maintain","unverified reports"]}
+];
+const C1_DISCOURSE = [
+ {id:"concession",terms:["even if","even though","while it is true","admittedly","granted that","notwithstanding","despite the fact that"]},
+ {id:"qualification",terms:["to some extent","in part","at least partly","subject to","conditional on","provided that","assuming that"]},
+ {id:"counterfactual",terms:["would have","could have","might have","had it not been","if it were not for","were it not for"]},
+ {id:"causal_caution",terms:["does not necessarily mean","is not sufficient to establish","cannot be attributed solely to","correlation does not imply causation","may reflect a combination"]},
+ {id:"relative_comparison",terms:["whereas","by comparison","relative to","in contrast with","outperformed","underperformed","diverged from"]},
+ {id:"source_attribution",terms:["according to people familiar with","the source declined to","the ministry stated","the central bank reiterated","the filing disclosed","the report alleged"]},
+ {id:"uncertainty",terms:["remains uncertain","subject to considerable uncertainty","the likelihood remains unclear","cannot be excluded","far from certain","little evidence that"]}
+];
+function analyzeC1English(text) {
+ const lower=text.toLowerCase();
+ const sentences=text.split(/(?<=[.!?])\\s+|;\\s+/).filter(Boolean).slice(0,24);
+ const lexicon=C1_LEXICON.filter(x=>containsAny(lower,x.terms).length).map(x=>x.id);
+ const discourse=C1_DISCOURSE.filter(x=>containsAny(lower,x.terms).length).map(x=>x.id);
+ const sentenceAnalysis=sentences.map(sentence=>{
+  const t=sentence.toLowerCase();
+  const markers=C1_DISCOURSE.filter(x=>containsAny(t,x.terms).length).map(x=>x.id);
+  const hedge=containsAny(t,C1_LEXICON.find(x=>x.id==="hedging").terms).length>0;
+  const attribution=containsAny(t,C1_DISCOURSE.find(x=>x.id==="source_attribution").terms).length>0 || containsAny(t,ENGLISH_REPORTED).length>0;
+  const denial=containsAny(t,ENGLISH_NEGATIVE_PATTERNS).length>0 || containsAny(t,ENGLISH_NEGATIVE_CONTRACTIONS).length>0;
+  const modality=containsAny(t,ENGLISH_MODAL).length>0;
+  const causal=containsAny(t,["because","because of","due to","therefore","thereby","as a result","stems from","hinges on","leads to","led to","consequently"]).length>0;
+  const conditional=/\\b(if|unless|provided that|assuming that|subject to|conditional on)\\b/.test(t);
+  const counterfactual=containsAny(t,C1_DISCOURSE.find(x=>x.id==="counterfactual").terms).length>0;
+  const quantifier=containsAny(t,["most","some","few","several","a minority","a majority","at least","no more than","roughly","approximately","marginally"]).length>0;
+  return {text:sentence.slice(0,650),discourse_functions:markers,hedged:hedge,attributed:attribution,negated_or_denied:denial,modal:modality,causal_language:causal,conditional,counterfactual,qualified_quantity:quantifier};
+ });
+ const advancedCount=lexicon.length+discourse.length;
+ return {coverage_level:"c1_oriented_financial_news_analysis_not_cefr_certification",advanced_domains:lexicon,discourse_functions:discourse,sentence_analysis:sentenceAnalysis,complexity_signals:advancedCount,limitations:["deterministic_pattern_analysis_not_full_semantic_parsing","does_not_certify_cefr_level","idiom_and_irony_detection_is_limited"]};
+}
+\nconst THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -230,14 +274,14 @@ function classifyOne(item) {
   const tone = pos===neg?"neutral_or_unclear":pos>neg?"positive_wording":"negative_wording";
   const numberMentions = extractNumbers(text);
   const english = englishAdvancedSemantics(text);
-  const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
+  const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;\n  const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
     language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
-    english_semantics:language==="en"?{...english,b1_analysis:b1}:null,
+    english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1}:null,
     numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
@@ -345,7 +389,7 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames"],news_analyzed:analyses.length,
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis"],news_analyzed:analyses.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
     excerpt_coverage_pct:analyses.length?Number((analyses.filter(x=>x.content_chars>0).length/analyses.length*100).toFixed(1)):0,
     themes:buildTopics(analyses,input),events:events.slice(0,30),
