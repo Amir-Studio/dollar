@@ -1,6 +1,6 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-const VERSION = "dollar-domain-nlp-0.3.0";
+const VERSION = "dollar-domain-nlp-0.4.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -21,7 +21,40 @@ const ENGLISH_TIME = [
   {id:"future",terms:["tomorrow","next week","next month","will impose","will raise","will cut","is set to","scheduled to","due to","expected to"]}
 ];
 
-const THEMES = [
+
+const ENGLISH_SYNONYMS = [
+  {canonical:"rise",terms:["rise","rises","rose","risen","surge","surges","surged","soar","soars","soared","climb","climbs","climbed","jump","jumps","jumped","increase","increases","increased","gain","gains","gained","edge higher","move higher","advance","advanced"]},
+  {canonical:"fall",terms:["fall","falls","fell","fallen","drop","drops","dropped","decline","declines","declined","slump","slumps","slumped","plunge","plunges","plunged","slide","slides","slid","sink","sinks","sank","retreat","retreated","ease","eased","move lower","edge lower"]},
+  {canonical:"hold",terms:["hold","holds","held","keep unchanged","keeps unchanged","leave unchanged","left unchanged","stand pat","maintain","maintains","maintained"]},
+  {canonical:"tighten",terms:["tighten","tightens","tightened","tightening","raise rates","raises rates","raised rates","rate hike","monetary tightening"]},
+  {canonical:"ease_policy",terms:["ease policy","eases policy","eased policy","loosen policy","loosens policy","rate cut","cuts rates","cut rates","monetary easing"]},
+  {canonical:"sanctions_relief",terms:["lift sanctions","lifts sanctions","lifted sanctions","ease sanctions","eases sanctions","sanctions relief","waive sanctions","waives sanctions"]},
+  {canonical:"sanctions_tightening",terms:["impose sanctions","imposes sanctions","imposed sanctions","tighten sanctions","tightens sanctions","new sanctions","sanctions package"]},
+  {canonical:"talks_progress",terms:["resume talks","resumes talks","talks resume","restart negotiations","restarts negotiations","reach an agreement","deal reached","make progress in talks"]},
+  {canonical:"talks_breakdown",terms:["walk away from talks","walks away from talks","talks collapse","negotiations collapse","break off talks","breaks off talks","negotiations stall"]}
+];
+const ENGLISH_ENTITIES = [
+  {id:"usd",terms:["u.s. dollar","us dollar","dollar index","dxy","greenback"]},
+  {id:"gold",terms:["gold","bullion","xau","safe-haven metal"]},
+  {id:"crude_oil",terms:["crude oil","brent","wti","oil futures"]},
+  {id:"treasuries",terms:["treasury yield","treasuries","government bond yield","10-year yield","two-year yield"]},
+  {id:"crypto",terms:["bitcoin","btc","cryptocurrency","crypto market"]}
+];
+const ENGLISH_RELATIONS = [
+  {id:"because",terms:["because","due to","owing to","as a result of","amid","following"]},
+  {id:"contrast",terms:["however","although","though","whereas","while","nevertheless","despite"]},
+  {id:"addition",terms:["also","moreover","furthermore","in addition"]},
+  {id:"sequence",terms:["after","before","then","subsequently","meanwhile","earlier"]}
+];
+const ENGLISH_NEGATIVE_PATTERNS = ["not expected to","not likely to","no plans to","did not","does not","do not","has not","have not","had not","was not","were not","will not","won't","cannot","can't","denies","denied","ruled out","failed to","unlikely to"];
+const ENGLISH_NEGATIVE_CONTRACTIONS = ["won't","can't","isn't","aren't","wasn't","weren't","doesn't","don't","didn't","hasn't","haven't","hadn't"];
+const ENGLISH_UNITS = [
+  {id:"percent",terms:["percent","per cent","%"]},{id:"basis_points",terms:["basis points","bps"]},
+  {id:"usd",terms:["us dollars","u.s. dollars","dollars","usd"]},{id:"eur",terms:["euros","eur"]},
+  {id:"barrel",terms:["barrels","barrel"]},{id:"ounce",terms:["troy ounces","ounces","ounce","oz"]},
+  {id:"tonne",terms:["metric tons","tonnes","tons"]},{id:"million",terms:["million","mn"]},{id:"billion",terms:["billion","bn"]}
+];
+\nconst THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -99,7 +132,48 @@ function englishSemantics(text) {
   const assertion = conditional ? "conditional" : modal.length ? "forecast_or_possibility" : reported.length ? "attributed_report" : negated ? "negated_or_denied" : "asserted_or_unclassified";
   return {actors,modality_terms:modal,reported_speech:reported.length>0,conditional,time_frames:[...new Set(time)],assertion};
 }
-function classifyOne(item) {
+
+function englishAdvancedSemantics(text) {
+  const sentences = text.split(/(?<=[.!?])\\s+|[;]\\s+/).filter(Boolean).slice(0,20);
+  const synonymMatches = ENGLISH_SYNONYMS.filter(x=>containsAny(text,x.terms).length).map(x=>x.canonical);
+  const entities = ENGLISH_ENTITIES.filter(x=>containsAny(text,x.terms).length).map(x=>x.id);
+  const relations = ENGLISH_RELATIONS.filter(x=>containsAny(text,x.terms).length).map(x=>x.id);
+  const negativePatterns = containsAny(text,ENGLISH_NEGATIVE_PATTERNS);
+  const contractions = containsAny(text,ENGLISH_NEGATIVE_CONTRACTIONS);
+  const modal = containsAny(text,ENGLISH_MODAL);
+  const reported = containsAny(text,ENGLISH_REPORTED);
+  const conditional = containsAny(text,ENGLISH_CONDITIONAL).length > 0;
+  const time = ENGLISH_TIME.filter(t=>containsAny(text,t.terms).length).map(t=>t.id);
+  const actorIds = ENGLISH_ACTORS.filter(a=>containsAny(text,a.terms).length).map(a=>a.id);
+  const units = ENGLISH_UNITS.filter(u=>containsAny(text,u.terms).length).map(u=>u.id);
+  const sentenceFrames = sentences.map(sentence=>{
+    const lower=sentence.toLowerCase();
+    const sentenceActors=ENGLISH_ACTORS.filter(a=>containsAny(lower,a.terms).length).map(a=>a.id);
+    const sentenceEvents=ENGLISH_SYNONYMS.filter(x=>containsAny(lower,x.terms).length).map(x=>x.canonical);
+    const isNegated=containsAny(lower,ENGLISH_NEGATIVE_PATTERNS).length>0 || containsAny(lower,ENGLISH_NEGATIVE_CONTRACTIONS).length>0;
+    const isConditional=/\\b(if|unless|provided that|in case)\\b/.test(lower);
+    const isReported=containsAny(lower,ENGLISH_REPORTED).length>0;
+    const isModal=containsAny(lower,ENGLISH_MODAL).length>0;
+    return {text:sentence.slice(0,500),actors:sentenceActors,actions:[...new Set(sentenceEvents)],negated:isNegated,conditional:isConditional,reported:isReported,modal:isModal};
+  });
+  const assertion=conditional?"conditional":negativePatterns.length||contractions.length?"negated_or_denied":modal.length?"forecast_or_possibility":reported.length?"attributed_report":"asserted_or_unclassified";
+  return {
+    actors:actorIds,market_entities:entities,normalized_action_concepts:[...new Set(synonymMatches)],
+    modality_terms:modal,negation_markers:[...negativePatterns,...contractions],
+    reported_speech:reported.length>0,conditional,discourse_relations:relations,
+    time_frames:[...new Set(time)],mentioned_units:units,assertion,sentence_frames:sentenceFrames
+  };
+}
+function extractEnglishAmounts(text) {
+  const out=[];
+  const re=/\\b(\\d+(?:,\\d{3})*(?:\\.\\d+)?)\\s*(%|percent|per cent|bps|basis points|USD|EUR|dollars?|euros?|barrels?|bbl|ounces?|oz|million|billion|trillion)\\b/gi;
+  for(const m of text.matchAll(re)) {
+    const raw=m[1].replace(/,/g,"");
+    out.push({value:Number(raw),unit:m[2].toLowerCase(),context:text.slice(Math.max(0,m.index-55),Math.min(text.length,m.index+m[0].length+55)).trim()});
+  }
+  return out.slice(0,12);
+}
+\nfunction classifyOne(item) {
   const title = String(item?.title || item?.original_title || "");
   const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,3000);
   const text = normalize(title + " " + body);
@@ -109,7 +183,7 @@ function classifyOne(item) {
   const pos = polarity(text,POSITIVE), neg = polarity(text,NEGATIVE);
   const tone = pos===neg?"neutral_or_unclear":pos>neg?"positive_wording":"negative_wording";
   const numberMentions = extractNumbers(text);
-  const english = englishSemantics(text);
+  const english = englishAdvancedSemantics(text);
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
@@ -117,7 +191,7 @@ function classifyOne(item) {
     language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
     english_semantics:language==="en"?english:null,
-    numbers:numberMentions,confidence:Number(confidence.toFixed(2)),
+    numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
 }
@@ -224,7 +298,7 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],english_understanding:["actor_extraction","modality_and_uncertainty","reported_speech","conditional_statements","basic_temporal_framing","expanded_financial_event_vocabulary"],news_analyzed:analyses.length,
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction"],news_analyzed:analyses.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
     excerpt_coverage_pct:analyses.length?Number((analyses.filter(x=>x.content_chars>0).length/analyses.length*100).toFixed(1)):0,
     themes:buildTopics(analyses,input),events:events.slice(0,30),
