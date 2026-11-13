@@ -1,4 +1,4 @@
-import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline } from "./forecast-engine.js";
+import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -222,7 +222,7 @@ async function makeFreeAnalysis(env, asset) {
     getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json"),
     readFreshCache(env,"news:latest",45*60*1000)
   ]);
-  const market = cachedMarket?.payload || await getJson(env.MARKET_DATA_URL || MARKET_URL);
+  const market = cachedMarket?.payload || await getMarketSnapshot(env);
   const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
   const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
   const item = (market.data || []).find(x => x.symbol === asset);
@@ -274,7 +274,7 @@ async function makeForecast(env, asset) {
   if (!ANALYSIS_ASSETS.has(asset)) return reply({error:"تاریخچهٔ معتبر این دارایی هنوز بررسی نشده است."},424);
   if (!env.OPENAI_API_KEY) return reply({error:"OPENAI_API_KEY secret is not configured."},503);
   const [market, rawHistory] = await Promise.all([
-    getJson(env.MARKET_DATA_URL || MARKET_URL),
+    getMarketSnapshot(env),
     getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json")
   ]);
   const item = (market.data || []).find(x => x.symbol === asset);
@@ -485,7 +485,7 @@ async function syncNewsToSupabase(env) {
 }
 
 export async function refreshBackground(env) {
-  const market = await getJson(env.MARKET_DATA_URL || MARKET_URL);
+  const market = await getMarketSnapshot(env);
   const persistence = await persistQuotesToSupabase(env, market);
   if (persistence.enabled) console.log("Supabase market quote sync completed:", persistence.saved);
 
@@ -558,6 +558,8 @@ export default {
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
         source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
+        potential_conflicts:headlineConflictCandidates(items),
+        potential_conflict_count:headlineConflictCandidates(items).length,
         refreshed:sync?.refreshed===true,
         topics:newsTopics(items),items
       },200,{"cache-control":"no-store"});
@@ -626,7 +628,12 @@ export default {
     if (url.pathname !== "/forecast" && url.pathname !== "/analysis") return reply({error:"Use /health, /catalog, /analysis?asset=USD_IRR_FREE or /forecast?asset=USD_IRR_FREE"},404);
     const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
     if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
-    try { return url.pathname === "/analysis" ? await makeFreeAnalysis(env,asset) : await makeForecast(env,asset); }
+    try {
+      if(url.pathname === "/analysis") return await makeFreeAnalysis(env,asset);
+      const response=await handleForecastApi(new URL("https://dollar-api.internal/forecast?asset="+encodeURIComponent(asset)),env);
+      let body={};try{body=await response.json();}catch{}
+      return reply(body,response.status,{"cache-control":"no-store"});
+    }
     catch (e) { return reply({error:"سرویس پیش‌بینی کامل نشد.",detail:String(e?.message || e).slice(0,220)},502); }
   }
 };
