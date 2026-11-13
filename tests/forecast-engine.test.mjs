@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForecast, isMarketRelevantHeadline } from '../worker/forecast-engine.js';
+import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot } from '../worker/forecast-engine.js';
 
 const DAY = 86_400_000;
 function series(count, dailyLogReturn) {
@@ -50,4 +50,37 @@ test('news relevance filter keeps market headlines and rejects unrelated or inci
   assert.equal(isMarketRelevantHeadline('ایجاد کارگاه اشتغال برای ۳۰۰ نفر'), false);
   assert.equal(isMarketRelevantHeadline('مسابقات فوتبال لیگ برتر برگزار شد'), false);
   assert.equal(isMarketRelevantHeadline('گزارش حادثه مسلحانه در شهر'), false);
+});
+
+test('headline conflict screening flags only cross-publisher candidates for human review', () => {
+  const candidates = headlineConflictCandidates([
+    { title: 'قیمت دلار افزایش یافت و به ۲۶۸ هزار تومان رسید', domain: 'source-a.example' },
+    { title: 'قیمت دلار کاهش یافت و به ۲۶۵ هزار تومان رسید', domain: 'source-b.example' }
+  ]);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].status, 'needs_human_review');
+  assert.ok(candidates[0].signals.includes('opposing_direction_words'));
+});
+
+test('NerkhAra snapshot is normalized with provider quality metadata and UTC timestamps', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    generated_utc: '2026-11-14T10:00:00',
+    items: [
+      { id: 'usd', price: 268200, unit: 'IRT', updated_utc: '2026-11-14T09:55:00', stale: false, sources: 2, spread_pct: 0.8, method: 'average' },
+      { id: 'eur', price: 296800, unit: 'IRT', updated_utc: '2026-11-14T09:55:00', stale: false, sources: 2, spread_pct: 0.7, method: 'average' },
+      { id: 'gold-18k', price: 25400881, unit: 'IRT', updated_utc: '2026-11-14T09:55:00', stale: false, sources: 1, spread_pct: null, method: 'lead' },
+      { id: 'coin-emami', price: 254232500, unit: 'IRT', updated_utc: '2026-11-14T09:55:00', stale: false, sources: 1, spread_pct: null, method: 'lead' }
+    ]
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
+  try {
+    const snapshot = await getMarketSnapshot({ NERKHARA_URL: 'https://example.test/latest.json' });
+    assert.equal(snapshot.data.length, 4);
+    const usd = snapshot.data.find(item => item.symbol === 'USD_IRR_FREE');
+    assert.equal(usd.price, 268200);
+    assert.equal(usd.provider_meta.source_count, 2);
+    assert.equal(usd.timestamp, '2026-11-14T09:55:00.000Z');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
