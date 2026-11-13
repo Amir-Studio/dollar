@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForecast } from '../worker/forecast-engine.js';
+import { buildForecast, isMarketRelevantHeadline } from '../worker/forecast-engine.js';
 
 const DAY = 86_400_000;
 function series(count, dailyLogReturn) {
@@ -38,4 +38,13 @@ test('walk-forward ensemble can qualify on a stable synthetic trend and returns 
   assert.ok(result.upper_price > result.predicted_price);
   assert.ok(result.validation.samples >= 30);
   assert.ok(result.validation.skill_vs_no_change_pct >= 2);
+});
+
+
+test('news relevance filter keeps market headlines and rejects unrelated or incident-only headlines', () => {
+  assert.equal(isMarketRelevantHeadline('قیمت نفت کاهش یافت'), true);
+  assert.equal(isMarketRelevantHeadline('US Treasury warns against rate hikes during Iran energy shock'), true);
+  assert.equal(isMarketRelevantHeadline('ایجاد کارگاه اشتغال برای ۳۰۰ نفر'), false);
+  assert.equal(isMarketRelevantHeadline('مسابقات فوتبال لیگ برتر برگزار شد'), false);
+  assert.equal(isMarketRelevantHeadline('گزارش حادثه مسلحانه در شهر'), false);
 });
