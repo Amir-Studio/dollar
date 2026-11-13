@@ -133,9 +133,9 @@ test('stylesheet contains mobile responsive breakpoints', () => {
 
 
 test('production entrypoint forwards private OpenAI configuration and uses the live adaptive engine', () => {
-  assert.match(supabaseEntry, /OPENAI_API_KEY: Deno\\.env\\.get\\("OPENAI_API_KEY"\\)/);
-  assert.match(supabaseEntry, /OPENAI_MODEL: Deno\\.env\\.get\\("OPENAI_MODEL"\\)/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\\.1"/);
+  assert.match(supabaseEntry, /OPENAI_API_KEY: Deno\.env\.get/);
+  assert.match(supabaseEntry, /OPENAI_MODEL: Deno\.env\.get/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.1"/);
   assert.match(forecastEngine, /skill>=2/);
   assert.match(forecastEngine, /fetchNewsContext/);
   assert.match(forecastEngine, /selectWeights/);
