@@ -2,10 +2,11 @@
 const $=id=>document.getElementById(id);
 const endpointInput=$('aiEndpoint'),runBtn=$('runAiBtn'),output=$('aiOutput'),pill=$('aiStatusPill');
 const STORAGE_KEY='dollar_ai_worker_endpoint_v1';
+const DEFAULT_ENDPOINT='https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api';
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toman=n=>Number.isFinite(Number(n))?new Intl.NumberFormat('fa-IR',{maximumFractionDigits:0}).format(Number(n))+' تومان':'—';
 function setStatus(t){if(pill)pill.textContent=t}
-function endpoint(){try{return localStorage.getItem(STORAGE_KEY)||''}catch{return ''}}
+function endpoint(){try{return localStorage.getItem(STORAGE_KEY)||DEFAULT_ENDPOINT}catch{return DEFAULT_ENDPOINT}}
 function validUrl(s){try{const u=new URL(s);return u.protocol==='https:'&&u.hostname.endsWith('.workers.dev')||u.protocol==='https:'&&u.hostname.includes('.')}catch{return false}}
 function saveEndpoint(){const v=(endpointInput?.value||'').trim().replace(/\/$/,'');if(!v){setStatus('آدرس تنظیم نشده');return}if(!validUrl(v)){setStatus('آدرس HTTPS معتبر وارد کن');return}try{localStorage.setItem(STORAGE_KEY,v);window.dispatchEvent(new CustomEvent('dollar-ai-endpoint-updated'));setStatus('آدرس ذخیره شد');if(output)output.innerHTML='<strong>اتصال ذخیره شد.</strong><p>اکنون می‌توانی گزارش هوشمند را اجرا کنی. اگر سرویس هنوز مستقر نشده باشد، خطای اتصال نشان داده می‌شود.</p>'}catch{setStatus('ذخیره‌سازی در دسترس نیست')}}
 function showError(message){output.innerHTML='<span class="ai-error">گزارش آماده نشد</span><p>'+escapeHtml(message)+'</p><p>آدرس Worker و وضعیت سرویس را بررسی کن. کلید API را داخل سایت وارد نکن.</p>'}
@@ -14,8 +15,10 @@ function render(data){
  if(f.model_version==='iran-ensemble-wf-1.0'){
   const v=f.validation||{}, fa=n=>new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(n)||0);
   if(f.status==='withheld'){
-   output.innerHTML='<div class="ai-kicker">ADAPTIVE FORECAST ENGINE · موتور پیش‌بینی تطبیقی</div><h3 class="ai-headline">فعلاً پیش‌بینی قابل‌اتکا منتشر نشد</h3><p class="ai-summary">'+escapeHtml(f.reason||'شواهد خارج از نمونه برای انتشار کافی نیست.')+'</p><div class="ai-metrics"><article><small>تعداد مشاهدات</small><b>'+fa(f.observations)+'</b></article><article><small>نمونه‌های آزمون</small><b>'+fa(v.samples)+'</b></article><article><small>خطای مدل</small><b>'+(v.mae_pct==null?'—':fa(v.mae_pct)+'٪')+'</b></article><article><small>خطای مدل ساده</small><b>'+(v.naive_mae_pct==null?'—':fa(v.naive_mae_pct)+'٪')+'</b></article></div><p>سیستم عمداً از حدس‌زدن بدون شواهد کافی خودداری کرد. این رفتار بخشی از کنترل کیفیت است.</p>';
-   setStatus('انتشار متوقف شد · شواهد ناکافی');return;
+   const news=data.news_context||{},headlines=Array.isArray(news.headlines)?news.headlines:[];
+   const newsHtml=headlines.length?'<div class="ai-driver"><h4>خبرهای تازهٔ بازار · '+fa(news.headline_count)+' تیتر</h4><p>خبرها از چند خوراک خبری گردآوری شده‌اند؛ این تیترها به‌تنهایی مبنای پیش‌بینی عددی نیستند.</p><div class="ai-news-list">'+headlines.slice(0,8).map(item=>'<article class="ai-news-item"><div class="ai-news-meta"><span>'+escapeHtml(item.domain||'منبع خبری')+'</span><small>'+escapeHtml(item.published_at||'')+'</small></div><a href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(item.title||'خبر')+' ↗</a></article>').join('')+'</div></div>':'<div class="ai-driver"><h4>خبرخوان بازار</h4><p>در بازهٔ ۷۲ ساعت اخیر، تیتر قابل‌تأییدی دریافت نشد.</p></div>';
+   output.innerHTML='<div class="ai-kicker">ADAPTIVE FORECAST ENGINE · موتور پیش‌بینی تطبیقی</div><h3 class="ai-headline">فعلاً پیش‌بینی قابل‌اتکا منتشر نشد</h3><p class="ai-summary">'+escapeHtml(f.reason||'شواهد خارج از نمونه برای انتشار کافی نیست.')+'</p><div class="ai-metrics"><article><small>تعداد مشاهدات</small><b>'+fa(f.observations)+'</b></article><article><small>نمونه‌های آزمون</small><b>'+fa(v.samples)+'</b></article><article><small>خطای مدل</small><b>'+(v.mae_pct==null?'—':fa(v.mae_pct)+'٪')+'</b></article><article><small>خطای مدل ساده</small><b>'+(v.naive_mae_pct==null?'—':fa(v.naive_mae_pct)+'٪')+'</b></article></div><p>سیستم عمداً از حدس‌زدن بدون شواهد کافی خودداری کرد. این رفتار بخشی از کنترل کیفیت است.</p>'+newsHtml;
+   setStatus(headlines.length?'پیش‌بینی متوقف شد · خبرخوان فعال':'انتشار متوقف شد · شواهد ناکافی');return;
   }
   const dir=f.direction==='up'?'تمایل صعودی':f.direction==='down'?'تمایل نزولی':'کم‌جهت';
   const acc=v.directional_accuracy_pct==null?'هنوز نمونه کافی نیست':fa(v.directional_accuracy_pct)+'٪';
@@ -68,7 +71,7 @@ async function checkHealth(){
   const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error('health check failed');
-  if(data.free_forecast_enabled){if(!data.database_configured){setStatus('تحلیل رایگان آماده · پایگاه داده متصل نیست');return}if(data.database_schema_ready!==true){setStatus('تحلیل رایگان آماده · طرح پایگاه داده ناقص است');return}setStatus(data.background_refresh_prerequisites_ready?'پیش‌بینی تطبیقی · پایگاه داده و KV آماده':'پیش‌بینی تطبیقی · KV هنوز متصل نیست');return}
+  if(data.free_forecast_enabled){if(!data.database_configured){setStatus('تحلیل رایگان آماده · پایگاه داده متصل نیست');return}if(data.database_schema_ready!==true){setStatus('تحلیل رایگان آماده · طرح پایگاه داده ناقص است');return}setStatus(data.background_refresh_prerequisites_ready?'پیش‌بینی تطبیقی · زمان‌بندی خودکار فعال':'پیش‌بینی تطبیقی · زمان‌بندی خودکار غیرفعال');return}
   setStatus('سرویس تحلیل در دسترس نیست');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
