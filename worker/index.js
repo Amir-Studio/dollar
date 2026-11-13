@@ -174,7 +174,7 @@ async function readNewsFeed(feed) {
 }
 async function collectNews() {
   const results=await Promise.allSettled(NEWS_FEEDS.map(readNewsFeed));
-  const seenUrls=new Set(),seenTitles=new Set(),items=[];
+  const seenUrls=new Set(),items=[];
   results.forEach((result,index)=>{
     const sourceId=NEWS_FEEDS[index].source_id;
     if(result.status!=="fulfilled"){
@@ -185,8 +185,9 @@ async function collectNews() {
     for(const item of result.value){
       const urlKey=item.url.toLowerCase().replace(/[?#].*$/,"");
       const titleKey=item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
-      if(!urlKey || seenUrls.has(urlKey) || !titleKey || seenTitles.has(titleKey)) continue;
-      seenUrls.add(urlKey);seenTitles.add(titleKey);items.push(item);
+      if(!urlKey || seenUrls.has(urlKey) || !titleKey) continue;
+      // Preserve the same event reported by different publishers; only exact URLs are deduplicated.
+      seenUrls.add(urlKey);items.push(item);
     }
   });
   const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,50);
