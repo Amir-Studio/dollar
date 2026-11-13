@@ -1,6 +1,6 @@
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
-const MODEL_VERSION = "iran-ensemble-wf-2.1";
+const MODEL_VERSION = "iran-ensemble-wf-2.2-baseline-calibration";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -223,7 +223,34 @@ export function buildForecast(points,price,horizon,newsContext=null) {
   const min={1:300,3:300,7:300}[horizon]||300;
   if(points.length<min) return {eligible:false,reason:"تاریخچه برای این افق کافی نیست.",observations:points.length,required:min};
   const validation=backtest(points,horizon);
-  if(!validation.eligible) return {...validation,observations:points.length};
+  if(!validation.eligible) {
+    // Keep the honest no-change benchmark in the live ledger when the model
+    // has enough out-of-sample evidence but has not beaten that benchmark.
+    // This creates measurable future feedback without inventing a directional signal.
+    if(validation.samples>=30 && Number.isFinite(validation.mae_pct) &&
+       Number.isFinite(validation.range_error_p80_pct)) {
+      const {dailyVol}=candidates(points,horizon);
+      const band=Math.max(validation.range_error_p80_pct/100,dailyVol*Math.sqrt(horizon)*1.28,0.003);
+      const weights=baselineWeights(Object.keys(validation.weights||{no_change:1}));
+      const baselineValidation={
+        ...validation,
+        eligible:false,
+        forecast_mode:"baseline_only",
+        directional_signal:false,
+        confidence_label:"baseline",
+        reason:"مدل هنوز در آزمون خارج از نمونه از مبنای بدون تغییر بهتر نشده است؛ فقط سناریوی مرجع خنثی برای سنجش خطای آینده ثبت می‌شود."
+      };
+      return {
+        eligible:true,forecast_mode:"baseline_only",model_version:MODEL_VERSION,
+        horizon_days:horizon,reference_price:price,predicted_price:price,
+        predicted_change_pct:0,lower_price:price*Math.exp(-band),
+        upper_price:price*Math.exp(band),direction:"sideways",
+        model_weights:weights,validation:baselineValidation,
+        uncertainty_pct:band*100,news_context:newsContext||null
+      };
+    }
+    return {...validation,observations:points.length};
+  }
   const {raw,dailyVol}=candidates(points,horizon);
   const logChange=Object.keys(validation.weights).reduce((s,k)=>s+validation.weights[k]*raw[k],0);
   const change=Math.expm1(logChange);
@@ -350,6 +377,7 @@ async function issueForecast(env,asset,horizon,input) {
   if(!recent?.length) await db(env,"market_forecast_runs",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify(payload)});
   return {
     asset,asset_fa:asset,horizon_days:horizon,status:"issued",
+    forecast_mode:result.forecast_mode||"adaptive_directional",
     issued_at:issuedAt,target_at:targetAt,reference_price:input.price,
     predicted_price:Math.round(result.predicted_price),
     predicted_change_pct:Number(result.predicted_change_pct.toFixed(3)),
