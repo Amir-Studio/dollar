@@ -510,7 +510,7 @@ export default {
           version: "0.1.0",
           mode: "deterministic_domain_nlp_not_llm",
           languages: ["fa", "en"],
-          news_input: "headlines_only",
+          news_input: "rss_excerpt_or_headline",
           history_analysis: true
         },
         free_mode: true,
