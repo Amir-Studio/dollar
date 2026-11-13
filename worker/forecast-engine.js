@@ -188,7 +188,7 @@ export async function runForecastCycle(env,marketPayload) {
   if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY) return {enabled:false,reason:"database-not-configured"};
   const market=marketPayload||await json(env.MARKET_DATA_URL||MARKET_URL);
   const evaluated=await evaluateDue(env,market);
-  const issued=[];
+  const issued=[],withheld=[];
   for(const asset of ASSETS){
     try{
       const since=new Date(Date.now()-6*3600000).toISOString();
@@ -197,10 +197,16 @@ export async function runForecastCycle(env,marketPayload) {
       const missing=HORIZONS.filter(h=>!existing.has(h));
       if(!missing.length) continue;
       const input=await fetchInputs(env,asset,market);
-      for(const horizon of missing) issued.push(await issueForecast(env,asset,horizon,input));
+      for(const horizon of missing){
+        const result=await issueForecast(env,asset,horizon,input);
+        if(result?.status==="issued") issued.push(result);
+        else if(result?.status==="withheld") withheld.push({asset,horizon_days:horizon,reason:result.reason});
+      }
     }catch(error){console.log("Forecast cycle skipped",asset,error?.message||error);}
   }
-  return {enabled:true,issued:issued.length,evaluated:evaluated.length};
+  console.log("Forecast cycle completed: published",issued.length,"withheld",withheld.length,"evaluated",evaluated.length);
+  return {enabled:true,issued:issued.length,withheld:withheld.length,evaluated:evaluated.length,
+    withheld_reasons:withheld.slice(0,8)};
 }
 export async function handleForecastApi(url,env) {
   const asset=url.searchParams.get("asset")||"USD_IRR_FREE";
