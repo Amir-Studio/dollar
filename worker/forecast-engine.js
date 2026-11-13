@@ -5,6 +5,39 @@ const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
 
+const MARKET_NEWS_TERMS = [
+  "دلار","یورو","پوند","درهم","ریال","نرخ ارز","قیمت ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار",
+  "سکه","قیمت سکه","قیمت طلا","بازار طلا","طلای ۱۸ عیار","اونس طلا","تورم","نرخ تورم","بانک مرکزی",
+  "مرکز مبادله","نرخ بهره","نرخ سود","تسهیلات بانکی","نقدینگی","کسری بودجه","بودجه","اقتصاد ایران",
+  "اقتصاد جهانی","رشد اقتصادی","تولید ناخالص","بازار سرمایه","بورس","شاخص کل بورس","سهام","صادرات نفت",
+  "نفت ایران","واردات نفت","قیمت نفت","نفت خام","برنت","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی",
+  "تجارت خارجی","گمرک","مالیات","یارانه","دستمزد","قیمت مسکن","بازار مسکن","قیمت خودرو","بازار خودرو",
+  "صنعت خودرو","صنعت فولاد","صنعت نفت","صنعت پتروشیمی","قیمت کالا","بازار جهانی","تحریم اقتصادی",
+  "تحریم‌های ایران","ارزش پول ملی","فشار اقتصادی",
+  "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market",
+  "precious metals","central bank","interest rate","interest rates","rate hike","rate hikes","rate cut",
+  "rate cuts","federal reserve","fed rate","fed rates","treasury yield","treasury yields","bond yield",
+  "bond yields","oil price","oil prices","brent crude","crude oil","oil futures","oil supply","oil production",
+  "oil exports","oil demand","oil shock","fuel prices","diesel prices","energy prices","energy shock",
+  "energy market","energy supply","trade deficit","budget deficit","gdp","forex","stock market","stocks",
+  "shares","bonds","monetary policy","commodity prices","opec","dollar index","us dollar","dollar exchange",
+  "dollar rate","dollar price","eurozone","euro currency","euro exchange rate","sterling exchange rate",
+  "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
+  "market volatility","tariffs","export prices","import prices","sanctions","sanction relief","iran sanctions",
+  "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency",
+  "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market"
+];
+const EXCLUDED_NEWS_TERMS = [
+  "missile","casualties","killed","shooting","armed","police","explosion","bombing","court case",
+  "lawsuit","fraud","theft","criminal","arrest","drug","حادثه","تصادف","حمله","مسلحانه","سلاح",
+  "موشک","انفجار","کشته","پلیس","درگیری مسلحانه","تشییع","شهید"
+];
+export function isMarketRelevantHeadline(title) {
+  const value=String(title||"").normalize("NFKC").toLocaleLowerCase();
+  if(!value || EXCLUDED_NEWS_TERMS.some(term=>value.includes(term.toLocaleLowerCase()))) return false;
+  return MARKET_NEWS_TERMS.some(term=>value.includes(term.toLocaleLowerCase()));
+}
+
 const num = v => {
   const x = Number(String(v ?? "").replace(/[٬,\s]/g,"").replace(/٫/g,"."));
   return Number.isFinite(x) ? x : NaN;
@@ -228,13 +261,23 @@ async function db(env,path,options={}) {
 async function fetchNewsContext(env,asset,asOf) {
   try {
     const since=new Date(asOf-72*60*60*1000).toISOString();
-    const rows=await db(env,"market_news_items?select=title,original_title,domain,source_id,published_at&published_at=gte."+encodeURIComponent(since)+"&order=published_at.desc&limit=100");
-    const items=Array.isArray(rows)?rows:[];
+    const rows=await db(env,"market_news_items?select=url,title,original_title,domain,source_id,published_at&published_at=gte."+encodeURIComponent(since)+"&order=published_at.desc&limit=100");
+    const seen=new Set();
+    const items=(Array.isArray(rows)?rows:[]).filter(item=>{
+      const title=String(item.title||item.original_title||"").trim();
+      const published=Date.parse(item.published_at||"");
+      if(!isMarketRelevantHeadline(title)||!Number.isFinite(published)||published>asOf+5*60*1000||asOf-published>72*60*60*1000) return false;
+      const key=String(item.url||"").toLowerCase().replace(/[?#].*$/,"")||title.toLocaleLowerCase().replace(/\\s+/g," ").trim();
+      if(!key||seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at));
     const riskTerms=[
       "sanction","تحریم","war","جنگ","conflict","درگیری","escalation","تشدید",
-      "attack","حمله","nuclear","هسته‌ای","negotiation","مذاکره","inflation","تورم",
-      "interest rate","نرخ بهره","central bank","بانک مرکزی","oil shock","شوک نفتی",
-      "policy change","تغییر سیاست","budget deficit","کسری بودجه","currency crisis","بحران ارزی"
+      "nuclear","هسته‌ای","negotiation","مذاکره","inflation","تورم","interest rate","نرخ بهره",
+      "central bank","بانک مرکزی","oil shock","شوک نفتی","policy change","تغییر سیاست",
+      "budget deficit","کسری بودجه","currency crisis","بحران ارزی","rate hike","افزایش نرخ بهره",
+      "trade war","جنگ تجاری","export ban","ممنوعیت صادرات"
     ];
     let weightedRisk=0;
     for(const item of items){
@@ -242,8 +285,7 @@ async function fetchNewsContext(env,asset,asOf) {
       const hits=riskTerms.filter(term=>title.includes(term.toLocaleLowerCase())).length;
       if(!hits) continue;
       const ageHours=Math.max(0,(asOf-Date.parse(item.published_at||""))/3600000);
-      const recency=Math.exp(-ageHours/36);
-      weightedRisk+=Math.min(2,hits*0.55)*recency;
+      weightedRisk+=Math.min(2,hits*0.55)*Math.exp(-ageHours/36);
     }
     const domains=[...new Set(items.map(x=>String(x.domain||x.source_id||"").toLowerCase()).filter(Boolean))];
     const score=Math.max(0,Math.min(100,weightedRisk*5));
@@ -254,7 +296,7 @@ async function fetchNewsContext(env,asset,asOf) {
       directional_use:"disabled_until_historically_validated",
       headlines:items.slice(0,8).map(x=>({
         title:String(x.title||x.original_title||"").slice(0,240),
-        domain:String(x.domain||"unknown"),published_at:x.published_at
+        url:String(x.url||""),domain:String(x.domain||"unknown"),published_at:x.published_at
       }))
     };
   } catch(error) {
