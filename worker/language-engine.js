@@ -338,6 +338,158 @@ function persianTerminologySelfTest() {
 }
 
 
+
+const ENGLISH_LANGUAGE_FOUNDATIONS = [
+{id:"noun",terms:["noun","common noun","proper noun"],fa:"اسم؛ نام شخص، مکان، چیز یا مفهوم"},
+{id:"pronoun",terms:["pronoun","personal pronoun","relative pronoun"],fa:"ضمیر؛ جانشین اسم"},
+{id:"verb",terms:["verb","action verb","linking verb"],fa:"فعل؛ بیان‌کننده کنش یا حالت"},
+{id:"adjective",terms:["adjective","descriptive adjective"],fa:"صفت؛ توصیف‌کننده اسم"},
+{id:"adverb",terms:["adverb","adverb of manner","adverb of frequency"],fa:"قید؛ توضیح‌دهنده فعل، صفت یا قید دیگر"},
+{id:"preposition",terms:["preposition","prepositional phrase"],fa:"حرف اضافه"},
+{id:"conjunction",terms:["conjunction","coordinating conjunction","subordinating conjunction"],fa:"حرف ربط"},
+{id:"determiner",terms:["determiner","article","definite article","indefinite article"],fa:"تعیین‌کننده و حرف تعریف"},
+{id:"subject",terms:["subject","grammatical subject"],fa:"نهاد یا فاعل دستوری"},
+{id:"object",terms:["object","direct object","indirect object"],fa:"مفعول"},
+{id:"predicate",terms:["predicate"],fa:"گزاره"},
+{id:"present_simple",terms:["present simple","simple present"],fa:"حال ساده"},
+{id:"present_continuous",terms:["present continuous","present progressive"],fa:"حال استمراری"},
+{id:"past_simple",terms:["past simple","simple past"],fa:"گذشته ساده"},
+{id:"past_continuous",terms:["past continuous","past progressive"],fa:"گذشته استمراری"},
+{id:"present_perfect",terms:["present perfect"],fa:"حال کامل"},
+{id:"past_perfect",terms:["past perfect"],fa:"گذشته کامل"},
+{id:"future_forms",terms:["future simple","going to future","future with will"],fa:"ساخت‌های آینده"},
+{id:"passive_voice",terms:["passive voice","passive construction"],fa:"مجهول"},
+{id:"active_voice",terms:["active voice","active construction"],fa:"معلوم"},
+{id:"conditional_zero",terms:["zero conditional"],fa:"شرطی نوع صفر"},
+{id:"conditional_first",terms:["first conditional"],fa:"شرطی نوع اول"},
+{id:"conditional_second",terms:["second conditional"],fa:"شرطی نوع دوم"},
+{id:"conditional_third",terms:["third conditional"],fa:"شرطی نوع سوم"},
+{id:"reported_speech",terms:["reported speech","indirect speech"],fa:"گفتار غیرمستقیم"},
+{id:"direct_speech",terms:["direct speech","quotation"],fa:"گفتار مستقیم"},
+{id:"relative_clause",terms:["relative clause","relative pronoun clause"],fa:"بند موصولی"},
+{id:"noun_clause",terms:["noun clause"],fa:"بند اسمی"},
+{id:"adverbial_clause",terms:["adverbial clause"],fa:"بند قیدی"},
+{id:"infinitive",terms:["infinitive","to infinitive"],fa:"مصدر با to"},
+{id:"gerund",terms:["gerund"],fa:"اسم مصدر با ing"},
+{id:"participle",terms:["participle","present participle","past participle"],fa:"اسم مفعول و وجه وصفی"},
+{id:"phrasal_verb",terms:["phrasal verb"],fa:"فعل عبارتی"},
+{id:"collocation",terms:["collocation","word combination"],fa:"هم‌آیی واژگانی"},
+{id:"idiom",terms:["idiom","idiomatic expression"],fa:"اصطلاح کنایی"},
+{id:"synonym",terms:["synonym","synonyms"],fa:"مترادف"},
+{id:"antonym",terms:["antonym","antonyms"],fa:"متضاد"},
+{id:"homonym",terms:["homonym","homophone","homograph"],fa:"هم‌نام و هم‌آوا"},
+{id:"prefix",terms:["prefix","prefixation"],fa:"پیشوند"},
+{id:"suffix",terms:["suffix","suffixation"],fa:"پسوند"},
+{id:"compound_word",terms:["compound word","compound noun"],fa:"واژه مرکب"},
+{id:"word_family",terms:["word family","derivation"],fa:"خانواده واژگانی و اشتقاق"},
+{id:"plural",terms:["plural noun","plural form"],fa:"جمع"},
+{id:"countable",terms:["countable noun"],fa:"اسم شمارش‌پذیر"},
+{id:"uncountable",terms:["uncountable noun","mass noun"],fa:"اسم ناشمار"},
+{id:"comparative",terms:["comparative adjective","comparative form"],fa:"صفت تفضیلی"},
+{id:"superlative",terms:["superlative adjective","superlative form"],fa:"صفت عالی"},
+{id:"punctuation",terms:["punctuation","comma","semicolon","colon","apostrophe"],fa:"نشانه‌گذاری"},
+{id:"paragraph",terms:["paragraph","topic sentence","supporting sentence"],fa:"بند و جمله موضوع"},
+{id:"cohesion",terms:["cohesion","cohesive device","linking expression"],fa:"انسجام متن"},
+{id:"coherence",terms:["coherence","logical flow"],fa:"پیوستگی معنایی"},
+{id:"register",terms:["formal register","informal register","language register"],fa:"سطح رسمی و غیررسمی زبان"},
+{id:"tone",terms:["tone of a text","author's tone"],fa:"لحن متن"},
+{id:"main_idea",terms:["main idea","central idea"],fa:"ایده اصلی"},
+{id:"inference",terms:["inference","implied meaning"],fa:"استنباط و معنای ضمنی"},
+{id:"paraphrase",terms:["paraphrase","paraphrasing"],fa:"بازنویسی با حفظ معنا"},
+{id:"summary",terms:["summary","summarizing"],fa:"خلاصه‌نویسی"},
+{id:"argument",terms:["argument","claim","counterargument"],fa:"استدلال، ادعا و پاسخ مخالف"},
+{id:"evidence",terms:["evidence","supporting evidence"],fa:"شاهد و مدرک"},
+{id:"metaphor",terms:["metaphor"],fa:"استعاره"},
+{id:"simile",terms:["simile"],fa:"تشبیه"},
+{id:"personification",terms:["personification"],fa:"جان‌بخشی"},
+{id:"alliteration",terms:["alliteration"],fa:"واج‌آرایی"},
+{id:"onomatopoeia",terms:["onomatopoeia"],fa:"نام‌آوا"},
+{id:"irony",terms:["irony","verbal irony"],fa:"طنز و وارونگی معنایی"},
+{id:"narrator",terms:["narrator","first-person narrator","third-person narrator"],fa:"راوی"},
+{id:"point_of_view",terms:["point of view","first-person point of view","third-person point of view"],fa:"زاویه دید"},
+{id:"setting",terms:["setting in a story"],fa:"زمان و مکان داستان"},
+{id:"plot",terms:["plot","plot structure"],fa:"پیرنگ"},
+{id:"characterization",terms:["characterization","character development"],fa:"شخصیت‌پردازی"},
+{id:"genre",terms:["literary genre","genre"],fa:"گونه ادبی"}
+];
+const PERSIAN_LANGUAGE_FOUNDATIONS = [
+{id:"noun",terms:["اسم","اسم عام","اسم خاص"],fa:"اسم؛ نام شخص، مکان، چیز یا مفهوم"},
+{id:"pronoun",terms:["ضمیر","ضمیر شخصی","ضمیر اشاره"],fa:"ضمیر؛ جانشین اسم"},
+{id:"verb",terms:["فعل","فعل لازم","فعل متعدی"],fa:"فعل؛ بیان‌کننده کنش یا حالت"},
+{id:"adjective",terms:["صفت","صفت بیانی","صفت اشاره"],fa:"صفت؛ ویژگی اسم"},
+{id:"adverb",terms:["قید","قید زمان","قید مکان","قید حالت"],fa:"قید؛ توضیح‌دهنده فعل یا جمله"},
+{id:"preposition",terms:["حرف اضافه"],fa:"حرف اضافه"},
+{id:"conjunction",terms:["حرف ربط","پیوند"],fa:"حرف ربط"},
+{id:"interjection",terms:["شبه جمله","صوت"],fa:"شبه‌جمله و صوت"},
+{id:"subject",terms:["نهاد","فاعل دستوری"],fa:"نهاد؛ بخش اصلی جمله"},
+{id:"predicate",terms:["گزاره"],fa:"گزاره؛ خبری که درباره نهاد داده می‌شود"},
+{id:"object",terms:["مفعول","مفعول مستقیم"],fa:"مفعول"},
+{id:"complement",terms:["متمم"],fa:"متمم؛ تکمیل‌کننده معنای جمله"},
+{id:"simple_sentence",terms:["جمله ساده","جمله یک جزئی"],fa:"جمله ساده"},
+{id:"compound_sentence",terms:["جمله مرکب","جمله چندپایه"],fa:"جمله مرکب"},
+{id:"independent_clause",terms:["پایه","جمله پایه"],fa:"جمله پایه"},
+{id:"dependent_clause",terms:["پیرو","جمله پیرو"],fa:"جمله پیرو"},
+{id:"verb_tense",terms:["زمان فعل","زمان گذشته","زمان حال","زمان آینده"],fa:"زمان فعل"},
+{id:"past_continuous",terms:["گذشته استمراری"],fa:"گذشته استمراری"},
+{id:"past_perfect",terms:["ماضی بعید","گذشته کامل"],fa:"ماضی بعید"},
+{id:"present_perfect",terms:["ماضی نقلی"],fa:"ماضی نقلی"},
+{id:"imperative",terms:["فعل امر","وجه امری"],fa:"فعل امر"},
+{id:"negative_sentence",terms:["جمله منفی","فعل منفی"],fa:"جمله و فعل منفی"},
+{id:"passive_voice",terms:["جمله مجهول","ساخت مجهول"],fa:"ساخت مجهول"},
+{id:"active_voice",terms:["جمله معلوم","ساخت معلوم"],fa:"ساخت معلوم"},
+{id:"prefix",terms:["پیشوند","وند پیشین"],fa:"پیشوند"},
+{id:"suffix",terms:["پسوند","وند پسین"],fa:"پسوند"},
+{id:"root",terms:["بن فعل","ریشه واژه"],fa:"بن و ریشه واژه"},
+{id:"derivation",terms:["اشتقاق","واژه مشتق"],fa:"اشتقاق"},
+{id:"compound_word",terms:["واژه مرکب","ترکیب واژگانی"],fa:"واژه مرکب"},
+{id:"synonym",terms:["مترادف","هم معنی"],fa:"مترادف"},
+{id:"antonym",terms:["متضاد","متقابل"],fa:"متضاد"},
+{id:"homonym",terms:["هم آوا","هم نویسه","مشترک لفظی"],fa:"هم‌آوا و مشترک لفظی"},
+{id:"idiom",terms:["کنایه","اصطلاح","اصطلاح عامیانه"],fa:"کنایه و اصطلاح"},
+{id:"proverb",terms:["ضرب المثل","مثل"],fa:"ضرب‌المثل"},
+{id:"punctuation",terms:["نشانه گذاری","ویرگول","نقطه ویرگول","دونقطه","گیومه"],fa:"نشانه‌گذاری"},
+{id:"paragraph",terms:["بند نوشتاری","پاراگراف","جمله موضوع"],fa:"بند و جمله موضوع"},
+{id:"cohesion",terms:["انسجام","واژه های پیوندی"],fa:"انسجام متن"},
+{id:"coherence",terms:["پیوستگی معنایی","ارتباط منطقی"],fa:"پیوستگی معنایی"},
+{id:"register",terms:["زبان رسمی","زبان محاوره","لحن رسمی"],fa:"سطح رسمی و محاوره‌ای"},
+{id:"tone",terms:["لحن نویسنده","لحن متن"],fa:"لحن"},
+{id:"main_idea",terms:["موضوع اصلی","ایده اصلی","مفهوم اصلی"],fa:"ایده اصلی"},
+{id:"inference",terms:["استنباط","معنای ضمنی"],fa:"استنباط"},
+{id:"paraphrase",terms:["بازنویسی","بازگویی"],fa:"بازنویسی"},
+{id:"summary",terms:["خلاصه نویسی","خلاصه متن"],fa:"خلاصه‌نویسی"},
+{id:"argument",terms:["استدلال","ادعا","پاداستدلال"],fa:"استدلال و ادعا"},
+{id:"evidence",terms:["شاهد","مدرک","دلیل متنی"],fa:"شاهد و مدرک"},
+{id:"metaphor",terms:["استعاره"],fa:"استعاره"},
+{id:"simile",terms:["تشبیه"],fa:"تشبیه"},
+{id:"personification",terms:["تشخیص","جان بخشی"],fa:"تشخیص یا جان‌بخشی"},
+{id:"alliteration",terms:["واج آرایی"],fa:"واج‌آرایی"},
+{id:"onomatopoeia",terms:["نام آوا","واژه آوایی"],fa:"نام‌آوا"},
+{id:"irony",terms:["طنز","طعنه","وارونه نمایی"],fa:"طنز و وارونگی معنایی"},
+{id:"narrator",terms:["راوی","راوی اول شخص","راوی سوم شخص"],fa:"راوی"},
+{id:"point_of_view",terms:["زاویه دید","دیدگاه راوی"],fa:"زاویه دید"},
+{id:"setting",terms:["فضاسازی","زمان و مکان داستان"],fa:"زمان و مکان داستان"},
+{id:"plot",terms:["پیرنگ","طرح داستان"],fa:"پیرنگ"},
+{id:"characterization",terms:["شخصیت پردازی","پرورش شخصیت"],fa:"شخصیت‌پردازی"},
+{id:"genre",terms:["گونه ادبی","ژانر ادبی"],fa:"گونه ادبی"}
+];
+function extractLanguageFoundations(text,language="en") {
+ const t=normalize(text),dict=language==="fa"?PERSIAN_LANGUAGE_FOUNDATIONS:ENGLISH_LANGUAGE_FOUNDATIONS;
+ return dict.filter(item=>item.terms.some(term=>t.includes(normalize(term)))).map(item=>({id:item.id,meaning_fa:item.fa}));
+}
+function languageFoundationsExam() {
+ const make=(dict,language)=>dict.slice(0,50).map((item,i)=>{
+  const term=item.terms[0];
+  const text=language==="fa"?("نمونه آموزشی: "+term+" در دستور و تحلیل زبان بررسی می‌شود."):("Language lesson: "+term+" is a topic in language study.");
+  const normalized=normalize(text);
+  const detected=dict.filter(x=>x.terms.some(y=>normalized.includes(normalize(y)))).map(x=>x.id);
+  return {id:(language==="fa"?"fa":"en")+(i+1),language,concept:item.id,passed:detected.includes(item.id),matched:detected.includes(item.id)};
+ });
+ const english=make(ENGLISH_LANGUAGE_FOUNDATIONS,"en");
+ const persian=make(PERSIAN_LANGUAGE_FOUNDATIONS,"fa");
+ const all=[...english,...persian];
+ return {exam_type:"100_item_vocabulary_and_language_concept_recognition_screen_not_a_full_comprehension_exam",total:all.length,passed:all.filter(x=>x.passed).length,failed:all.filter(x=>!x.passed).map(x=>({id:x.id,concept:x.concept})),english:{total:english.length,passed:english.filter(x=>x.passed).length},persian:{total:persian.length,passed:persian.filter(x=>x.passed).length},items:all};
+}
+
 const PERSIAN_LITERARY_TERMS = [
  {id:"simile",terms:["مانند","مثل","همچون","چون","گویی","همانند"],label_fa:"تشبیه",meaning_fa:"مانندکردن یک چیز به چیز دیگر برای روشن‌تر یا زیباتر کردن معنا"},
  {id:"metaphor",terms:["استعاره","استعاری"],label_fa:"استعاره",meaning_fa:"به‌کاربردن واژه در معنایی غیرمستقیم بر پایه شباهت"},
@@ -547,6 +699,7 @@ function classifyOne(item) {
   const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
   const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : extractPersianMarketGlossary(text);
   const persianLiterature = languageIsEnglish(title) ? null : analyzePersianLiterature(title + " " + body);
+  const languageFoundations = extractLanguageFoundations(title + " " + body,languageIsEnglish(title)?"en":"fa");
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
@@ -555,6 +708,7 @@ function classifyOne(item) {
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
     english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,
     persian_literature:persianLiterature,
+    language_foundations:languageFoundations,
     numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
@@ -662,11 +816,14 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping","persian_literature_genres_and_rhetorical_devices","bilingual_internal_comprehension_exam"],news_analyzed:analyses.length,
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping","persian_literature_genres_and_rhetorical_devices","bilingual_internal_comprehension_exam","general_english_and_persian_grammar_vocabulary_reading_writing_and_literature"],news_analyzed:analyses.length,
     terminology_benchmark:terminologySelfTest(),
     persian_terminology_benchmark:persianTerminologySelfTest(),
     bilingual_comprehension_exam:languageComprehensionExam(),
+    language_foundations_exam:languageFoundationsExam(),
     persian_literary_topics_count:PERSIAN_LITERARY_TERMS.length,
+    english_language_foundations_count:ENGLISH_LANGUAGE_FOUNDATIONS.length,
+    persian_language_foundations_count:PERSIAN_LANGUAGE_FOUNDATIONS.length,
     persian_glossary_size:PERSIAN_MARKET_GLOSSARY.length,
     market_glossary_size:MARKET_GLOSSARY.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
