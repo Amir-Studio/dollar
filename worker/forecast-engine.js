@@ -395,7 +395,7 @@ async function fetchInputs(env,asset,marketPayload) {
   const market=await getMarketSnapshot(env,marketPayload);
   const item=(market.data||[]).find(x=>x.symbol===asset);
   const stamp=dateMs(item?.timestamp||market.meta?.published_at||market.meta?.timestamp), price=num(item?.price);
-  if(!item||!(price>0)||!Number.isFinite(stamp)||stamp>Date.now()+300000||Date.now()-stamp>24*60*60*1000) throw Error("آخرین نرخ ثبت‌شده بیش از ۲۴ ساعت قدیمی یا نامعتبر است؛ برای جلوگیری از تحلیل با قیمت کهنه، پیش‌بینی متوقف شد.");
+  if(!item||item.stale===true||!(price>0)||!Number.isFinite(stamp)||stamp>Date.now()+300000||Date.now()-stamp>24*60*60*1000) throw Error("آخرین نرخ ثبت‌شده بیش از ۲۴ ساعت قدیمی یا نامعتبر است؛ برای جلوگیری از تحلیل با قیمت کهنه، پیش‌بینی متوقف شد.");
   let points=[],historyProvider="NerkhAra";
   try { points=rowsFrom(await json((env.NERKHARA_HISTORY_URL||NERKHARA_HISTORY_URL)+encodeURIComponent(NERKHARA_IDS[asset])+".json")); } catch {}
   if(points.length<300) {
@@ -441,7 +441,7 @@ async function issueForecast(env,asset,horizon,input) {
     result.predicted_change_pct=(result.predicted_price/input.price-1)*100;
     result.direction=result.predicted_change_pct>0.1?"up":result.predicted_change_pct< -0.1?"down":"sideways";
   }
-  const validation={...result.validation,live_error_feedback:calibration,quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
+  const validation={...result.validation,live_error_feedback:calibration,quote_quality:input.provider_meta?{provider:input.provider_meta.provider||"unknown",method:input.provider_meta.method||null,source_count:input.provider_meta.source_count??null,spread_pct:input.provider_meta.spread_pct??null,unit:input.provider_meta.unit||null}:null,history_provider:input.history_provider||"unknown",quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
     event_risk_score:input.newsContext?.event_risk_score??0,
     headline_count:input.newsContext?.headline_count??0,
     source_count:input.newsContext?.source_count??0,
@@ -497,7 +497,7 @@ export async function runForecastCycle(env,marketPayload) {
   for(const asset of ASSETS){
     try{
       const since=new Date(Date.now()-6*3600000).toISOString();
-      const recent=await db(env,"market_forecast_runs?select=horizon_days&asset=eq."+asset+"&issued_at=gte."+encodeURIComponent(since)+"&limit=10");
+      const recent=await db(env,"market_forecast_runs?select=horizon_days&asset=eq."+asset+"&status=in.(pending,evaluated)&issued_at=gte."+encodeURIComponent(since)+"&limit=10");
       const existing=new Set((recent||[]).map(x=>Number(x.horizon_days)));
       const missing=HORIZONS.filter(h=>!existing.has(h));
       if(!missing.length) continue;
