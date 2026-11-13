@@ -135,7 +135,7 @@ function englishSemantics(text) {
 }
 
 function englishAdvancedSemantics(text) {
-  const sentences = text.split(/(?<=[.!?])\\s+|[;]\\s+/).filter(Boolean).slice(0,20);
+  const sentences = text.split(/(?<=[.!?])\s+|[;]\s+/).filter(Boolean).slice(0,20);
   const synonymMatches = ENGLISH_SYNONYMS.filter(x=>containsAny(text,x.terms).length).map(x=>x.canonical);
   const entities = ENGLISH_ENTITIES.filter(x=>containsAny(text,x.terms).length).map(x=>x.id);
   const relations = ENGLISH_RELATIONS.filter(x=>containsAny(text,x.terms).length).map(x=>x.id);
@@ -152,7 +152,7 @@ function englishAdvancedSemantics(text) {
     const sentenceActors=ENGLISH_ACTORS.filter(a=>containsAny(lower,a.terms).length).map(a=>a.id);
     const sentenceEvents=ENGLISH_SYNONYMS.filter(x=>containsAny(lower,x.terms).length).map(x=>x.canonical);
     const isNegated=containsAny(lower,ENGLISH_NEGATIVE_PATTERNS).length>0 || containsAny(lower,ENGLISH_NEGATIVE_CONTRACTIONS).length>0;
-    const isConditional=/\\b(if|unless|provided that|in case)\\b/.test(lower);
+    const isConditional=/\b(if|unless|provided that|in case)\b/.test(lower);
     const isReported=containsAny(lower,ENGLISH_REPORTED).length>0;
     const isModal=containsAny(lower,ENGLISH_MODAL).length>0;
     return {text:sentence.slice(0,500),actors:sentenceActors,actions:[...new Set(sentenceEvents)],negated:isNegated,conditional:isConditional,reported:isReported,modal:isModal};
@@ -167,7 +167,7 @@ function englishAdvancedSemantics(text) {
 }
 function extractEnglishAmounts(text) {
   const out=[];
-  const re=/\\b(\\d+(?:,\\d{3})*(?:\\.\\d+)?)\\s*(%|percent|per cent|bps|basis points|USD|EUR|dollars?|euros?|barrels?|bbl|ounces?|oz|million|billion|trillion)\\b/gi;
+  const re=/\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*(%|percent|per cent|bps|basis points|USD|EUR|dollars?|euros?|barrels?|bbl|ounces?|oz|million|billion|trillion)\b/gi;
   for(const m of text.matchAll(re)) {
     const raw=m[1].replace(/,/g,"");
     out.push({value:Number(raw),unit:m[2].toLowerCase(),context:text.slice(Math.max(0,m.index-55),Math.min(text.length,m.index+m[0].length+55)).trim()});
