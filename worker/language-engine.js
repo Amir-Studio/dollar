@@ -1,6 +1,6 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-const VERSION = "dollar-domain-nlp-0.1.0";
+const VERSION = "dollar-domain-nlp-0.2.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -112,6 +112,47 @@ function historyFeatures(rows) {
     note_fa:"این ویژگی‌ها توصیف داده‌های تاریخی‌اند و به‌تنهایی علت تغییر قیمت یا پیش‌بینی قطعی نیستند."
   };
 }
+function eventPriceContext(analyses, rows) {
+  const history=(Array.isArray(rows)?rows:[])
+    .filter(r=>Number.isFinite(Number(r?.date))&&Number.isFinite(Number(r?.close))&&Number(r.close)>0)
+    .map(r=>({date:Number(r.date),close:Number(r.close)}))
+    .sort((a,b)=>a.date-b.date);
+  const observations=[];
+  for(const analysis of analyses) {
+    const published=Date.parse(analysis.published_at||"");
+    if(!Number.isFinite(published)||!analysis.events.length) continue;
+    let before=-1;
+    for(let i=0;i<history.length;i++) {
+      if(history[i].date<=published) before=i;
+      else break;
+    }
+    if(before<0 || published-history[before].date>72*60*60*1000) continue;
+    const base=history[before].close;
+    const after={};
+    for(const horizon of [1,3,7]) {
+      const point=history[before+horizon];
+      after[horizon]=point?{
+        observations:horizon,
+        observed_at:new Date(point.date).toISOString(),
+        change_pct:Number(((point.close/base-1)*100).toFixed(3))
+      }:null;
+    }
+    observations.push({
+      event_date:new Date(published).toISOString(),
+      title:analysis.title,source:analysis.source,
+      event_ids:analysis.events.map(e=>e.id),
+      nearest_prior_observation_at:new Date(history[before].date).toISOString(),
+      price_at_nearest_prior_observation:base,
+      subsequent_price_observations:after,
+      interpretation:"temporal_association_only_not_causation"
+    });
+  }
+  return {
+    matched_news_events:observations.length,
+    observations:observations.slice(0,20),
+    note_fa:"این بخش فقط تغییرات قیمت پس از زمان انتشار خبر را در داده‌های موجود نشان می‌دهد؛ رابطه زمانی، اثبات اثر خبر یا رابطه علّی نیست."
+  };
+}
 function buildTopics(analyses,items) {
   const counts=new Map();
   for(const a of analyses) for(const id of a.themes) counts.set(id,(counts.get(id)||0)+1);
@@ -159,6 +200,7 @@ export function analyzeMarketLanguage(items,rows) {
     numeric_mentions:numberMentions.slice(0,30),
     possible_conflicts:compareHeadlines(analyses),
     historical_context:hist,
+    event_price_context:eventPriceContext(analyses,rows),
     quality:{
       title_only:analyses.length>0&&analyses.every(x=>x.content_chars===0),
       rss_excerpt_available:analyses.some(x=>x.content_chars>0),
