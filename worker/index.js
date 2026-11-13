@@ -127,16 +127,26 @@ const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
   .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
 const MARKET_NEWS_TERMS = [
   "دلار","یورو","پوند","نرخ ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","ریال",
-  "سکه","طلا","طلای ۱۸ عیار","بازار طلا","تورم","بانک مرکزی","نرخ بهره","نرخ سود",
+  "سکه","طلا","طلای ۱۸ عیار","بازار طلا","قیمت طلا","تورم","بانک مرکزی","نرخ بهره","نرخ سود",
   "نقدینگی","کسری بودجه","اقتصاد ایران","اقتصاد جهانی","بازار سرمایه","بورس","صادرات نفت",
   "واردات نفت","قیمت نفت","نفت خام","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی",
-  "currency","dollar","rial","toman","exchange rate","inflation","gold price","gold",
-  "central bank","interest rate","rate cut","rate hike","federal reserve","treasury yield",
-  "bond yield","oil price","crude oil","sanctions","trade deficit","budget deficit","gdp",
-  "forex","stock market","monetary policy","commodity prices","opec","dollar index"
+  "تجارت خارجی","شاخص کل بورس","قیمت انرژی","قیمت سوخت",
+  "currency","exchange rate","inflation","gold price","central bank","interest rate",
+  "interest rates","rate hike","rate hikes","rate cut","rate cuts","federal reserve",
+  "treasury","bond yield","bond yields","oil price","crude oil","fuel prices","diesel prices",
+  "energy prices","sanctions","trade deficit","budget deficit","gdp","forex","stock market",
+  "stocks","shares","bonds","monetary policy","commodity prices","opec","dollar index",
+  "us dollar","dollar exchange","dollar rate","dollar price","dollar rises","dollar falls",
+  "dollar strengthens","dollar weakens","sterling","euro","yen","fed","ecb","bank of england",
+  "economic growth","recession","cpi","ppi","employment report","jobs report","market volatility"
+];
+const EXCLUDED_NEWS_TERMS = [
+  "family dollar","venture capitalism","naval mine","explodes","explosion","caught fire",
+  "catch fire","oil tanker","gas carrier","missile","casualties","killed"
 ];
 function isMarketNews(title) {
   const value = String(title || "").toLocaleLowerCase();
+  if (EXCLUDED_NEWS_TERMS.some(term => value.includes(term))) return false;
   return MARKET_NEWS_TERMS.some(term => value.includes(term.toLocaleLowerCase()));
 }
 function rssTag(block, tag) {
