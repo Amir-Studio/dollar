@@ -374,7 +374,7 @@ function languageComprehensionExam() {
  const englishCases=[
   {text:"The central bank held rates steady, although inflation remains above its target.",expected:["central_bank","interest_rate","inflation"],checks:["contrast"]},
   {text:"Officials said the currency could weaken if oil exports fall.",expected:["exchange_rate","crude_oil"],checks:["conditional","reported"]},
-  {text:"Gold rose amid geopolitical uncertainty, but this does not prove the tensions caused the increase.",expected:["safe_haven","geopolitical_risk"],checks:["causal_caution"]},
+  {text:"Gold rose amid geopolitical uncertainty, but this does not prove the tensions caused the increase.",expected:["safe_haven_gold","geopolitical_risk"],checks:["causal_caution"]},
   {text:"A yield curve inversion may signal recession, though it is not a guarantee.",expected:["yield_curve","inversion","recession"],checks:["hedging","negation"]},
   {text:"The government plans to reduce its fiscal deficit while public debt remains elevated.",expected:["fiscal_deficit","public_debt"],checks:["future_plan","contrast"]}
  ];
@@ -390,7 +390,16 @@ function languageComprehensionExam() {
    const t=normalize(c.text);
    const actual=dict.filter(x=>x.terms.some(term=>t.includes(normalize(term)))).map(x=>x.id);
    const missing=c.expected.filter(id=>!actual.includes(id));
-   const markerMissing=(c.checks||[]).filter(group=>!group.some(marker=>t.includes(normalize(marker))));
+   const markerRules={
+    contrast:["although","but","while","however","despite","با وجود","اما","در حالی که"],
+    conditional:["if","unless","provided that","اگر","مگر اینکه"],
+    reported:["officials said","officials stated","said","مقام ها گفتند","گفتند","اعلام کردند"],
+    causal_caution:["does not prove","does not necessarily mean","correlation does not imply","علت را ثابت نمی کند","به معنی رابطه علّی نیست","هم زمانی علت را ثابت نمی کند"],
+    hedging:["may","might","could","possibly","می تواند","ممکن است","احتمال دارد"],
+    negation:["not","no ","never","نیست","نمی","نه"],
+    future_plan:["plans to","plan to","intends to","قصد دارد","برنامه دارد"]
+   };
+   const markerMissing=(c.checks||[]).filter(key=>!(markerRules[key]||[]).some(marker=>t.includes(normalize(marker))));
    return {passed:missing.length===0&&markerMissing.length===0,missing,missing_semantic_markers:markerMissing,expected:c.expected.length,found:c.expected.length-missing.length};
   });
   const found=rows.reduce((n,x)=>n+x.found,0),total=rows.reduce((n,x)=>n+x.expected,0);
