@@ -66,6 +66,9 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /async function readNewsFeed/);
   assert.match(worker, /const NEWS_SOURCES/);
   assert.match(worker, /url.pathname === "\/news"/);
+  assert.match(worker, /url.searchParams.get\("read_only"\) === "1"/);
+  assert.ok(worker.includes('if (!readOnly) {'), 'read-only requests must skip refresh writes');
+  assert.ok(worker.includes('sync = await syncNewsToSupabase(env);'), 'normal news requests retain their refresh path');
   assert.match(worker, /persistQuotesToSupabase/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /market_quotes\?on_conflict=asset,source,observed_at/);
@@ -73,7 +76,8 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.ok(wrangler.includes('crons = ["*/5 * * * *"]'));
   assert.match(worker, /readFreshCache\(env,"market:latest"/);
   assert.match(aiJs, /health.forecast_ledger_enabled===true/);
-  assert.match(aiJs, /\/analysis\?asset=/);
+  assert.match(aiJs, /\/forecast\/v2\?asset=/);
+  assert.doesNotMatch(aiJs, /\/analysis\?asset=/, 'the browser must use the tested forecast v2 route');
   assert.doesNotMatch(aiJs, /health.configured\?'/, 'the browser must never select the paid legacy route');
   assert.match(aiJs, /FREE MARKET ANALYSIS/);
   assert.match(js, /freeAnalysis/);
