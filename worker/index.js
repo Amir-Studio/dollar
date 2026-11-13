@@ -111,9 +111,9 @@ function googleNewsUrl(query, locale) {
   return "https://news.google.com/rss/search?" + params.toString();
 }
 const NEWS_SOURCES = [
-  {source_id:"google-news-fa",name:"Google News · Persian search (paused)",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("اقتصاد ایران دلار ارز طلا سکه تورم بانک مرکزی نرخ ارز","fa"),active:false,trust_tier:"unrated"},
-  {source_id:"google-news-en",name:"Google News · Iran economy (paused)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("Iran economy dollar rial currency inflation central bank oil gold","en"),active:false,trust_tier:"unrated"},
-  {source_id:"google-news-global",name:"Google News · Global markets (paused)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("gold price inflation central bank oil dollar markets","en"),active:false,trust_tier:"unrated"},
+  {source_id:"google-news-fa",name:"Google News · Persian market search",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("(اقتصاد ایران OR بازار ارز OR دلار OR طلا OR تورم OR بانک مرکزی OR نرخ بهره OR نفت) when:3d","fa"),active:true,trust_tier:"unrated"},
+  {source_id:"google-news-en",name:"Google News · Iran economy search",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(Iran economy OR Iranian rial OR Iran currency OR Iran sanctions OR Iran oil OR Iran gold) when:3d","en"),active:true,trust_tier:"unrated"},
+  {source_id:"google-news-global",name:"Google News · Global market search",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(gold price OR oil price OR inflation OR central bank OR interest rates OR currency markets) when:3d","en"),active:true,trust_tier:"unrated"},
   {source_id:"irna-en",name:"IRNA English",country_code:"IR",language_code:"en",site_url:"https://en.irna.ir",feed_url:"https://en.irna.ir/rss",active:true,trust_tier:"unrated"},
   {source_id:"tasnim-en",name:"Tasnim English (paused: HTML endpoint)",country_code:"IR",language_code:"en",site_url:"https://www.tasnimnews.ir/en",feed_url:"https://www.tasnimnews.ir/en/rss",active:false,trust_tier:"unrated"},
   {source_id:"mehr-fa",name:"Mehr News",country_code:"IR",language_code:"fa",site_url:"https://www.mehrnews.com",feed_url:"https://www.mehrnews.com/rss",active:true,trust_tier:"unrated"},
@@ -142,7 +142,10 @@ const MARKET_NEWS_TERMS = [
   "dollar rate","dollar price","dollar rises","dollar falls","dollar strengthens","dollar weakens",
   "eurozone","euro currency","euro exchange rate","euro rises","euro falls","sterling exchange rate",
   "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
-  "market volatility","tariffs","export prices","import prices"
+  "market volatility","tariffs","export prices","import prices","sanctions","sanction relief","iran sanctions",
+  "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency",
+  "foreign exchange","currency market","exchange market","oil market","gold market","gold price",
+  "oil price","oil market","iran economy","iranian economy","iran oil","iran gold","fx market"
 ];
 const EXCLUDED_NEWS_TERMS = [
   "family dollar","venture capitalism","naval mine","explodes","explosion","caught fire",
@@ -426,6 +429,22 @@ async function persistQuotesToSupabase(env, market) {
   return { enabled: true, saved: rows.length };
 }
 
+function cleanNewsItems(items) {
+  const seen = new Set();
+  return (Array.isArray(items) ? items : []).filter(item => {
+    const title = String(item?.title || "").trim();
+    const published = Date.parse(item?.published_at || "");
+    let url;
+    try { url = new URL(item?.url || ""); } catch { return false; }
+    if (!title || !Number.isFinite(published) || published > Date.now() + 5*60*1000 || Date.now()-published > 72*60*60*1000) return false;
+    if (!["https:","http:"].includes(url.protocol) || !isMarketNews(title)) return false;
+    const key = url.href.toLowerCase().replace(/[?#].*$/, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a,b) => Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,30);
+}
+
 async function readNewsFromSupabase(env) {
   const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -441,7 +460,7 @@ async function readNewsFromSupabase(env) {
     signal: AbortSignal.timeout(12000)
   });
   if (!response.ok) throw Error("Supabase news read HTTP " + response.status);
-  return response.json();
+  return cleanNewsItems(await response.json());
 }
 
 async function syncNewsToSupabase(env) {
@@ -550,12 +569,17 @@ export default {
       return reply(data,200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/news") {
-      const stored = await readNewsFromSupabase(env).catch(() => []);
-      const items = stored.length ? stored : await collectNews().catch(() => []);
+      let sync = null;
+      try { sync = await syncNewsToSupabase(env); }
+      catch (error) { console.error("On-demand news refresh failed:",error?.message || error); }
+      const stored = sync?.items?.length ? sync.items : await readNewsFromSupabase(env).catch(() => []);
+      const items = cleanNewsItems(stored.length ? stored : await collectNews().catch(() => []));
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
-        topics:newsTopics(items),items:items.slice(0,30)
+        source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
+        refreshed:sync?.refreshed===true,
+        topics:newsTopics(items),items
       },200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance") return handleForecastApi(url,env);
