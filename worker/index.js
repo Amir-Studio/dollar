@@ -127,22 +127,28 @@ const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
   .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
 const MARKET_NEWS_TERMS = [
   "دلار","یورو","پوند","نرخ ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","ریال",
-  "سکه","طلا","طلای ۱۸ عیار","بازار طلا","قیمت طلا","تورم","بانک مرکزی","نرخ بهره","نرخ سود",
+  "سکه","قیمت طلا","بازار طلا","طلای ۱۸ عیار","تورم","بانک مرکزی","نرخ بهره","نرخ سود",
   "نقدینگی","کسری بودجه","اقتصاد ایران","اقتصاد جهانی","بازار سرمایه","بورس","صادرات نفت",
   "واردات نفت","قیمت نفت","نفت خام","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی",
   "تجارت خارجی","شاخص کل بورس","قیمت انرژی","قیمت سوخت",
-  "currency","exchange rate","inflation","gold price","central bank","interest rate",
-  "interest rates","rate hike","rate hikes","rate cut","rate cuts","federal reserve",
-  "treasury","bond yield","bond yields","oil price","crude oil","fuel prices","diesel prices",
-  "energy prices","sanctions","trade deficit","budget deficit","gdp","forex","stock market",
-  "stocks","shares","bonds","monetary policy","commodity prices","opec","dollar index",
-  "us dollar","dollar exchange","dollar rate","dollar price","dollar rises","dollar falls",
-  "dollar strengthens","dollar weakens","sterling","euro","yen","fed","ecb","bank of england",
-  "economic growth","recession","cpi","ppi","employment report","jobs report","market volatility"
+  "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market",
+  "central bank","interest rate","interest rates","rate hike","rate hikes","rate cut","rate cuts",
+  "federal reserve","fed rate","fed rates","fed cuts","fed hikes","fed decision","fed chair",
+  "treasury yield","treasury yields","bond yield","bond yields","oil price","oil prices",
+  "crude oil","oil futures","oil supply","oil production","oil exports","oil demand","oil shock",
+  "fuel prices","diesel prices","energy prices","energy shock","energy market","energy supply",
+  "trade deficit","budget deficit","gdp","forex","stock market","stocks","shares","bonds",
+  "monetary policy","commodity prices","opec","dollar index","us dollar","dollar exchange",
+  "dollar rate","dollar price","dollar rises","dollar falls","dollar strengthens","dollar weakens",
+  "eurozone","euro currency","euro exchange rate","euro rises","euro falls","sterling exchange rate",
+  "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
+  "market volatility","tariffs","export prices","import prices"
 ];
 const EXCLUDED_NEWS_TERMS = [
   "family dollar","venture capitalism","naval mine","explodes","explosion","caught fire",
-  "catch fire","oil tanker","gas carrier","missile","casualties","killed"
+  "catch fire","oil tanker","gas carrier","missile","casualties","killed","drug",
+  "illegal importation","arrest","court case","court cases","lawsuit","settlement",
+  "fraud","theft","criminal"
 ];
 function isMarketNews(title) {
   const value = String(title || "").toLocaleLowerCase();
