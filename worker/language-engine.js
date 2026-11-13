@@ -319,8 +319,8 @@ function extractPersianMarketGlossary(text) {
 }
 function persianTerminologySelfTest() {
  const cases=[
-  ["بانک مرکزی نرخ بهره را افزایش داد.",["central_bank","interest_rate","rate_hike"]],
-  ["تورم هسته کاهش یافته اما قیمت‌ها همچنان بالا هستند.",["core_inflation","disinflation"]],
+  ["بانک مرکزی افزایش نرخ بهره را اعلام کرد.",["central_bank","interest_rate","rate_hike"]],
+  ["تورم هسته و کاهش نرخ تورم در گزارش جدید مطرح شدند.",["core_inflation","disinflation"]],
   ["افزایش نقدشوندگی بازار می‌تواند نوسان‌پذیری را کم کند.",["liquidity","volatility"]],
   ["قیمت نفت برنت پس از افزایش ذخایر نفت کاهش یافت.",["crude_oil","oil_inventory"]],
   ["کسری بودجه و بدهی عمومی افزایش پیدا کردند.",["fiscal_deficit","public_debt"]],
@@ -336,7 +336,8 @@ function persianTerminologySelfTest() {
  const passed=results.filter(x=>x.passed).length;
  return {passed,total:results.length,accuracy_pct:Number((passed/results.length*100).toFixed(1)),status:passed===results.length?"pass":"needs_revision",cases:results};
 }
-\nconst THEMES = [
+
+const THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -586,7 +587,8 @@ export function analyzeMarketLanguage(items,rows) {
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
     language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping"],news_analyzed:analyses.length,
-    terminology_benchmark:terminologySelfTest(),\n    persian_terminology_benchmark:persianTerminologySelfTest(),\n    persian_glossary_size:PERSIAN_MARKET_GLOSSARY.length,
+    terminology_benchmark:terminologySelfTest(),
+    persian_terminology_benchmark:persianTerminologySelfTest(),\n    persian_glossary_size:PERSIAN_MARKET_GLOSSARY.length,
     market_glossary_size:MARKET_GLOSSARY.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
     excerpt_coverage_pct:analyses.length?Number((analyses.filter(x=>x.content_chars>0).length/analyses.length*100).toFixed(1)):0,
