@@ -507,7 +507,7 @@ export default {
         language_engine: {
           enabled: true,
           name: "Dollar Domain NLP",
-          version: "0.1.0",
+          version: "0.2.0",
           mode: "deterministic_domain_nlp_not_llm",
           languages: ["fa", "en"],
           news_input: "rss_excerpt_or_headline",
@@ -534,7 +534,7 @@ export default {
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: false,
-        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","database-schema-diagnostics","no-external-language-model"]
+        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
