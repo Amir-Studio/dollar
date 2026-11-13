@@ -579,9 +579,12 @@ export default {
       return reply(data,200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/news") {
+      const readOnly = url.searchParams.get("read_only") === "1";
       let sync = null;
-      try { sync = await syncNewsToSupabase(env); }
-      catch (error) { console.error("On-demand news refresh failed:",error?.message || error); }
+      if (!readOnly) {
+        try { sync = await syncNewsToSupabase(env); }
+        catch (error) { console.error("On-demand news refresh failed:",error?.message || error); }
+      }
       const stored = sync?.items?.length ? sync.items : await readNewsFromSupabase(env).catch(() => []);
       const items = cleanNewsItems(stored.length ? stored : await collectNews().catch(() => []));
       return reply({
