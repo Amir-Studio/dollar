@@ -19,13 +19,16 @@ test('forecast refuses to publish when history is below the production minimum',
   assert.equal(result.observations, 299);
 });
 
-test('forecast refuses to publish a flat series that does not beat the no-change baseline', () => {
+test('flat series records a neutral baseline for calibration without inventing a directional signal', () => {
   const start = Date.UTC(2025, 0, 1);
   const points = Array.from({length:360}, (_,i) => ({ t:start+i*DAY, p:100000 }));
   const result = buildForecast(points, 100000, 1);
-  assert.equal(result.eligible, false);
-  assert.equal(result.samples >= 30, true);
-  assert.match(result.reason, /۲٪/);
+  assert.equal(result.eligible, true);
+  assert.equal(result.forecast_mode, 'baseline_only');
+  assert.equal(result.predicted_change_pct, 0);
+  assert.equal(result.validation.samples >= 30, true);
+  assert.equal(result.validation.directional_signal, false);
+  assert.match(result.validation.reason, /بدون تغییر/);
 });
 
 test('walk-forward ensemble can qualify on a stable synthetic trend and returns an uncertainty band', () => {
