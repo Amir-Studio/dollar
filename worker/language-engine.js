@@ -1,6 +1,6 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-const VERSION = "dollar-domain-nlp-0.7.0";
+const VERSION = "dollar-domain-nlp-0.8.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -237,7 +237,106 @@ function terminologySelfTest() {
  return {passed,total:results.length,accuracy_pct:Number((passed/results.length*100).toFixed(1)),status:passed===results.length?"pass":"needs_revision",cases:results};
 }
 
-const THEMES = [
+
+const PERSIAN_MARKET_GLOSSARY = [
+ {id:"inflation",terms:["تورم","افزایش سطح عمومی قیمت","افزایش قیمت‌ها"],fa:"تورم؛ افزایش عمومی سطح قیمت‌ها"},
+ {id:"core_inflation",terms:["تورم هسته","تورم پایه"],fa:"تورم هسته؛ تورم با حذف اقلام پرنوسان"},
+ {id:"disinflation",terms:["کاهش نرخ تورم","کاهش شتاب تورم","کاهش سرعت رشد قیمت"],fa:"کاهش تورم؛ کندشدن رشد قیمت‌ها، نه الزاماً ارزان‌شدن کالاها"},
+ {id:"deflation",terms:["تورم منفی","کاهش عمومی قیمت‌ها"],fa:"کاهش عمومی سطح قیمت‌ها"},
+ {id:"stagflation",terms:["رکود تورمی"],fa:"رکود تورمی؛ رشد ضعیف همراه با تورم بالا"},
+ {id:"interest_rate",terms:["نرخ بهره","نرخ سود بانکی"],fa:"نرخ بهره؛ هزینه وام یا بازده سپرده"},
+ {id:"real_interest_rate",terms:["نرخ بهره واقعی","بهره واقعی"],fa:"نرخ بهره پس از تعدیل تورم"},
+ {id:"rate_hike",terms:["افزایش نرخ بهره","بالا بردن نرخ بهره","سیاست پولی انقباضی"],fa:"افزایش نرخ بهره یا انقباض پولی"},
+ {id:"rate_cut",terms:["کاهش نرخ بهره","پایین آوردن نرخ بهره","سیاست پولی انبساطی"],fa:"کاهش نرخ بهره یا تسهیل پولی"},
+ {id:"quantitative_easing",terms:["تسهیل کمی","خرید دارایی توسط بانک مرکزی"],fa:"تسهیل کمی؛ خرید دارایی برای تزریق نقدینگی"},
+ {id:"quantitative_tightening",terms:["انقباض کمی","کاهش ترازنامه بانک مرکزی"],fa:"انقباض کمی؛ کوچک‌کردن ترازنامه بانک مرکزی"},
+ {id:"yield",terms:["بازده اوراق","نرخ بازده اوراق"],fa:"بازده اوراق؛ نرخ بازده مورد انتظار یا تحقق‌یافته"},
+ {id:"yield_curve",terms:["منحنی بازده","منحنی نرخ بهره"],fa:"منحنی بازده؛ رابطه سررسید و بازده اوراق"},
+ {id:"inversion",terms:["معکوس شدن منحنی بازده","وارونگی منحنی بازده"],fa:"معکوس‌شدن منحنی؛ بازده کوتاه‌مدت بالاتر از بلندمدت"},
+ {id:"bond",terms:["اوراق قرضه","اوراق بدهی دولتی","اسناد خزانه"],fa:"اوراق بدهی؛ ابزار وام‌گرفتن دولت یا شرکت"},
+ {id:"bond_price",terms:["قیمت اوراق","قیمت اوراق قرضه"],fa:"قیمت اوراق؛ معمولاً با بازده رابطه معکوس دارد"},
+ {id:"liquidity",terms:["نقدشوندگی","نقدینگی بازار"],fa:"نقدشوندگی؛ امکان معامله سریع با اثر قیمتی کم"},
+ {id:"volatility",terms:["نوسان‌پذیری","شدت نوسان قیمت"],fa:"نوسان‌پذیری؛ شدت تغییرات قیمت"},
+ {id:"spread",terms:["فاصله قیمت خرید و فروش","اختلاف بازده","اسپرد"],fa:"فاصله قیمت‌ها یا اختلاف بازده؛ وابسته به زمینه"},
+ {id:"risk_premium",terms:["صرف ریسک","پاداش ریسک"],fa:"صرف ریسک؛ بازده اضافه برای پذیرش ریسک"},
+ {id:"safe_haven",terms:["دارایی امن","پناهگاه امن سرمایه"],fa:"دارایی امن؛ دارایی مورد توجه در دوره نااطمینانی"},
+ {id:"risk_appetite",terms:["ریسک پذیری","تمایل به پذیرش ریسک"],fa:"تمایل سرمایه‌گذاران به پذیرش ریسک"},
+ {id:"risk_aversion",terms:["ریسک گریزی","فرار از ریسک"],fa:"ریسک‌گریزی؛ کاهش تمایل به دارایی‌های پرریسک"},
+ {id:"bull_market",terms:["بازار صعودی","روند صعودی","دیدگاه افزایشی"],fa:"بازار صعودی یا دیدگاه افزایشی"},
+ {id:"bear_market",terms:["بازار نزولی","روند نزولی","دیدگاه کاهشی"],fa:"بازار نزولی یا دیدگاه کاهشی"},
+ {id:"support",terms:["سطح حمایت","حمایت قیمتی"],fa:"حمایت؛ محدوده‌ای که احتمال افزایش تقاضا وجود دارد"},
+ {id:"resistance",terms:["سطح مقاومت","مقاومت قیمتی"],fa:"مقاومت؛ محدوده‌ای که احتمال افزایش عرضه وجود دارد"},
+ {id:"breakout",terms:["شکست مقاومت","شکست حمایت","شکست محدوده قیمتی"],fa:"شکست سطح یا محدوده قیمتی"},
+ {id:"correction",terms:["اصلاح قیمت","اصلاح بازار"],fa:"اصلاح قیمت؛ حرکت خلاف روند غالب"},
+ {id:"drawdown",terms:["افت از سقف","افت از اوج تا کف","حداکثر افت"],fa:"افت از اوج تا کف بعدی"},
+ {id:"market_cap",terms:["ارزش بازار","ارزش کل بازار"],fa:"ارزش بازار؛ قیمت ضربدر تعداد واحدهای در گردش"},
+ {id:"ounce",terms:["اونس تروا","اونس طلا"],fa:"اونس تروا؛ واحد رایج وزن فلزات گران‌بها"},
+ {id:"crude_oil",terms:["نفت خام","نفت برنت","نفت وست تگزاس"],fa:"نفت خام؛ از جمله شاخص‌های برنت و WTI"},
+ {id:"oil_inventory",terms:["ذخایر نفت","موجودی نفت","انبارهای نفت"],fa:"ذخایر نفتی؛ تغییر آن‌ها می‌تواند بر قیمت اثر بگذارد"},
+ {id:"supply",terms:["عرضه","میزان عرضه","ظرفیت تولید"],fa:"عرضه؛ مقدار کالای ارائه‌شده به بازار"},
+ {id:"demand",terms:["تقاضا","میزان تقاضا","نیاز خریداران"],fa:"تقاضا؛ مقدار کالای موردنیاز خریداران"},
+ {id:"opec",terms:["اوپک","اوپک پلاس"],fa:"اوپک و ائتلاف اوپک‌پلاس"},
+ {id:"exchange_rate",terms:["نرخ ارز","قیمت ارز","نرخ تبدیل ارز"],fa:"نرخ ارز؛ قیمت یک ارز بر حسب ارز دیگر"},
+ {id:"appreciation",terms:["تقویت ارزش پول","افزایش ارزش پول ملی"],fa:"تقویت ارزش پول"},
+ {id:"depreciation",terms:["تضعیف ارزش پول","کاهش ارزش پول ملی"],fa:"تضعیف ارزش پول"},
+ {id:"devaluation",terms:["کاهش رسمی ارزش پول","کاهش ارزش رسمی پول"],fa:"کاهش رسمی ارزش پول توسط مرجع پولی"},
+ {id:"capital_outflow",terms:["خروج سرمایه","فرار سرمایه"],fa:"خروج سرمایه از یک کشور یا بازار"},
+ {id:"capital_inflow",terms:["ورود سرمایه","جذب سرمایه خارجی"],fa:"ورود سرمایه به یک کشور یا بازار"},
+ {id:"fiscal_deficit",terms:["کسری بودجه","کسری بودجه دولت"],fa:"کسری بودجه؛ بیشتر بودن مخارج از درآمد دولت"},
+ {id:"public_debt",terms:["بدهی عمومی","بدهی دولت","بدهی دولتی"],fa:"بدهی عمومی یا بدهی دولت"},
+ {id:"sanctions",terms:["تحریم","تحریم اقتصادی","رفع تحریم","تشدید تحریم"],fa:"تحریم‌ها یا کاهش محدودیت‌های تحریمی"},
+ {id:"geopolitical_risk",terms:["ریسک ژئوپلیتیک","تنش ژئوپلیتیک","تنش سیاسی بین‌المللی"],fa:"ریسک ناشی از تنش‌های سیاسی و بین‌المللی"},
+ {id:"ceasefire",terms:["آتش بس","توافق آتش بس","توقف درگیری"],fa:"آتش‌بس؛ توقف درگیری با شرایط مشخص"},
+ {id:"recession",terms:["رکود اقتصادی","انقباض اقتصادی"],fa:"رکود اقتصادی؛ کاهش فعالیت اقتصادی"},
+ {id:"gdp",terms:["تولید ناخالص داخلی","تولید ناخالص ملی"],fa:"تولید ناخالص داخلی؛ ارزش کالاها و خدمات نهایی تولیدشده"},
+ {id:"employment",terms:["نرخ بیکاری","بازار کار","اشتغال","آمار اشتغال"],fa:"اشتغال، بیکاری و وضعیت بازار کار"},
+ {id:"pmi",terms:["شاخص مدیران خرید","شاخص pmi"],fa:"شاخص مدیران خرید؛ سنجه‌ای از فعالیت اقتصادی"},
+ {id:"cpi",terms:["شاخص قیمت مصرف کننده","شاخص بهای مصرف کننده","شاخص cpi"],fa:"شاخص قیمت مصرف‌کننده"},
+ {id:"ppi",terms:["شاخص قیمت تولیدکننده","شاخص بهای تولیدکننده","شاخص ppi"],fa:"شاخص قیمت تولیدکننده"},
+ {id:"central_bank",terms:["بانک مرکزی","فدرال رزرو","بانک مرکزی اروپا"],fa:"بانک مرکزی؛ نهاد مسئول سیاست پولی"},
+ {id:"forward_guidance",terms:["راهنمایی آینده نگر","راهنمای سیاست پولی"],fa:"راهنمایی آینده‌نگر درباره مسیر احتمالی سیاست پولی"},
+ {id:"market_expectations",terms:["انتظارات بازار","پیش خور شدن در قیمت","در قیمت لحاظ شده"],fa:"انتظارات بازار یا پیش‌خورشدن رویداد در قیمت"},
+ {id:"benchmark",terms:["شاخص مرجع","نرخ مرجع","معیار مقایسه"],fa:"شاخص یا نرخ مرجع برای مقایسه"},
+ {id:"correlation",terms:["همبستگی","ارتباط آماری"],fa:"همبستگی؛ همراهی آماری، نه اثبات رابطه علّی"},
+ {id:"causation",terms:["رابطه علّی","علیت","سببیت"],fa:"رابطه علّی؛ اثرگذاری یک عامل بر عامل دیگر"},
+ {id:"forecast",terms:["پیش بینی","برآورد آینده","چشم انداز"],fa:"پیش‌بینی؛ برآورد آینده بر پایه داده و فرض‌ها"},
+ {id:"economic_growth",terms:["رشد اقتصادی","افزایش تولید"],fa:"رشد اقتصادی؛ افزایش تولید کالاها و خدمات"},
+ {id:"intrinsic_value",terms:["ارزش ذاتی"],fa:"ارزش ذاتی؛ برآورد ارزش بر اساس عوامل بنیادی"},
+ {id:"bubble",terms:["حباب قیمتی","حباب بازار","حباب دارایی"],fa:"حباب؛ قیمت بسیار بالاتر از برآورد ارزش بنیادی"},
+ {id:"profit_margin",terms:["حاشیه سود","حاشیه سود خالص"],fa:"حاشیه سود؛ نسبت سود به درآمد"},
+ {id:"revenue",terms:["درآمد عملیاتی","درآمد شرکت","فروش شرکت"],fa:"درآمد؛ مبلغ حاصل از فروش کالا یا خدمات"},
+ {id:"net_income",terms:["سود خالص","زیان خالص"],fa:"سود خالص؛ درآمد پس از کسر هزینه‌ها"},
+ {id:"cash_flow",terms:["جریان نقدی","جریان وجوه نقد"],fa:"جریان نقدی؛ ورود و خروج پول نقد"},
+ {id:"default",terms:["نکول","عدم بازپرداخت بدهی","قصور در پرداخت بدهی"],fa:"نکول؛ ناتوانی یا خودداری از پرداخت بدهی در موعد مقرر"}
+];
+function extractPersianMarketGlossary(text) {
+ const found=[];
+ for(const item of PERSIAN_MARKET_GLOSSARY) {
+  const matches=containsAny(text,item.terms);
+  if(matches.length) found.push({id:item.id,term:matches[0],meaning_fa:item.fa});
+ }
+ return found.slice(0,35);
+}
+function persianTerminologySelfTest() {
+ const cases=[
+  ["بانک مرکزی نرخ بهره را افزایش داد.",["central_bank","interest_rate","rate_hike"]],
+  ["تورم هسته کاهش یافته اما قیمت‌ها همچنان بالا هستند.",["core_inflation","disinflation"]],
+  ["افزایش نقدشوندگی بازار می‌تواند نوسان‌پذیری را کم کند.",["liquidity","volatility"]],
+  ["قیمت نفت برنت پس از افزایش ذخایر نفت کاهش یافت.",["crude_oil","oil_inventory"]],
+  ["کسری بودجه و بدهی عمومی افزایش پیدا کردند.",["fiscal_deficit","public_debt"]],
+  ["ریسک گریزی باعث افزایش تقاضا برای دارایی امن شد.",["risk_aversion","safe_haven"]],
+  ["همبستگی دو دارایی به معنی رابطه علّی نیست.",["correlation","causation"]],
+  ["رشد اقتصادی و نرخ بیکاری از شاخص‌های مهم هستند.",["economic_growth","employment"]]
+ ];
+ const results=cases.map(([input,expected])=>{
+  const actual=extractPersianMarketGlossary(normalize(input)).map(x=>x.id);
+  const missing=expected.filter(x=>!actual.includes(x));
+  return {passed:missing.length===0,missing};
+ });
+ const passed=results.filter(x=>x.passed).length;
+ return {passed,total:results.length,accuracy_pct:Number((passed/results.length*100).toFixed(1)),status:passed===results.length?"pass":"needs_revision",cases:results};
+}
+\nconst THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
   {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
   {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
@@ -371,7 +470,7 @@ function classifyOne(item) {
   const english = englishAdvancedSemantics(text);
   const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
   const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
-  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : [];
+  const glossaryTerms = languageIsEnglish(title) ? extractMarketGlossary(text) : extractPersianMarketGlossary(text);
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
@@ -486,8 +585,8 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test"],news_analyzed:analyses.length,
-    terminology_benchmark:terminologySelfTest(),
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping"],news_analyzed:analyses.length,
+    terminology_benchmark:terminologySelfTest(),\n    persian_terminology_benchmark:persianTerminologySelfTest(),\n    persian_glossary_size:PERSIAN_MARKET_GLOSSARY.length,
     market_glossary_size:MARKET_GLOSSARY.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
     excerpt_coverage_pct:analyses.length?Number((analyses.filter(x=>x.content_chars>0).length/analyses.length*100).toFixed(1)):0,
