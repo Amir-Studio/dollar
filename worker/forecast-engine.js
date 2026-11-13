@@ -314,6 +314,35 @@ async function db(env,path,options={}) {
   if(r.status===204) return null;
   const text=await r.text(); return text?JSON.parse(text):null;
 }
+function headlineTokens(value) {
+  const stop=new Set(["the","and","for","from","with","that","this","در","از","به","با","برای","و","را","که","این","آن","یک","های","شود","شد"]);
+  return String(value||"").normalize("NFKC").toLocaleLowerCase("fa").replace(/[ي]/g,"ی").replace(/[ك]/g,"ک")
+    .match(/[\\p{L}\\p{N}]{2,}/gu)?.filter(x=>!stop.has(x))||[];
+}
+export function headlineConflictCandidates(items) {
+  const positive=["افزایش","رشد","صعود","بالا رفت","تقویت","increase","rise","rises","surge","gain","up"];
+  const negative=["کاهش","افت","نزول","پایین آمد","تضعیف","decrease","fall","falls","drop","decline","down"];
+  const pairs=[];
+  for(let i=0;i<items.length;i++) for(let j=i+1;j<items.length;j++) {
+    const a=items[i],b=items[j],da=String(a.domain||a.source_id||"").toLowerCase(),dbb=String(b.domain||b.source_id||"").toLowerCase();
+    if(!da||!dbb||da===dbb) continue;
+    const ta=headlineTokens(a.title||a.original_title),tb=headlineTokens(b.title||b.original_title);
+    const A=new Set(ta),B=new Set(tb),shared=[...A].filter(x=>B.has(x));
+    const similarity=shared.length/Math.max(1,new Set([...A,...B]).size);
+    if(similarity<0.28||shared.length<2) continue;
+    const at=String(a.title||a.original_title||"").toLocaleLowerCase(),bt=String(b.title||b.original_title||"").toLocaleLowerCase();
+    const polarity=text=>({positive:positive.some(x=>text.includes(x)),negative:negative.some(x=>text.includes(x))});
+    const pa=polarity(at),pb=polarity(bt);
+    const na=(at.match(/\\d+(?:[.,]\\d+)?/g)||[]).sort().join(","),nb=(bt.match(/\\d+(?:[.,]\\d+)?/g)||[]).sort().join(",");
+    const opposite=(pa.positive&&pb.negative)||(pa.negative&&pb.positive),numeric=Boolean(na&&nb&&na!==nb);
+    if(!opposite&&!numeric) continue;
+    pairs.push({headline_a:at.slice(0,240),headline_b:bt.slice(0,240),source_a:da,source_b:dbb,
+      similarity:Number(similarity.toFixed(2)),signals:[...(opposite?["opposing_direction_words"]:[]),...(numeric?["different_numeric_values"]:[])],
+      status:"needs_human_review",note:"هشدار الگوریتمی است؛ تناقض واقعی یا نادرستی هیچ‌یک از خبرها را اثبات نمی‌کند."});
+    if(pairs.length>=12) return pairs;
+  }
+  return pairs;
+}
 async function fetchNewsContext(env,asset,asOf) {
   try {
     const since=new Date(asOf-72*60*60*1000).toISOString();
@@ -344,9 +373,11 @@ async function fetchNewsContext(env,asset,asOf) {
       weightedRisk+=Math.min(2,hits*0.55)*Math.exp(-ageHours/36);
     }
     const domains=[...new Set(items.map(x=>String(x.domain||x.source_id||"").toLowerCase()).filter(Boolean))];
+    const conflicts=headlineConflictCandidates(items);
     const score=Math.max(0,Math.min(100,weightedRisk*5));
     return {
       window_hours:72,headline_count:items.length,source_count:domains.length,
+      potential_conflict_count:conflicts.length,potential_conflicts:conflicts,
       event_risk_score:Number(score.toFixed(1)),
       interpretation:score>=65?"elevated":score>=30?"moderate":"limited",
       directional_use:"disabled_until_historically_validated",
@@ -381,6 +412,17 @@ async function fetchInputs(env,asset,marketPayload) {
   return {price,stamp,source:String(item.source||"unknown"),provider_meta:item.provider_meta||null,history_provider:historyProvider,points,newsContext};
 }
 
+async function liveBiasCalibration(env,asset,horizon) {
+  try {
+    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&order=actual_at.desc&limit=60");
+    const valid=(Array.isArray(rows)?rows:[]).filter(x=>Number(x.predicted_price)>0&&Number(x.actual_price)>0);
+    if(valid.length<30) return {samples:valid.length,applied:false,log_bias:0};
+    const errors=valid.map(x=>Math.log(Number(x.actual_price)/Number(x.predicted_price)));
+    const mean=errors.reduce((a,b)=>a+b,0)/errors.length,shrink=Math.min(0.5,valid.length/60);
+    const adjustment=Math.max(-0.015,Math.min(0.015,mean*shrink));
+    return {samples:valid.length,applied:true,log_bias:Number(mean.toFixed(6)),adjustment_log:Number(adjustment.toFixed(6))};
+  } catch(error) { return {samples:0,applied:false,log_bias:0,error:String(error?.message||error).slice(0,100)}; }
+}
 async function issueForecast(env,asset,horizon,input) {
   const issuedAt=new Date().toISOString();
   // The horizon starts when the forecast is issued; stale quotes are rejected in fetchInputs.
@@ -392,7 +434,14 @@ async function issueForecast(env,asset,horizon,input) {
     news_context:input.newsContext
   };
   const quoteAgeHours=Math.max(0,(Date.parse(issuedAt)-input.stamp)/3600000);
-  const validation={...result.validation,quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
+  const calibration=result.forecast_mode==="baseline_only"?{samples:0,applied:false,log_bias:0,reason:"baseline-only forecasts are not directionally adjusted"}:await liveBiasCalibration(env,asset,horizon);
+  if(calibration.applied) {
+    const shift=calibration.adjustment_log;
+    result.predicted_price*=Math.exp(shift);result.lower_price*=Math.exp(shift);result.upper_price*=Math.exp(shift);
+    result.predicted_change_pct=(result.predicted_price/input.price-1)*100;
+    result.direction=result.predicted_change_pct>0.1?"up":result.predicted_change_pct< -0.1?"down":"sideways";
+  }
+  const validation={...result.validation,live_error_feedback:calibration,quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
     event_risk_score:input.newsContext?.event_risk_score??0,
     headline_count:input.newsContext?.headline_count??0,
     source_count:input.newsContext?.source_count??0,
@@ -401,7 +450,7 @@ async function issueForecast(env,asset,horizon,input) {
   const payload={
     asset,horizon_days:horizon,model_version:MODEL_VERSION,issued_at:issuedAt,target_at:targetAt,
     status:"pending",reference_price:input.price,
-    quote_source:"Iran Market Data / "+input.source,
+    quote_source:input.source,
     quote_observed_at:new Date(input.stamp).toISOString(),
     predicted_price:result.predicted_price,predicted_change_pct:result.predicted_change_pct,
     lower_price:result.lower_price,upper_price:result.upper_price,direction:result.direction,
@@ -418,7 +467,7 @@ async function issueForecast(env,asset,horizon,input) {
     predicted_change_pct:Number(result.predicted_change_pct.toFixed(3)),
     range:{low:Math.round(result.lower_price),high:Math.round(result.upper_price)},
     direction:result.direction,validation,news_context:input.newsContext,
-    model_version:MODEL_VERSION,source:"Iran Market Data / "+input.source
+    model_version:MODEL_VERSION,source:input.source,provider_meta:input.provider_meta,history_provider:input.history_provider
   };
 }
 
