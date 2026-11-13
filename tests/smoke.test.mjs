@@ -33,6 +33,8 @@ test('chart forecast uses live AI endpoint when configured and labels statistica
   assert.match(js, /aiForecast\.target_price/);
   assert.match(js, /خط زرد/);
   assert.match(aiJs, /dollar-ai-endpoint-updated/);
+  assert.match(aiJs, /DEFAULT_ENDPOINT='https:\/\/oolfbjxclhzlbwjmzxxx\.supabase\.co\/functions\/v1\/market-api'/);
+  assert.match(js, /functions\/v1\/market-api/);
   assert.match(html, /id="forecastLegendText"/);
   assert.match(html, /id="chartNoteText"/);
   assert.doesNotMatch(js, /Math\.random/, 'do not synthesize market prices');
@@ -59,7 +61,11 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.ok(worker.includes('url.pathname === "/analysis"'));
   assert.match(worker, /mode:"free-algorithmic"/);
   assert.match(worker, /async scheduled\(controller, env, ctx\)/);
-  assert.match(worker, /background_refresh_enabled: kvBindingPresent/);
+  assert.match(worker, /background_refresh_enabled: backgroundRefreshEnabled/);
+  assert.match(worker, /background_refresh_provider/);
+  assert.match(worker, /async function readNewsFeed/);
+  assert.match(worker, /const NEWS_SOURCES/);
+  assert.match(worker, /url.pathname === "\/news"/);
   assert.match(worker, /persistQuotesToSupabase/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /market_quotes\?on_conflict=asset,source,observed_at/);
@@ -104,7 +110,7 @@ test('market data limitations and risk disclosure are visible', () => {
 });
 
 test('support pages, brand asset, and Worker deployment files exist', () => {
-  for (const file of ['about.html', 'sources.html', 'contact.html', 'privacy.html', 'assets/brand.svg', 'worker/wrangler.toml', '.github/workflows/deploy-worker.yml']) {
+  for (const file of ['about.html', 'sources.html', 'contact.html', 'privacy.html', 'assets/brand.svg', 'worker/wrangler.toml', 'supabase/functions/market-api/index.ts', '.github/workflows/deploy-worker.yml']) {
     assert.ok(existsSync(new URL('../' + file, import.meta.url)), 'missing ' + file);
   }
 });
