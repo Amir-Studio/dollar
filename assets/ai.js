@@ -99,32 +99,47 @@ async function loadNews(){
 }
 
 async function run(){
- const base=endpoint();if(!base){setStatus('نیازمند اتصال');output.innerHTML='<strong>سرویس هوش مصنوعی هنوز به این سایت متصل نشده.</strong><p>در بخش «تنظیم اتصال تحلیلگر»، آدرس Worker مستقرشده را وارد و ذخیره کن. برای امنیت، کلید API فقط باید در Secretهای Cloudflare باشد.</p>';document.querySelector('.ai-setup details')?.setAttribute('open','');return}
- const asset=$('aiAsset')?.value||'USD_IRR_FREE';const horizon=$('aiHorizon')?.value||'7';runBtn.disabled=true;runBtn.innerHTML='<span class="ai-spark">✳</span> در حال آزمون مدل و داده‌ها…';setStatus('در حال بررسی');output.innerHTML='<strong>در حال ارزیابی بازار…</strong><p>قیمت و تاریخچه بررسی می‌شود؛ سپس مدل‌های آماری با آزمون walk-forward و معیارهای خطا سنجیده می‌شوند. اگر شواهد کافی نباشد، پیش‌بینی منتشر نمی‌شود.</p>';
- try{const healthRes=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});const health=await healthRes.json();if(!healthRes.ok||!health.ok)throw new Error('سرویس تحلیل در دسترس نیست.');const adaptive=Array.isArray(health.capabilities)&&health.capabilities.includes('adaptive-ensemble-forecast')&&health.forecast_ledger_enabled===true;const aiEnabled=health.llm_configured===true;const route=aiEnabled?'/analysis?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon):adaptive?'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon):'/analysis?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon);let res=await fetch(base.replace(/\/$/,'')+route,{headers:{accept:'application/json'},cache:'no-store'});let data=await res.json();if((!res.ok||data.error)&&aiEnabled&&adaptive){const fallbackRes=await fetch(base.replace(/\/$/,'')+'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon),{headers:{accept:'application/json'},cache:'no-store'});const fallback=await fallbackRes.json();if(fallbackRes.ok){data={...fallback,ai_fallback_note:'سرویس هوش مصنوعی موقتاً پاسخ نداد؛ این گزارش از موتور آماری جایگزین تهیه شده است.'};}else throw new Error(data.error||fallback.error||'سرویس تحلیل پاسخ معتبر نداد.')}else if(!res.ok||data.error)throw new Error(data.error||'سرویس پاسخ موفق نداد ('+res.status+')');if(adaptive&&!aiEnabled&&data.forecast?.status==='withheld'){const fallbackRes=await fetch(base.replace(/\/$/,'')+'/analysis?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon),{headers:{accept:'application/json'},cache:'no-store'});const fallback=await fallbackRes.json();if(fallbackRes.ok&&fallback.mode==='free-algorithmic'&&Number.isFinite(Number(fallback.forecast?.target_price))){data={...fallback,adaptive_reason:data.forecast.reason,adaptive_validation:data.forecast.validation,news_context:data.news_context}}}render(data);if(data.ai_fallback_note){output.insertAdjacentHTML('afterbegin','<p class="ai-summary">'+escapeHtml(data.ai_fallback_note)+'</p>');setStatus('موتور آماری جایگزین · اتصال هوش مصنوعی نیازمند بررسی')}else if(aiEnabled){setStatus('تحلیل هوش مصنوعی و جست‌وجوی خبر فعال')}else{output.insertAdjacentHTML('afterbegin','<p class="ai-summary">خبرخوان زنده و تحلیل آماری فعال‌اند؛ اما مدل هوش مصنوعی مولد هنوز وصل نیست. برای فعال‌شدن آن، Secret با نام OPENAI_API_KEY باید در تنظیمات Edge Functions پروژه ثبت شود. کلید را در این صفحه یا داخل کد سایت وارد نکن.</p>');setStatus('خبرخوان فعال · اتصال مدل هوش مصنوعی ناقص')}}
- catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای اتصال')}
+ const base=endpoint();
+ if(!base){setStatus('اتصال سرویس تنظیم نشده');return}
+ const asset=$('aiAsset')?.value||'USD_IRR_FREE';
+ const horizon=$('aiHorizon')?.value||'7';
+ runBtn.disabled=true;
+ runBtn.innerHTML='<span class="ai-spark">✳</span> در حال ارزیابی موتور اختصاصی…';
+ setStatus('در حال آزمون تاریخی و بررسی خبرها');
+ output.innerHTML='<strong>در حال ارزیابی موتور اختصاصی بازار…</strong><p>قیمت، تاریخچه و خبرهای تازه بررسی می‌شوند. فقط اگر آزمون خارج از نمونه کیفیت کافی نشان بدهد، پیش‌بینی عددی منتشر خواهد شد.</p>';
+ try{
+  const root=base.replace(/\/$/,'');
+  const healthRes=await fetch(root+'/health',{headers:{accept:'application/json'},cache:'no-store'});
+  const health=await healthRes.json();
+  if(!healthRes.ok||!health.ok)throw new Error('سرویس تحلیل در دسترس نیست.');
+  const adaptive=Array.isArray(health.capabilities)&&health.capabilities.includes('adaptive-ensemble-forecast')&&health.forecast_ledger_enabled===true;
+  if(!adaptive)throw new Error('موتور اختصاصی پیش‌بینی یا دفتر ثبت نتایج هنوز آماده نیست.');
+  const res=await fetch(root+'/forecast/v2?asset='+encodeURIComponent(asset)+'&horizon_days='+encodeURIComponent(horizon),{headers:{accept:'application/json'},cache:'no-store'});
+  const data=await res.json();
+  if(!res.ok)throw new Error(data.error||'موتور اختصاصی پاسخ معتبر نداد ('+res.status+').');
+  render(data);
+  if(data.forecast?.status==='withheld')setStatus('کنترل کیفیت فعال · فعلاً بدون پیش‌بینی عددی');
+  else setStatus('موتور اختصاصی فعال · پیش‌بینی آزمون‌شده و خبرها آماده');
+ }catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای تحلیل')}
  finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش بازار <span>↗</span>'}
 }
 async function checkHealth(){
  const base=endpoint();
- if(!base){setStatus('نیازمند اتصال');return}
+ if(!base){setStatus('اتصال سرویس تنظیم نشده');return}
  try{
   const res=await fetch(base.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error('health check failed');
-  if(data.free_forecast_enabled){
-   if(!data.database_configured){setStatus('تحلیل آماری آماده · پایگاه داده متصل نیست');return}
-   if(data.database_schema_ready!==true){setStatus('تحلیل آماری آماده · طرح پایگاه داده ناقص است');return}
-   if(data.llm_configured!==true){setStatus('خبرخوان و تحلیل آماری فعال · کلید هوش مصنوعی تنظیم نشده');return}
-   setStatus(data.background_refresh_prerequisites_ready?'هوش مصنوعی و خبرخوان · به‌روزرسانی خودکار فعال':'هوش مصنوعی فعال · زمان‌بندی خودکار غیرفعال');return
-  }
-  setStatus('سرویس تحلیل در دسترس نیست');
+  if(data.database_configured!==true||data.database_schema_ready!==true){setStatus('پایگاه داده نیازمند بررسی است');return}
+  const adaptive=Array.isArray(data.capabilities)&&data.capabilities.includes('adaptive-ensemble-forecast')&&data.forecast_ledger_enabled===true;
+  if(!adaptive){setStatus('موتور اختصاصی هنوز آماده نیست');return}
+  setStatus(data.background_refresh_prerequisites_ready?'موتور اختصاصی و خبرخوان فعال · به‌روزرسانی خودکار روشن':'موتور اختصاصی فعال · زمان‌بندی خودکار نیازمند بررسی');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
 $('saveAiEndpoint')?.addEventListener('click',saveEndpoint);runBtn?.addEventListener('click',run);
 checkHealth();
 loadNews();
-window.setInterval(loadNews,5*60*1000);
+window.setInterval(loadNews,15*60*1000);
 window.addEventListener('dollar-ai-endpoint-updated',()=>{checkHealth();loadNews()});
 })();
