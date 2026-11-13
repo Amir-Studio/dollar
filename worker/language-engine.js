@@ -275,7 +275,8 @@ function classifyOne(item) {
   const tone = pos===neg?"neutral_or_unclear":pos>neg?"positive_wording":"negative_wording";
   const numberMentions = extractNumbers(text);
   const english = englishAdvancedSemantics(text);
-  const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;\n  const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
+  const b1 = languageIsEnglish(title) ? analyzeB1English(text) : null;
+  const c1 = languageIsEnglish(title) ? analyzeC1English(text) : null;
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
