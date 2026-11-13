@@ -1,0 +1,167 @@
+// Dollar Market Language Engine v0.1
+// Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
+const VERSION = "dollar-domain-nlp-0.1.0";
+
+const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
+const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
+const STOP = new Set(["از","به","با","در","را","و","یا","برای","این","آن","یک","the","a","an","and","or","of","to","in","on","for","as","is","are","was","were","by"]);
+
+const THEMES = [
+  {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
+  {id:"gold",label_fa:"طلا و فلزات گران‌بها",terms:["طلا","سکه","اونس","شمش","gold","bullion","precious metal","xau"]},
+  {id:"inflation",label_fa:"تورم و قیمت‌ها",terms:["تورم","شاخص قیمت","قیمت مصرف کننده","cpi","inflation","consumer prices","price index"]},
+  {id:"oil_energy",label_fa:"نفت و انرژی",terms:["نفت","اوپک","انرژی","oil","opec","energy","crude"]},
+  {id:"sanctions",label_fa:"تحریم و محدودیت تجاری",terms:["تحریم","محدودیت تجاری","ممنوعیت صادرات","sanction","trade restriction","embargo"]},
+  {id:"diplomacy",label_fa:"مذاکرات و روابط خارجی",terms:["مذاکره","توافق","برجام","گفتگو","دیپلماسی","negotiation","agreement","nuclear deal","diplomacy"]},
+  {id:"geopolitics",label_fa:"ریسک ژئوپلیتیک",terms:["جنگ","درگیری","حمله","تنش","آتش بس","war","conflict","attack","tension","ceasefire","escalation"]},
+  {id:"fiscal",label_fa:"بودجه و سیاست مالی",terms:["بودجه","کسری بودجه","مالیات","یارانه","بدهی دولت","budget","fiscal","tax","subsidy","government debt"]},
+  {id:"global_rates",label_fa:"بانک‌های مرکزی جهان",terms:["فدرال رزرو","فدرال‌رزرو","بانک مرکزی اروپا","ecb","federal reserve","fed rate","monetary policy"]}
+];
+
+const EVENT_TERMS = [
+  {id:"rate_hike",label_fa:"افزایش نرخ بهره",terms:["افزایش نرخ بهره","نرخ بهره را افزایش","rate hike","raises rates","raised rates"],direction:"mixed"},
+  {id:"rate_cut",label_fa:"کاهش نرخ بهره",terms:["کاهش نرخ بهره","نرخ بهره را کاهش","rate cut","cuts rates","cut rates"],direction:"mixed"},
+  {id:"sanction_new",label_fa:"اعمال یا تشدید تحریم",terms:["تحریم جدید","اعمال تحریم","تشدید تحریم","imposes sanctions","new sanctions","sanctions imposed"],direction:"risk_up"},
+  {id:"sanction_relief",label_fa:"کاهش یا لغو تحریم",terms:["لغو تحریم","رفع تحریم","تعلیق تحریم","sanctions lifted","eases sanctions","sanctions relief"],direction:"risk_down"},
+  {id:"talks",label_fa:"آغاز یا ادامه مذاکره",terms:["آغاز مذاکرات","ادامه مذاکرات","ازسرگیری مذاکرات","resumes talks","talks resume","negotiations begin"],direction:"mixed"},
+  {id:"ceasefire",label_fa:"آتش‌بس یا کاهش تنش",terms:["آتش بس","آتش‌بس","توافق آتش بس","ceasefire","de-escalation"],direction:"risk_down"},
+  {id:"conflict",label_fa:"درگیری یا تشدید تنش",terms:["حمله نظامی","حمله موشکی","درگیری نظامی","تشدید تنش","military strike","missile attack","military conflict"],direction:"risk_up"},
+  {id:"inflation_up",label_fa:"افزایش تورم",terms:["افزایش تورم","تورم صعودی","تورم افزایش یافت","inflation rises","inflation accelerated","higher inflation"],direction:"mixed"},
+  {id:"inflation_down",label_fa:"کاهش تورم",terms:["کاهش تورم","تورم نزولی","تورم کاهش یافت","inflation falls","inflation eased","lower inflation"],direction:"mixed"},
+  {id:"oil_supply",label_fa:"اختلال عرضه نفت",terms:["اختلال عرضه نفت","کاهش تولید نفت","توقف صادرات نفت","oil supply disruption","output cuts","oil exports halted"],direction:"risk_up"}
+];
+
+const POSITIVE = ["افزایش","رشد","صعود","تقویت","بهبود","رکورد","بالاتر","افزایش یافت","افزایش پیدا کرد","rise","rises","surge","gain","higher","strengthen","improve"];
+const NEGATIVE = ["کاهش","افت","سقوط","تضعیف","ریزش","کمتر","پایین‌تر","کاهش یافت","کاهش پیدا کرد","fall","falls","drop","decline","lower","weaken","plunge"];
+const NEGATORS = ["نه","نیست","نشد","نمی‌شود","نخواهد","بدون","عدم","لغو","رد","تکذیب","not","no","never","without","denies","denied","rejects","rejected"];
+const UNCERTAIN = ["احتمال","شاید","ممکن است","گمانه","ادعا","احتمالی","گزارش نشده","احراز نشده","reportedly","may","might","could","alleged","unconfirmed"];
+
+function normalize(value) {
+  return String(value ?? "").replace(/[۰-۹٠-٩]/g, c => DIGITS[c] || c)
+    .replace(/[يكةۀؤإأآ]/g, c => CHAR_MAP[c] || c)
+    .replace(/\u200c/g," ").replace(/[\u064b-\u065f\u0670]/g,"")
+    .toLocaleLowerCase("en-US").replace(/\s+/g," ").trim();
+}
+function tokens(value) {
+  return normalize(value).match(/[a-z]+(?:'[a-z]+)?|[\u0600-\u06ff]+|\d+(?:\.\d+)?/g) || [];
+}
+function containsAny(text, terms) { return terms.filter(term => text.includes(normalize(term))); }
+function polarity(text, terms) {
+  const hits = containsAny(text, terms);
+  if (!hits.length) return 0;
+  let score = 0;
+  for (const hit of hits) {
+    const at = text.indexOf(hit);
+    const left = text.slice(Math.max(0, at-32), at);
+    if (containsAny(left, NEGATORS).length) continue;
+    score += 1;
+  }
+  return Math.sign(score);
+}
+function extractNumbers(text) {
+  const out = [];
+  const re = /(?:\d+(?:\.\d+)?)(?:\s?(?:٪|%|میلیون|میلیارد|هزار|دلار|تومان|ریال|بشکه|اونس|گرم|درصد|basis points?|bps))?/gi;
+  for (const match of text.matchAll(re)) {
+    const raw = match[0].trim();
+    if (!raw) continue;
+    const prev = text.slice(Math.max(0, match.index-45), match.index);
+    const next = text.slice(match.index+raw.length, match.index+raw.length+35);
+    out.push({value:Number((raw.match(/^\d+(?:\.\d+)?/)||[])[0]),unit:(raw.match(/٪|%|میلیون|میلیارد|هزار|دلار|تومان|ریال|بشکه|اونس|گرم|درصد|basis points?|bps/i)||[])[0]||null,context:(prev+raw+next).trim()});
+  }
+  return out.slice(0,12);
+}
+function classifyOne(item) {
+  const title = String(item?.title || item?.original_title || "");
+  const text = normalize(title);
+  const themeHits = THEMES.map(t=>({...t,matches:containsAny(text,t.terms)})).filter(t=>t.matches.length);
+  const events = EVENT_TERMS.filter(e=>containsAny(text,e.terms).length).map(e=>({id:e.id,label_fa:e.label_fa,market_effect:e.direction}));
+  const uncertain = containsAny(text,UNCERTAIN).length>0;
+  const pos = polarity(text,POSITIVE), neg = polarity(text,NEGATIVE);
+  const tone = pos===neg?"neutral_or_unclear":pos>neg?"positive_wording":"negative_wording";
+  const numberMentions = extractNumbers(text);
+  const confidence = Math.min(0.92,0.25+themeHits.length*0.12+events.length*0.13+(numberMentions.length?0.06:0))*(uncertain?0.65:1);
+  return {
+    title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
+    language:/[\u0600-\u06ff]/.test(title)?"fa":"en",
+    themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
+    numbers:numberMentions,confidence:Number(confidence.toFixed(2)),
+    limitations:["headline_only","lexicon_based"]
+  };
+}
+function historyFeatures(rows) {
+  const valid=(Array.isArray(rows)?rows:[]).filter(r=>Number.isFinite(Number(r?.date))&&Number.isFinite(Number(r?.close))&&Number(r.close)>0).sort((a,b)=>a.date-b.date);
+  const close=valid.map(r=>Number(r.close)), last=close.at(-1);
+  const change=(period)=>close.length>period?(last/close[close.length-1-period]-1)*100:null;
+  const returns=[];
+  for(let i=1;i<close.length;i++) if(close[i-1]>0) returns.push((close[i]/close[i-1]-1)*100);
+  const recent=returns.slice(-30),mean=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:0;
+  const volatility=recent.length?Math.sqrt(recent.reduce((s,x)=>s+(x-mean)**2,0)/recent.length):null;
+  const peak=Math.max(...close.slice(-30));
+  const drawdown=peak>0?(last/peak-1)*100:null;
+  const momentum7=change(7),momentum30=change(30);
+  const trend=momentum7===null?"insufficient_data":momentum7>0.5?"rising":momentum7< -0.5?"falling":"sideways";
+  return {
+    observations:valid.length,last_price:last??null,first_date:valid[0]?.date??null,last_date:valid.at(-1)?.date??null,
+    return_7_observations_pct:momentum7===null?null:Number(momentum7.toFixed(3)),
+    return_30_observations_pct:momentum30===null?null:Number(momentum30.toFixed(3)),
+    daily_volatility_pct:volatility===null?null:Number(volatility.toFixed(3)),
+    drawdown_from_30_observation_peak_pct:drawdown===null?null:Number(drawdown.toFixed(3)),
+    trend,trend_confidence:valid.length<12?"low":valid.length<30?"medium":"moderate",
+    note_fa:"این ویژگی‌ها توصیف داده‌های تاریخی‌اند و به‌تنهایی علت تغییر قیمت یا پیش‌بینی قطعی نیستند."
+  };
+}
+function buildTopics(analyses,items) {
+  const counts=new Map();
+  for(const a of analyses) for(const id of a.themes) counts.set(id,(counts.get(id)||0)+1);
+  return [...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).map(([id,count])=>{
+    const def=THEMES.find(t=>t.id===id);
+    const evidence=analyses.filter(a=>a.themes.includes(id)).slice(0,3);
+    return {id,title_fa:def?.label_fa||id,count,impact:"unknown",
+      explanation_fa:"این موضوع در تیتر خبرها شناسایی شده است؛ اثر جهت‌دار آن بدون متن کامل و تأیید چند منبع تعیین نمی‌شود.",
+      evidence:evidence.map(x=>x.title),sources:[...new Set(evidence.map(x=>x.source).filter(Boolean))]};
+  });
+}
+function compareHeadlines(analyses) {
+  const groups=new Map();
+  for(const a of analyses) {
+    const key=[...a.themes].sort().join("|");
+    if(!key) continue;
+    const g=groups.get(key)||[];
+    g.push(a);groups.set(key,g);
+  }
+  const candidates=[];
+  for(const group of groups.values()) {
+    if(group.length<2) continue;
+    const up=group.filter(x=>x.events.some(e=>e.market_effect==="risk_down"));
+    const down=group.filter(x=>x.events.some(e=>e.market_effect==="risk_up"));
+    if(up.length&&down.length) candidates.push({
+      type:"opposing_event_frames",theme_ids:[...new Set(group.flatMap(x=>x.themes))],
+      note_fa:"تیترها رویدادهایی با جهت ریسک متفاوت را پوشش می‌دهند؛ ممکن است درباره دو رویداد یا دو زمان متفاوت باشند و تناقض قطعی محسوب نمی‌شوند.",
+      examples:[...up.slice(0,2),...down.slice(0,2)].map(x=>({title:x.title,source:x.source,published_at:x.published_at,url:x.url}))
+    });
+  }
+  return candidates.slice(0,8);
+}
+export function analyzeMarketLanguage(items,rows) {
+  const input=Array.isArray(items)?items:[];
+  const analyses=input.slice(0,50).map(classifyOne);
+  const hist=historyFeatures(rows);
+  const events=analyses.flatMap(a=>a.events.map(e=>({...e,title:a.title,source:a.source,published_at:a.published_at,url:a.url,confidence:a.confidence,uncertain:a.uncertain})));
+  const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
+  return {
+    engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
+    language_coverage:["fa","en"],news_analyzed:analyses.length,
+    themes:buildTopics(analyses,input),events:events.slice(0,30),
+    numeric_mentions:numberMentions.slice(0,30),
+    possible_conflicts:compareHeadlines(analyses),
+    historical_context:hist,
+    quality:{
+      title_only:analyses.length>0,
+      full_article_text_available:false,
+      source_independence_verified:false,
+      sentiment_is_market_direction:false,
+      confidence_is_not_calibrated_probability:true
+    },
+    per_news:analyses.slice(0,30)
+  };
+}
