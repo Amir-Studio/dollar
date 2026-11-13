@@ -1,10 +1,25 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-const VERSION = "dollar-domain-nlp-0.2.0";
+const VERSION = "dollar-domain-nlp-0.3.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
-const STOP = new Set(["از","به","با","در","را","و","یا","برای","این","آن","یک","the","a","an","and","or","of","to","in","on","for","as","is","are","was","were","by"]);
+const STOP = new Set(["از","به","با","در","را","و","یا","برای","این","آن","یک","the","a","an","and","or","of","to","in","on","for","as","is","are","was","were","by","that","this","it","its","he","she","they","their","has","have","had","will","would"]);
+const ENGLISH_ACTORS = [
+  {id:"us_fed",terms:["federal reserve","fed","fomc","jerome powell"]},
+  {id:"ecb",terms:["european central bank","ecb","christine lagarde"]},
+  {id:"iran",terms:["iran","iranian"]},{id:"us",terms:["united states","u.s.","us administration","white house","washington"]},
+  {id:"israel",terms:["israel","israeli"]},{id:"opec",terms:["opec","opec+"]},
+  {id:"china",terms:["china","chinese","beijing"]},{id:"russia",terms:["russia","russian","moscow"]}
+];
+const ENGLISH_MODAL = ["may","might","could","would","should","expected to","likely to","unlikely to","projected to","forecast to","plans to","intends to","considering","proposed","potentially"];
+const ENGLISH_REPORTED = ["according to","officials said","sources said","reportedly","the ministry said","the central bank said","the government said","state media reported","reuters reported","bloomberg reported"];
+const ENGLISH_CONDITIONAL = ["if ","unless ","in the event of","if approved","if confirmed","should talks"];
+const ENGLISH_TIME = [
+  {id:"past",terms:["yesterday","last week","last month","previously","earlier","has announced","announced","was imposed","were imposed","took effect","began"]},
+  {id:"present",terms:["today","currently","now","is imposing","are imposing","is rising","are rising","remains"]},
+  {id:"future",terms:["tomorrow","next week","next month","will impose","will raise","will cut","is set to","scheduled to","due to","expected to"]}
+];
 
 const THEMES = [
   {id:"fx_policy",label_fa:"ارز و سیاست پولی",terms:["دلار","ارز","ریال","تومان","بانک مرکزی","نرخ بهره","بازار ارز","currency","exchange rate","central bank","interest rate","rial"]},
@@ -28,7 +43,11 @@ const EVENT_TERMS = [
   {id:"conflict",label_fa:"درگیری یا تشدید تنش",terms:["حمله نظامی","حمله موشکی","درگیری نظامی","تشدید تنش","military strike","missile attack","military conflict"],direction:"risk_up"},
   {id:"inflation_up",label_fa:"افزایش تورم",terms:["افزایش تورم","تورم صعودی","تورم افزایش یافت","inflation rises","inflation accelerated","higher inflation"],direction:"mixed"},
   {id:"inflation_down",label_fa:"کاهش تورم",terms:["کاهش تورم","تورم نزولی","تورم کاهش یافت","inflation falls","inflation eased","lower inflation"],direction:"mixed"},
-  {id:"oil_supply",label_fa:"اختلال عرضه نفت",terms:["اختلال عرضه نفت","کاهش تولید نفت","توقف صادرات نفت","oil supply disruption","output cuts","oil exports halted"],direction:"risk_up"}
+  {id:"oil_supply",label_fa:"اختلال عرضه نفت",terms:["اختلال عرضه نفت","کاهش تولید نفت","توقف صادرات نفت","oil supply disruption","output cuts","oil exports halted","supply disruption","production outage","shipping disruption"],direction:"risk_up"},
+  {id:"oil_supply_increase",label_fa:"افزایش عرضه نفت",terms:["افزایش عرضه نفت","افزایش تولید نفت","oil supply increase","raises output","boosts production","production increase"],direction:"mixed"},
+  {id:"currency_intervention",label_fa:"مداخله ارزی",terms:["مداخله ارزی","تزریق ارز","intervenes in currency market","currency intervention","sells dollars","buys dollars"],direction:"mixed"},
+  {id:"currency_devaluation",label_fa:"کاهش ارزش پول",terms:["کاهش ارزش پول","افت ارزش ارز","currency devaluation","currency depreciates","currency weakens","record low"],direction:"risk_up"},
+  {id:"gold_demand",label_fa:"تغییر تقاضای طلا",terms:["تقاضای طلا","خرید طلا","gold demand","central bank gold buying","gold purchases"],direction:"mixed"}
 ];
 
 const POSITIVE = ["افزایش","رشد","صعود","تقویت","بهبود","رکورد","بالاتر","افزایش یافت","افزایش پیدا کرد","rise","rises","surge","gain","higher","strengthen","improve"];
@@ -70,6 +89,16 @@ function extractNumbers(text) {
   }
   return out.slice(0,12);
 }
+function englishSemantics(text) {
+  const actors = ENGLISH_ACTORS.filter(a=>containsAny(text,a.terms).length).map(a=>a.id);
+  const modal = containsAny(text,ENGLISH_MODAL);
+  const reported = containsAny(text,ENGLISH_REPORTED);
+  const conditional = containsAny(text,ENGLISH_CONDITIONAL).length > 0;
+  const time = ENGLISH_TIME.filter(t=>containsAny(text,t.terms).length).map(t=>t.id);
+  const negated = containsAny(text,["not","never","no longer","fails to","did not","has not","have not","was not","were not","denies","denied","ruled out"]).length > 0;
+  const assertion = conditional ? "conditional" : modal.length ? "forecast_or_possibility" : reported.length ? "attributed_report" : negated ? "negated_or_denied" : "asserted_or_unclassified";
+  return {actors,modality_terms:modal,reported_speech:reported.length>0,conditional,time_frames:[...new Set(time)],assertion};
+}
 function classifyOne(item) {
   const title = String(item?.title || item?.original_title || "");
   const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,3000);
@@ -80,14 +109,16 @@ function classifyOne(item) {
   const pos = polarity(text,POSITIVE), neg = polarity(text,NEGATIVE);
   const tone = pos===neg?"neutral_or_unclear":pos>neg?"positive_wording":"negative_wording";
   const numberMentions = extractNumbers(text);
-  const confidence = Math.min(0.92,0.25+themeHits.length*0.12+events.length*0.13+(numberMentions.length?0.06:0))*(uncertain?0.65:1);
+  const english = englishSemantics(text);
+  const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
+  const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
-    language:/[\u0600-\u06ff]/.test(title)?"fa":"en",
-    content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
+    language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
+    english_semantics:language==="en"?english:null,
     numbers:numberMentions,confidence:Number(confidence.toFixed(2)),
-    limitations:["headline_only","lexicon_based"]
+    limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
 }
 function historyFeatures(rows) {
@@ -193,7 +224,7 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],news_analyzed:analyses.length,
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","modality_and_uncertainty","reported_speech","conditional_statements","basic_temporal_framing","expanded_financial_event_vocabulary"],news_analyzed:analyses.length,
     news_with_excerpt:analyses.filter(x=>x.content_chars>0).length,
     excerpt_coverage_pct:analyses.length?Number((analyses.filter(x=>x.content_chars>0).length/analyses.length*100).toFixed(1)):0,
     themes:buildTopics(analyses,input),events:events.slice(0,30),
