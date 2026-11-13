@@ -111,20 +111,29 @@ function googleNewsUrl(query, locale) {
   return "https://news.google.com/rss/search?" + params.toString();
 }
 const NEWS_SOURCES = [
-  {source_id:"google-news-fa",name:"Google News · جست‌وجوی فارسی بازار",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("اقتصاد ایران دلار ارز طلا سکه تورم بانک مرکزی نرخ ارز","fa"),active:true,trust_tier:"unrated"},
-  {source_id:"google-news-en",name:"Google News · Iran economy",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("Iran economy dollar rial currency inflation central bank oil gold","en"),active:true,trust_tier:"unrated"},
-  {source_id:"google-news-global",name:"Google News · Global markets",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("gold price inflation central bank oil dollar markets","en"),active:true,trust_tier:"unrated"},
+  {source_id:"google-news-fa",name:"Google News · Persian search (paused)",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("اقتصاد ایران دلار ارز طلا سکه تورم بانک مرکزی نرخ ارز","fa"),active:false,trust_tier:"unrated"},
+  {source_id:"google-news-en",name:"Google News · Iran economy (paused)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("Iran economy dollar rial currency inflation central bank oil gold","en"),active:false,trust_tier:"unrated"},
+  {source_id:"google-news-global",name:"Google News · Global markets (paused)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("gold price inflation central bank oil dollar markets","en"),active:false,trust_tier:"unrated"},
   {source_id:"irna-en",name:"IRNA English",country_code:"IR",language_code:"en",site_url:"https://en.irna.ir",feed_url:"https://en.irna.ir/rss",active:true,trust_tier:"unrated"},
-  {source_id:"tasnim-en",name:"Tasnim English",country_code:"IR",language_code:"en",site_url:"https://www.tasnimnews.ir/en",feed_url:"https://www.tasnimnews.ir/en/rss",active:true,trust_tier:"unrated"},
-  {source_id:"mehr-fa",name:"Mehr News",country_code:"IR",language_code:"fa",site_url:"https://www.mehrnews.com",feed_url:"https://www.mehrnews.com/rss",active:true,trust_tier:"unrated"}
+  {source_id:"tasnim-en",name:"Tasnim English (paused: HTML endpoint)",country_code:"IR",language_code:"en",site_url:"https://www.tasnimnews.ir/en",feed_url:"https://www.tasnimnews.ir/en/rss",active:false,trust_tier:"unrated"},
+  {source_id:"mehr-fa",name:"Mehr News",country_code:"IR",language_code:"fa",site_url:"https://www.mehrnews.com",feed_url:"https://www.mehrnews.com/rss",active:true,trust_tier:"unrated"},
+  {source_id:"bbc-business",name:"BBC Business",country_code:"GB",language_code:"en",site_url:"https://www.bbc.com/news/business",feed_url:"https://feeds.bbci.co.uk/news/business/rss.xml",active:true,trust_tier:"unrated"},
+  {source_id:"aljazeera-all",name:"Al Jazeera",country_code:"QA",language_code:"en",site_url:"https://www.aljazeera.com",feed_url:"https://www.aljazeera.com/xml/rss/all.xml",active:true,trust_tier:"unrated"},
+  {source_id:"guardian-business",name:"The Guardian · Business",country_code:"GB",language_code:"en",site_url:"https://www.theguardian.com/business",feed_url:"https://www.theguardian.com/business/rss",active:true,trust_tier:"unrated"},
+  {source_id:"marketwatch-top",name:"MarketWatch",country_code:"US",language_code:"en",site_url:"https://www.marketwatch.com",feed_url:"https://feeds.marketwatch.com/marketwatch/topstories",active:true,trust_tier:"unrated"},
+  {source_id:"cnbc-markets",name:"CNBC Markets",country_code:"US",language_code:"en",site_url:"https://www.cnbc.com/markets",feed_url:"https://www.cnbc.com/id/10001147/device/rss/rss.html",active:true,trust_tier:"unrated"}
 ];
-const NEWS_FEEDS = NEWS_SOURCES.map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
+const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
+  .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
 const MARKET_NEWS_TERMS = [
-  "دلار","ارز","نرخ","سکه","طلا","تورم","بانک مرکزی","نرخ بهره","نفت","تحریم",
-  "صادرات","واردات","بودجه","اقتصاد","بازار","گاز","نقدینگی","رشد اقتصادی","قیمت",
-  "currency","dollar","rial","toman","exchange rate","inflation","gold","central bank",
-  "interest rate","oil","sanction","export","import","budget","economy","market","forex",
-  "crude","gas","reserves","bond","stocks","monetary"
+  "دلار","یورو","پوند","نرخ ارز","بازار ارز","ارز آزاد","نرخ دلار","قیمت دلار","ریال",
+  "سکه","طلا","طلای ۱۸ عیار","بازار طلا","تورم","بانک مرکزی","نرخ بهره","نرخ سود",
+  "نقدینگی","کسری بودجه","اقتصاد ایران","اقتصاد جهانی","بازار سرمایه","بورس","صادرات نفت",
+  "واردات نفت","قیمت نفت","نفت خام","قیمت گاز","گاز طبیعی","سیاست پولی","پایه پولی",
+  "currency","dollar","rial","toman","exchange rate","inflation","gold price","gold",
+  "central bank","interest rate","rate cut","rate hike","federal reserve","treasury yield",
+  "bond yield","oil price","crude oil","sanctions","trade deficit","budget deficit","gdp",
+  "forex","stock market","monetary policy","commodity prices","opec","dollar index"
 ];
 function isMarketNews(title) {
   const value = String(title || "").toLocaleLowerCase();
@@ -223,8 +232,8 @@ async function makeFreeAnalysis(env, asset) {
   const item = (market.data || []).find(x => x.symbol === asset);
   if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
   const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
-  if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 45*60*1000 || stamp>Date.now()+5*60*1000)
-    return reply({error:"برای تحلیل، قیمت معتبر و تازه لازم است."},424);
+  if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 72*60*60*1000 || stamp>Date.now()+5*60*1000)
+    return reply({error:"آخرین نرخ ثبت‌شده بیش از ۷۲ ساعت قدیمی است؛ تحلیل جدید ساخته نشد."},424);
   const rows = historyRows(rawHistory);
   if (rows.length < 12) return reply({error:"تاریخچه کافی برای تحلیل در دسترس نیست."},424);
   const model = stats(rows);
@@ -373,7 +382,7 @@ async function persistQuotesToSupabase(env, market) {
     const price = n(item?.price);
     const stamp = dateMs(item?.timestamp || market.meta?.published_at || market.meta?.timestamp);
     if (!Object.hasOwn(ASSETS, asset) || !(price > 0) || !Number.isFinite(stamp) ||
-        stamp > Date.now() + 5 * 60 * 1000 || Date.now() - stamp > 24 * 60 * 60 * 1000) return [];
+        stamp > Date.now() + 5 * 60 * 1000 || Date.now() - stamp > 72 * 60 * 60 * 1000) return [];
     return [{
       asset,
       price,
