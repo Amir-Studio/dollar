@@ -267,7 +267,7 @@ async function fetchNewsContext(env,asset,asOf) {
       const title=String(item.title||item.original_title||"").trim();
       const published=Date.parse(item.published_at||"");
       if(!isMarketRelevantHeadline(title)||!Number.isFinite(published)||published>asOf+5*60*1000||asOf-published>72*60*60*1000) return false;
-      const key=String(item.url||"").toLowerCase().replace(/[?#].*$/,"")||title.toLocaleLowerCase().replace(/\\s+/g," ").trim();
+      const key=String(item.url||"").toLowerCase().replace(/[?#].*$/,"")||title.toLocaleLowerCase().replace(/\s+/g," ").trim();
       if(!key||seen.has(key)) return false;
       seen.add(key);
       return true;
