@@ -98,62 +98,96 @@ function xmlText(value) {
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n,16)))
     .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
-    .replace(/&quot;/g,'"').replace(/&apos;/g,"'").trim();
+    .replace(/&quot;/g,'"').replace(/&apos;/g,"'")
+    .replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
+}
+function googleNewsUrl(query, locale) {
+  const params = new URLSearchParams({
+    q: query,
+    hl: locale === "fa" ? "fa" : "en-US",
+    gl: locale === "fa" ? "IR" : "US",
+    ceid: locale === "fa" ? "IR:fa" : "US:en"
+  });
+  return "https://news.google.com/rss/search?" + params.toString();
+}
+const NEWS_SOURCES = [
+  {source_id:"google-news-fa",name:"Google News · جست‌وجوی فارسی بازار",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("اقتصاد ایران دلار ارز طلا سکه تورم بانک مرکزی نرخ ارز","fa"),active:true,trust_tier:"unrated"},
+  {source_id:"google-news-en",name:"Google News · Iran economy",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("Iran economy dollar rial currency inflation central bank oil gold","en"),active:true,trust_tier:"unrated"},
+  {source_id:"google-news-global",name:"Google News · Global markets",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("gold price inflation central bank oil dollar markets","en"),active:true,trust_tier:"unrated"},
+  {source_id:"irna-en",name:"IRNA English",country_code:"IR",language_code:"en",site_url:"https://en.irna.ir",feed_url:"https://en.irna.ir/rss",active:true,trust_tier:"unrated"},
+  {source_id:"tasnim-en",name:"Tasnim English",country_code:"IR",language_code:"en",site_url:"https://www.tasnimnews.ir/en",feed_url:"https://www.tasnimnews.ir/en/rss",active:true,trust_tier:"unrated"},
+  {source_id:"mehr-fa",name:"Mehr News",country_code:"IR",language_code:"fa",site_url:"https://www.mehrnews.com",feed_url:"https://www.mehrnews.com/rss",active:true,trust_tier:"unrated"}
+];
+const NEWS_FEEDS = NEWS_SOURCES.map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
+const MARKET_NEWS_TERMS = [
+  "دلار","ارز","نرخ","سکه","طلا","تورم","بانک مرکزی","نرخ بهره","نفت","تحریم",
+  "صادرات","واردات","بودجه","اقتصاد","بازار","گاز","نقدینگی","رشد اقتصادی","قیمت",
+  "currency","dollar","rial","toman","exchange rate","inflation","gold","central bank",
+  "interest rate","oil","sanction","export","import","budget","economy","market","forex",
+  "crude","gas","reserves","bond","stocks","monetary"
+];
+function isMarketNews(title) {
+  const value = String(title || "").toLocaleLowerCase();
+  return MARKET_NEWS_TERMS.some(term => value.includes(term.toLocaleLowerCase()));
 }
 function rssTag(block, tag) {
-  const match = block.match(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + tag + ">", "i"));
+  const safe = tag.replace(/[.*+?^$()|[\]\\]/g,"\\$&");
+  const match = block.match(new RegExp("<" + safe + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + safe + ">", "i"));
   return match ? xmlText(match[1]) : "";
 }
-async function readNews(query, locale = "fa") {
-  const params = new URLSearchParams({
-    q: query, hl: locale === "fa" ? "fa" : "en-US",
-    gl: locale === "fa" ? "IR" : "US", ceid: locale === "fa" ? "IR:fa" : "US:en"
-  });
-  const response = await fetch("https://news.google.com/rss/search?" + params.toString(), {
-    headers: { accept: "application/rss+xml, application/xml, text/xml", "user-agent": "DollarMarketBrief/1.0" },
-    signal: AbortSignal.timeout(10000)
+function rssLink(block, feedUrl) {
+  const textLink = rssTag(block,"link");
+  const atomLink = block.match(/<link\b[^>]*href=["']([^"']+)["'][^>]*\/?>/i)?.[1] || "";
+  const raw = textLink || atomLink || rssTag(block,"guid");
+  try { return new URL(xmlText(raw),feedUrl).href; } catch { return ""; }
+}
+async function readNewsFeed(feed) {
+  const response = await fetch(feed.url, {
+    headers: { accept:"application/rss+xml, application/atom+xml, application/xml, text/xml", "user-agent":"DollarMarketBrief/2.0" },
+    signal:AbortSignal.timeout(12000)
   });
   if (!response.ok) throw Error("News feed HTTP " + response.status);
   const xml = await response.text(), items = [];
-  const rawItems = [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)];
-  let invalidItems = 0, outsideWindow = 0;
-  for (const match of rawItems) {
-    const block = match[1], title = rssTag(block,"title"), link = rssTag(block,"link");
-    const published = Date.parse(rssTag(block,"pubDate"));
-    const sourceMatch = block.match(/<source(?:\s[^>]*)?>([\s\S]*?)<\/source>/i);
-    let domain = "";
-    try { domain = new URL(link).hostname.replace(/^www\./,""); } catch {}
-    if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) { invalidItems++; continue; }
-    if (published > Date.now() + 5*60*1000 || Date.now() - published > 72*60*60*1000) { outsideWindow++; continue; }
-    items.push({ title, url: link, domain: xmlText(sourceMatch?.[1] || domain), published_at: new Date(published).toISOString(), published_ms: published });
+  const blocks = [...xml.matchAll(/<(item|entry)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/gi)];
+  let invalid=0, outsideWindow=0, irrelevant=0;
+  for (const match of blocks) {
+    const block=match[2], title=rssTag(block,"title"), link=rssLink(block,feed.url);
+    const publishedText=rssTag(block,"pubDate") || rssTag(block,"published") || rssTag(block,"updated") || rssTag(block,"dc:date") || rssTag(block,"date");
+    const published=Date.parse(publishedText);
+    if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) { invalid++; continue; }
+    if (published>Date.now()+5*60*1000 || Date.now()-published>72*60*60*1000) { outsideWindow++; continue; }
+    if (!isMarketNews(title)) { irrelevant++; continue; }
+    const sourceMatch=block.match(/<source\b([^>]*)>([\s\S]*?)<\/source>/i);
+    const sourceUrl=sourceMatch?.[1]?.match(/\burl=["']([^"']+)["']/i)?.[1];
+    let domain="";
+    try { domain=new URL(sourceUrl || link).hostname.replace(/^www\./,""); } catch {}
+    items.push({
+      title,url:link,domain,published_at:new Date(published).toISOString(),
+      source_id:feed.source_id,language_code:feed.language_code,original_title:title
+    });
   }
-  console.log("News RSS feed parsed:", locale, "http", response.status, "raw", rawItems.length, "accepted", items.length, "invalid", invalidItems, "outside_72h", outsideWindow);
+  console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_72h",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
 async function collectNews() {
-  const queries = [
-    ["اقتصاد ایران دلار ارز بانک مرکزی تورم","fa"],
-    ["قیمت طلا ایران اونس جهانی طلا سکه","fa"],
-    ["Iran economy currency sanctions oil central bank","en"],
-    ["gold prices Federal Reserve inflation global markets","en"]
-  ];
-  const results = await Promise.allSettled(queries.map(([q,locale]) => readNews(q,locale)));
-  const seen = new Set(), items = [];
-  results.forEach((result,index) => {
-    const locale = queries[index][1];
-    if (result.status !== "fulfilled") {
-      console.error("News RSS feed failed:", locale, String(result.reason?.message || result.reason).slice(0,180));
+  const results=await Promise.allSettled(NEWS_FEEDS.map(readNewsFeed));
+  const seenUrls=new Set(),seenTitles=new Set(),items=[];
+  results.forEach((result,index)=>{
+    const sourceId=NEWS_FEEDS[index].source_id;
+    if(result.status!=="fulfilled"){
+      console.error("News feed failed:",sourceId,String(result.reason?.message || result.reason).slice(0,180));
       return;
     }
-    console.log("News RSS query completed:", locale, "items", result.value.length);
-    for (const item of result.value) {
-      const key = item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
-      if (!key || seen.has(key)) continue;
-      seen.add(key); delete item.published_ms; items.push(item);
+    console.log("News feed completed:",sourceId,"items",result.value.length);
+    for(const item of result.value){
+      const urlKey=item.url.toLowerCase().replace(/[?#].*$/,"");
+      const titleKey=item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
+      if(!urlKey || seenUrls.has(urlKey) || !titleKey || seenTitles.has(titleKey)) continue;
+      seenUrls.add(urlKey);seenTitles.add(titleKey);items.push(item);
     }
   });
-  const sorted = items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,20);
-  console.log("News RSS collection completed:", "feeds", results.filter(x=>x.status==="fulfilled").length, "failed", results.filter(x=>x.status==="rejected").length, "unique", sorted.length);
+  const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,50);
+  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"unique",sorted.length);
   return sorted;
 }
 function newsTopics(items) {
@@ -184,7 +218,8 @@ async function makeFreeAnalysis(env, asset) {
     readFreshCache(env,"news:latest",45*60*1000)
   ]);
   const market = cachedMarket?.payload || await getJson(env.MARKET_DATA_URL || MARKET_URL);
-  const news = cachedNews?.items || await collectNews().catch(() => []);
+  const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
+  const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
   const item = (market.data || []).find(x => x.symbol === asset);
   if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
   const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
@@ -371,7 +406,7 @@ async function readNewsFromSupabase(env) {
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return [];
   const params = new URLSearchParams({
-    select: "title,url,domain,published_at",
+    select: "title,url,domain,published_at,source_id,language_code,original_title",
     published_at: "gte." + new Date(Date.now()-72*60*60*1000).toISOString(),
     order: "published_at.desc",
     limit: "30"
@@ -389,6 +424,11 @@ async function syncNewsToSupabase(env) {
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return { enabled:false, refreshed:false, items:[] };
   const headers = { apikey:key, authorization:"Bearer "+key, "content-type":"application/json" };
+  const sourceResponse = await fetch(base + "/rest/v1/market_news_sources?on_conflict=source_id", {
+    method:"POST",headers:{...headers,prefer:"resolution=merge-duplicates,return=minimal"},
+    body:JSON.stringify(NEWS_SOURCES),signal:AbortSignal.timeout(12000)
+  });
+  if (!sourceResponse.ok) throw Error("Supabase news source registry HTTP " + sourceResponse.status + ": " + (await sourceResponse.text()).slice(0,180));
   const stateResponse = await fetch(base + "/rest/v1/market_news_sync_state?select=last_fetched_at&id=eq.1&limit=1", {
     headers, signal:AbortSignal.timeout(12000)
   });
@@ -404,7 +444,9 @@ async function syncNewsToSupabase(env) {
   if (items.length) {
     const rows = items.map(item => ({
       url:item.url, title:item.title, domain:item.domain || "unknown",
-      published_at:item.published_at, fetched_at:fetchedAt
+      published_at:item.published_at, fetched_at:fetchedAt,
+      source_id:item.source_id || null, language_code:item.language_code || null,
+      original_title:item.original_title || item.title, article_status:"headline_only"
     }));
     const response = await fetch(base + "/rest/v1/market_news_items?on_conflict=url", {
       method:"POST",
@@ -413,9 +455,9 @@ async function syncNewsToSupabase(env) {
     });
     if (!response.ok) throw Error("Supabase news insert HTTP " + response.status + ": " + (await response.text()).slice(0,180));
   }
-  const stateUpdate = await fetch(base + "/rest/v1/market_news_sync_state?id=eq.1", {
-    method:"PATCH", headers:{ ...headers, prefer:"return=minimal" },
-    body:JSON.stringify({last_fetched_at:fetchedAt}), signal:AbortSignal.timeout(12000)
+  const stateUpdate = await fetch(base + "/rest/v1/market_news_sync_state?on_conflict=id", {
+    method:"POST", headers:{ ...headers, prefer:"resolution=merge-duplicates,return=minimal" },
+    body:JSON.stringify({id:1,last_fetched_at:fetchedAt}), signal:AbortSignal.timeout(12000)
   });
   if (!stateUpdate.ok) throw Error("Supabase news state update HTTP " + stateUpdate.status);
   return { enabled:true, refreshed:true, items };
@@ -464,11 +506,11 @@ export default {
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
     if (url.pathname === "/forecast/v2") {
       const response = await handleForecastApi(url,env);
-      if (!response.ok) return response;
-      const data = await response.json();
+      let data = {};
+      try { data = await response.json(); } catch {}
       const cachedNews = await readFreshCache(env,"news:latest",45*60*1000);
-      const storedNews = cachedNews?.items ? null : await readNewsFromSupabase(env).catch(() => []);
-      const news = cachedNews?.items || (storedNews?.length ? storedNews : await collectNews().catch(() => []));
+      const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
+      const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
       data.news_context = {
         collected_at: cachedNews?.fetched_at || new Date().toISOString(),
         window_hours: 72,
@@ -477,7 +519,19 @@ export default {
         topics: newsTopics(news),
         headlines: news.slice(0,12)
       };
+      if (!response.ok && !data.forecast) {
+        data.forecast = {status:"withheld",reason:data.error || "برای انتشار پیش‌بینی، دادهٔ کافی در دسترس نیست."};
+      }
       return reply(data,200,{"cache-control":"no-store"});
+    }
+    if (url.pathname === "/news") {
+      const stored = await readNewsFromSupabase(env).catch(() => []);
+      const items = stored.length ? stored : await collectNews().catch(() => []);
+      return reply({
+        ok:true,window_hours:72,headline_count:items.length,
+        recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
+        topics:newsTopics(items),items:items.slice(0,30)
+      },200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance") return handleForecastApi(url,env);
     if (url.pathname === "/health") {
@@ -502,6 +556,8 @@ export default {
       const databaseTables = Object.fromEntries(tableChecks);
       const has = table => databaseTables[table] === true;
       const kvBindingPresent = Boolean(env.MARKET_CACHE);
+      const schedulerEnabled = env.BACKGROUND_REFRESH_ENABLED === "true";
+      const backgroundRefreshEnabled = kvBindingPresent || schedulerEnabled;
       const forecastLedgerReady = databaseConfigured && has("market_forecast_runs");
       const quotePersistenceReady = databaseConfigured && has("market_quotes");
       const newsStorageReady = databaseConfigured && has("market_news_items") && has("market_news_sync_state");
@@ -523,9 +579,10 @@ export default {
         forecast_ledger_table: "market_forecast_runs",
         news_store_table: "market_news_items",
         kv_binding_present: kvBindingPresent,
-        background_refresh_enabled: kvBindingPresent,
-        background_refresh_prerequisites_ready: kvBindingPresent && quotePersistenceReady,
-        background_news_refresh_enabled: kvBindingPresent && newsStorageReady,
+        background_refresh_enabled: backgroundRefreshEnabled,
+        background_refresh_provider: schedulerEnabled ? "supabase-cron" : kvBindingPresent ? "cloudflare-cron" : "none",
+        background_refresh_prerequisites_ready: backgroundRefreshEnabled && quotePersistenceReady,
+        background_news_refresh_enabled: backgroundRefreshEnabled && newsStorageReady,
         quote_persistence_enabled: quotePersistenceReady,
         capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","database-schema-diagnostics"]
       }, 200, { "cache-control": "no-store" });
