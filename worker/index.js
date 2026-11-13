@@ -614,7 +614,7 @@ export default {
         background_news_refresh_enabled: backgroundRefreshEnabled && newsStorageReady,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: Boolean(env.OPENAI_API_KEY),
-        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","database-schema-diagnostics"]
+        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","database-schema-diagnostics",...(env.OPENAI_API_KEY?["openai-web-search"]:[])]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
