@@ -113,7 +113,8 @@ function drawHistoryChart(){
  if(rows.length<2){svg.innerHTML='<text x="480" y="180" text-anchor="middle" fill="#a3a3a3" font-size="15">دادهٔ کافی برای نمایش نمودار وجود ندارد.</text>';return}
  const model=showForecast?trendModel(all):null,quote=liveQuotes.get(symbol);
  const quoteFresh=quote&&Date.now()-quote.receivedAt<8*60*1000&&Date.now()-quote.sourceTime<45*60*1000;
- const aiData=aiForecastCache.get(symbol)?.data,aiStamp=Date.parse(aiData?.quote?.source_time||''),aiFresh=!!(showForecast&&aiData?.forecast&&Number.isFinite(aiStamp)&&Date.now()-aiStamp<45*60*1000&&aiStamp<=Date.now()+5*60*1000);
+ const aiData=aiForecastCache.get(symbol)?.data,aiStamp=Date.parse(aiData?.quote?.source_time||''),aiFresh=!!(showForecast&&aiData?.forecast&&Number.isFinite(aiStamp)&&Date.now()-aiStamp<72*60*60*1000&&aiStamp<=Date.now()+5*60*1000);
+ const aiLastClose=aiFresh&&Date.now()-aiStamp>45*60*1000;
  const aiForecast=aiFresh?aiData.forecast:null,freeAnalysis=aiFresh&&aiData.mode==='free-algorithmic',adaptiveAnalysis=aiFresh&&aiData.mode==='adaptive-ensemble';
  const base=aiFresh&&Number(aiData.quote.price)>0?Number(aiData.quote.price):quoteFresh?quote.price:rows[rows.length-1].close;
  const W=960,H=360,L=82,R=25,T=22,B=38,ph=H-T-B;
@@ -141,7 +142,7 @@ function drawHistoryChart(){
  const pred=projected.length?projected[projected.length-1]:null;
  const down=!!(pred&&pred.value<base),direction=pred?(down?'تمایل نزولی احتمالی':'تمایل صعودی احتمالی'):'پیش‌بینی در دسترس نیست';
  setText('forecastLegendText',aiForecast?(adaptiveAnalysis?'خط زرد: مدل آماری تطبیقی با آزمون تاریخی':freeAnalysis?'خط زرد: روند آماری با پوشش خبرهای تازه':'خط زرد: ترکیب روند و تحلیل خبرهای زنده با هوش مصنوعی'):'خط زرد: برآورد آماری ۷روزه');
- setText('chartNoteText',aiForecast?(adaptiveAnalysis?'سایهٔ زرد محدودهٔ عدم‌قطعیت مدل آماری تطبیقی است؛ خبرها در مقدار پیش‌بینی دخالت داده نشده‌اند و مدل فقط در صورت عبور از آزمون تاریخی خروجی می‌دهد.':freeAnalysis?'سایهٔ زرد محدودهٔ برآورد آماری است؛ خبرها فقط گردآوری و دسته‌بندی شده‌اند و تحلیل زبانی انجام نشده است.':'سایهٔ زرد محدودهٔ برآورد مدل خبری و آماری است؛ منابع و تاریخ انتشار در گزارش هوشمند آمده‌اند. این پیش‌بینی تضمین قیمت نیست.'):'سایهٔ زرد محدودهٔ عدم‌قطعیت برآورد آماری است؛ خبرهای تازه هنوز به نمودار متصل نشده‌اند.');
+ setText('chartNoteText',aiForecast?((adaptiveAnalysis?'سایهٔ زرد محدودهٔ عدم‌قطعیت مدل آماری تطبیقی است؛ خبرها در مقدار پیش‌بینی دخالت داده نشده‌اند و مدل فقط در صورت عبور از آزمون تاریخی خروجی می‌دهد.':freeAnalysis?'سایهٔ زرد محدودهٔ برآورد آماری است؛ خبرها فقط گردآوری و دسته‌بندی شده‌اند و تحلیل زبانی انجام نشده است.':'سایهٔ زرد محدودهٔ برآورد مدل خبری و آماری است؛ منابع و تاریخ انتشار در گزارش هوشمند آمده‌اند. این پیش‌بینی تضمین قیمت نیست.')+(aiLastClose?' نرخ مرجع مربوط به آخرین ثبت بازار است، نه قیمت لحظه‌ای.':'')):'سایهٔ زرد محدودهٔ عدم‌قطعیت برآورد آماری است؛ خبرهای تازه هنوز به نمودار متصل نشده‌اند.');
  const forecastColor='#f2cc4d';
  const allForScale=vals.concat(projected.flatMap(p=>[p.lo,p.hi,p.value]));
  const min=Math.min(...allForScale),max=Math.max(...allForScale),span=Math.max(1,max-min),lo=Math.max(0,min-span*.08),hi=max+span*.08;
@@ -168,9 +169,9 @@ function drawHistoryChart(){
  svg.innerHTML='<defs><linearGradient id="historyAreaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#29d879" stop-opacity=".34"/><stop offset="62%" stop-color="#159957" stop-opacity=".13"/><stop offset="100%" stop-color="#159957" stop-opacity=".015"/></linearGradient><linearGradient id="forecastAreaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f2cc4d" stop-opacity=".34"/><stop offset="58%" stop-color="#f2cc4d" stop-opacity=".14"/><stop offset="100%" stop-color="#f2cc4d" stop-opacity=".015"/></linearGradient><filter id="greenGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="yellowGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>'+grid+labels+'<polygon points="'+area+'" fill="url(#historyAreaGradient)"/>'+historicalSegments+future+'<circle cx="'+lx+'" cy="'+ly+'" r="3.5" fill="#eafff2" stroke="#159957" stroke-width="1.5"/>'+currentMark+'<text x="'+L+'" y="'+(H-10)+'" text-anchor="start" fill="#a3a3a3" font-size="11">'+esc(chartDate(rows[0].date))+'</text>';
  const detail=$('chartPointDetail');if(detail&&detail.dataset.ready!=='1'){detail.dataset.ready='1';detail.innerHTML='<span class="point-detail-label">جزئیات نقطهٔ نمودار</span><strong>روی هر نقطه بزن تا تاریخ و قیمت همان نقطه را ببینی.</strong>'}
  svg.onpointerdown=event=>{const rect=svg.getBoundingClientRect(),vx=(event.clientX-rect.left)/rect.width*W,vy=(event.clientY-rect.top)/rect.height*H;if(showForecast&&projected.length&&vx>=lx){const day=Math.max(0,Math.min(7,Math.round((vx-lx)/futureSpace*7))),p=projected[day];if(detail&&p)detail.innerHTML='<span class="point-detail-label">پیش‌بینی آماری · '+(day===0?'نقطهٔ آغاز':'روز '+number(day))+'</span><strong>'+esc(toman(p.value))+'</strong><span>بازهٔ عدم‌قطعیت: '+esc(toman(p.lo))+' تا '+esc(toman(p.hi))+'</span>';return}let best=0,dist=Infinity;rows.forEach((r,i)=>{const dx=x(i)-vx,dy=y(r.close)-vy,d=dx*dx+dy*dy;if(d<dist){dist=d;best=i}});const p=rows[best],prev=rows[Math.max(0,best-1)],pct=best?(p.close/prev.close-1)*100:0;if(detail)detail.innerHTML='<span class="point-detail-label">نقطهٔ تاریخی · '+esc(chartDate(p.date))+'</span><strong>'+esc(toman(p.close))+'</strong><span class="point-detail-change '+(pct>0?'up':pct<0?'down':'')+'">'+(best?(pct>0?'+':'')+esc(number(pct,2))+'٪ نسبت به نقطهٔ قبل':'نخستین نقطهٔ این بازه')+'</span>'};
- const shown=quoteFresh?base:last.close;
+ const shown=quoteFresh||aiLastClose?base:last.close;
  setText('chartLatest',toman(shown));
- setText('chartLatestDate',quoteFresh?'نرخ منبع: '+quote.sourceLabel+' · '+quote.timeLabel:'آخرین تاریخچه: '+chartDate(last.date));
+ setText('chartLatestDate',quoteFresh?'نرخ منبع: '+quote.sourceLabel+' · '+quote.timeLabel:aiLastClose?'آخرین نرخ مرجع: '+chartDate(aiStamp)+' · نه نرخ لحظه‌ای':'آخرین تاریخچه: '+chartDate(last.date));
  const pct=(rows[rows.length-1].close/rows[0].close-1)*100,cp=$('chartPeriodChange');
  if(cp){cp.textContent=(pct>0?'+':'')+number(pct,2)+'%';cp.style.color=pct>0?'#25c46a':pct<0?'#ef5350':''}
  setText('chartPeriodLabel','از '+chartDate(rows[0].date)+' تا '+chartDate(last.date));
@@ -198,7 +199,7 @@ function drawHistoryChart(){
   setText('scenarioTarget','—');setText('scenarioChange','—');setText('scenarioRange','—');
   setText('scenarioMethod','سناریو تا زمان دریافت داده معتبر نمایش داده نمی‌شود.');
  }
- setText('historyStatus',aiForecast?(adaptiveAnalysis?'مدل تطبیقی اعتبارسنجی‌شده · '+(aiData.generated_at||'برآورد ۷روزه'):freeAnalysis?'تحلیل رایگان آماری + خبرخوان · '+(aiData.generated_at||'برآورد ۷روزه'):'تحلیل هوش مصنوعی + روند آماری · '+(aiData.generated_at||'برآورد ۷روزه')):quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
+ setText('historyStatus',aiForecast?(aiLastClose?'مدل تطبیقی · بر پایه آخرین نرخ ثبت‌شده · '+(aiData.generated_at||'برآورد ۷روزه'):adaptiveAnalysis?'مدل تطبیقی اعتبارسنجی‌شده · '+(aiData.generated_at||'برآورد ۷روزه'):freeAnalysis?'تحلیل رایگان آماری + خبرخوان · '+(aiData.generated_at||'برآورد ۷روزه'):'تحلیل هوش مصنوعی + روند آماری · '+(aiData.generated_at||'برآورد ۷روزه')):quoteFresh?'نرخ تازهٔ منبع · '+quote.timeLabel:'روند تاریخی و سناریوی آماری ۷روزه');
 }
 
 let liveQuotes=new Map(),livePollBusy=false,lastLiveKey=new Map();
