@@ -67,7 +67,8 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /const NEWS_SOURCES/);
   assert.match(worker, /url.pathname === "\/news"/);
   assert.match(worker, /url.searchParams.get\("read_only"\) === "1"/);
-  assert.match(worker, /if (!readOnly) \{\s*try \{ sync = await syncNewsToSupabase\(env\);/);
+  assert.ok(worker.includes('if (!readOnly) {'), 'read-only requests must skip refresh writes');
+  assert.ok(worker.includes('sync = await syncNewsToSupabase(env);'), 'normal news requests retain their refresh path');
   assert.match(worker, /persistQuotesToSupabase/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /market_quotes\?on_conflict=asset,source,observed_at/);
