@@ -138,7 +138,7 @@ async function checkHealth(){
   const adaptive=Array.isArray(data.capabilities)&&data.capabilities.includes('adaptive-ensemble-forecast')&&data.forecast_ledger_enabled===true;
   if(!adaptive){setStatus('موتور اختصاصی هنوز آماده نیست');return}
   const refreshStatus=data.background_refresh_prerequisites_ready?'موتور آماری و خبرخوان RSS فعال · به‌روزرسانی خودکار روشن':'موتور آماری فعال · زمان‌بندی خودکار نیازمند بررسی';
-  const languageStatus=data.language_model?.enabled===true?'مدل زبانی داخلی فعال':'مدل زبانی مولد هنوز مستقر نشده';
+  const languageStatus=data.language_engine?.enabled===true?'هستهٔ فهم خبر و تاریخچه v'+(data.language_engine.version||'')+' فعال':'هستهٔ فهم زبان هنوز آماده نیست';
    setStatus(refreshStatus+' · '+languageStatus+' · بدون API خارجی');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
