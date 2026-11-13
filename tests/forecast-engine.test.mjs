@@ -20,8 +20,9 @@ test('forecast refuses to publish when history is below the production minimum',
 });
 
 test('forecast refuses to publish a flat series that does not beat the no-change baseline', () => {
-  const points = series(360, 0);
-  const result = buildForecast(points, points.at(-1).p, 1);
+  const start = Date.UTC(2025, 0, 1);
+  const points = Array.from({length:360}, (_,i) => ({ t:start+i*DAY, p:100000 }));
+  const result = buildForecast(points, 100000, 1);
   assert.equal(result.eligible, false);
   assert.equal(result.samples >= 30, true);
   assert.match(result.reason, /۲٪/);
