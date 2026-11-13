@@ -61,7 +61,7 @@ const HISTORY_BASE='https://raw.githubusercontent.com/iran-market/iran-market.gi
 let historyCache=new Map(),historyRange=90,showForecast=true,historyLoadingSymbol=null;
 const AI_ENDPOINT_KEY='dollar_ai_worker_endpoint_v1';
 const aiForecastCache=new Map(),aiForecastPending=new Set();
-function configuredAiEndpoint(){try{return localStorage.getItem(AI_ENDPOINT_KEY)||''}catch{return ''}}
+function configuredAiEndpoint(){try{return localStorage.getItem(AI_ENDPOINT_KEY)||'https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api'}catch{return 'https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api'}}
 async function loadAiForecast(symbol){
  const endpoint=configuredAiEndpoint();if(!endpoint)return;
  const cached=aiForecastCache.get(symbol);
