@@ -69,12 +69,12 @@ async function loadAiForecast(symbol){
  if(aiForecastPending.has(symbol))return;
  aiForecastPending.add(symbol);
  try{
-  const healthResponse=await fetch(endpoint.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store'});
+  const healthResponse=await fetch(endpoint.replace(/\/$/,'')+'/health',{headers:{accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(25000)});
   const health=await healthResponse.json();
   if(!healthResponse.ok||!health.ok)throw Error('analysis service unavailable');
   const adaptive=Array.isArray(health.capabilities)&&health.capabilities.includes('adaptive-ensemble-forecast');
   const route=adaptive?'/forecast/v2?asset='+encodeURIComponent(symbol)+'&horizon_days=7':(health.configured?'/forecast?asset='+encodeURIComponent(symbol):'/analysis?asset='+encodeURIComponent(symbol));
-  const response=await fetch(endpoint.replace(/\/$/,'')+route,{headers:{accept:'application/json'},cache:'no-store'});
+  const response=await fetch(endpoint.replace(/\/$/,'')+route,{headers:{accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(25000)});
   const payload=await response.json();
   if(!response.ok)throw Error(payload.error||'market analysis unavailable');
   let data=payload;
@@ -103,7 +103,7 @@ function normalizeHistory(payload){
  const raw=Array.isArray(payload)?payload:(Array.isArray(payload.data)?payload.data:(Array.isArray(payload.history)?payload.history:[]));
  return raw.map((r,i)=>{const close=hNum(r.close??r.c??r.price??r.value??r.last??r.close_price);const d=r.date??r.datetime??r.timestamp??r.time??r.date_gregorian??r.date_jalali??r.t;let ms=Date.parse(d);if(!Number.isFinite(ms)&&/^\d{10,13}$/.test(String(d??''))){const n=Number(d);ms=Date.parse(new Date(String(d).length===13?n:n*1000).toISOString())}return {date:ms,rawDate:String(d??''),close,index:i}}).filter(r=>Number.isFinite(r.close)&&r.close>0).sort((a,b)=>(a.date||0)-(b.date||0));
 }
-async function fetchHistory(symbol){if(historyCache.has(symbol))return historyCache.get(symbol);const res=await fetch(HISTORY_BASE+encodeURIComponent(symbol)+'.json',{cache:'no-store'});if(!res.ok)throw Error('history unavailable');const rows=normalizeHistory(await res.json());if(rows.length<2)throw Error('history format unavailable');historyCache.set(symbol,rows);return rows}
+async function fetchHistory(symbol){if(historyCache.has(symbol))return historyCache.get(symbol);const res=await fetch(HISTORY_BASE+encodeURIComponent(symbol)+'.json',{cache:'no-store',signal:AbortSignal.timeout(25000)});if(!res.ok)throw Error('history unavailable');const rows=normalizeHistory(await res.json());if(rows.length<2)throw Error('history format unavailable');historyCache.set(symbol,rows);return rows}
 function trendModel(rows){const p=rows.slice(-30).filter(r=>r.close>0),n=p.length;if(n<8)return null;const ys=p.map(r=>Math.log(r.close)),xm=(n-1)/2,ym=ys.reduce((a,b)=>a+b,0)/n;let num=0,den=0;ys.forEach((v,i)=>{num+=(i-xm)*(v-ym);den+=(i-xm)*(i-xm)});const slope=den?num/den:0,intercept=ym-slope*xm,err=ys.map((v,i)=>v-(intercept+slope*i)),sigma=Math.sqrt(err.reduce((a,b)=>a+b*b,0)/Math.max(1,n-2));return {n,slope,intercept,sigma,residuals:err,at:k=>Math.exp(intercept+slope*k)}}
 function chartDate(ms){return Number.isFinite(ms)?new Date(ms).toLocaleDateString(language==='fa'?'fa-IR':'en-GB',{year:'2-digit',month:'short',day:'numeric',timeZone:'Asia/Tehran'}):'—'}
 function drawHistoryChart(){
@@ -215,7 +215,7 @@ function readCurrentPrice(payload,symbol){
 async function refreshForecastQuotes(){
  if(livePollBusy)return;livePollBusy=true;
  try{
-  const response=await fetch(API+'?t='+Date.now(),{cache:'no-store'});
+  const response=await fetch(API+'?t='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(25000)});
   if(!response.ok)throw Error('quote feed unavailable');
   const payload=await response.json();
   const symbols=['USD_IRR_FREE','GOLD_18K_IRR','EUR_IRR_FREE','COIN_EMAMI_IRR'];
@@ -258,7 +258,7 @@ function unavailable(){
  const body=$('fxTableBody');if(body)body.innerHTML='<tr><td colspan="6" class="table-empty">داده بازار دریافت نشد.</td></tr>';
  const w=$('fxWarning');if(w)w.classList.add('is-stale');
 }
-async function refresh(){const btn=$('refreshBtn');if(btn){btn.disabled=true;btn.textContent='در حال دریافت…'}try{const response=await fetch(API+'?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('source unavailable');const payload=await response.json();if(!Array.isArray(payload.data))throw Error('invalid data');render(payload)}catch(e){unavailable()}finally{if(btn){btn.disabled=false;btn.textContent=language==='fa'?'به‌روزرسانی ↻':'Refresh ↻'}}}
+async function refresh(){const btn=$('refreshBtn');if(btn){btn.disabled=true;btn.textContent='در حال دریافت…'}try{const response=await fetch(API+'?v='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(25000)});if(!response.ok)throw Error('source unavailable');const payload=await response.json();if(!Array.isArray(payload.data))throw Error('invalid data');render(payload)}catch(e){unavailable()}finally{if(btn){btn.disabled=false;btn.textContent=language==='fa'?'به‌روزرسانی ↻':'Refresh ↻'}}}
 document.querySelectorAll('.navlinks a[href^="#"],.brand[href^="#"],.navright a[href^="#"]').forEach(link=>link.addEventListener('click',event=>{const href=link.getAttribute('href');if(!href||href.length<2)return;const target=document.getElementById(href.slice(1));if(target){event.preventDefault();target.scrollIntoView({behavior:'smooth',block:'start'});history.replaceState(null,'',href);}}));
 $('chartAsset')?.addEventListener('change',()=>{loadHistory();loadAiForecast($('chartAsset')?.value||'USD_IRR_FREE')});document.querySelectorAll('[data-range]').forEach(btn=>btn.addEventListener('click',()=>{historyRange=btn.dataset.range==='all'?'all':Number(btn.dataset.range);document.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('active',b===btn));drawHistoryChart()}));$('forecastToggle')?.addEventListener('click',()=>{showForecast=!showForecast;$('forecastToggle').classList.toggle('active',showForecast);$('forecastToggle').setAttribute('aria-pressed',String(showForecast));drawHistoryChart()});$('amount')?.addEventListener('input',updateFx);$('fromCurrency')?.addEventListener('change',updateFx);$('toCurrency')?.addEventListener('change',updateFx);$('weight')?.addEventListener('input',updateGoldCalc);$('purity')?.addEventListener('change',updateGoldCalc);
 $('fxSearch')?.addEventListener('input',()=>renderTable(CURRENCIES.map(c=>getItem(c.symbol)).filter(Boolean)));$('refreshBtn')?.addEventListener('click',refresh);
