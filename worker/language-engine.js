@@ -174,7 +174,8 @@ function extractEnglishAmounts(text) {
   }
   return out.slice(0,12);
 }
-\nfunction classifyOne(item) {
+
+function classifyOne(item) {
   const title = String(item?.title || item?.original_title || "");
   const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,3000);
   const text = normalize(title + " " + body);
