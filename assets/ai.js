@@ -23,6 +23,16 @@ function endpoint(){try{return localStorage.getItem(STORAGE_KEY)||DEFAULT_ENDPOI
 function validUrl(s){try{const u=new URL(s);return u.protocol==='https:'&&u.hostname.endsWith('.workers.dev')||u.protocol==='https:'&&u.hostname.includes('.')}catch{return false}}
 function saveEndpoint(){const v=(endpointInput?.value||'').trim().replace(/\/$/,'');if(!v){setStatus('آدرس تنظیم نشده');return}if(!validUrl(v)){setStatus('آدرس HTTPS معتبر وارد کن');return}try{localStorage.setItem(STORAGE_KEY,v);window.dispatchEvent(new CustomEvent('dollar-ai-endpoint-updated'));setStatus('آدرس ذخیره شد');if(output)output.innerHTML='<strong>اتصال ذخیره شد.</strong><p>اکنون می‌توانی گزارش هوشمند را اجرا کنی. اگر سرویس هنوز مستقر نشده باشد، خطای اتصال نشان داده می‌شود.</p>'}catch{setStatus('ذخیره‌سازی در دسترس نیست')}}
 function showError(message){output.innerHTML='<span class="ai-error">گزارش آماده نشد</span><p>'+escapeHtml(message)+'</p><p>آدرس Worker و وضعیت سرویس را بررسی کن. کلید API را داخل سایت وارد نکن.</p>'}
+function simpleNewsAnalysisHtml(languageAnalysis, fa){
+ const rows=Array.isArray(languageAnalysis?.per_news)?languageAnalysis.per_news:[];
+ if(!rows.length)return '';
+ return '<div class="ai-driver"><h4>تحلیل سادهٔ هوش مصنوعی از خبرها</h4><div class="ai-news-list">'+rows.slice(0,8).map(item=>{
+  const a=item.simple_analysis_fa||{};
+  const risk=a.risk_pressure_fa||'نامشخص';
+  const status=a.claim_status_fa||'وضعیت ادعا مشخص نیست';
+  return '<article class="ai-news-item"><b>'+escapeHtml(item.title||'خبر')+'</b><p>'+escapeHtml(a.summary_fa||'تحلیل متنی برای این خبر آماده نیست.')+'</p><div class="ai-news-meta"><span>'+escapeHtml(a.topic_fa||'موضوع نامشخص')+'</span><span>'+escapeHtml(status)+'</span><span>'+escapeHtml(risk)+'</span></div><small>'+escapeHtml(a.market_relevance_fa||'ارتباط با بازار نامشخص')+' · '+escapeHtml(a.evidence_basis==='headline_only'?'فقط تیتر':'تیتر و خلاصهٔ RSS')+'</small></article>';
+ }).join('')+'</div></div>';
+}
 function render(data){
  const f=data.forecast||{};
  if(String(f.model_version||'').startsWith('iran-ensemble-wf-')){
@@ -30,7 +40,8 @@ function render(data){
   if(f.status==='withheld'){
    const news=data.news_context||{},headlines=Array.isArray(news.headlines)?news.headlines:[];
    const newsHtml=headlines.length?'<div class="ai-driver"><h4>خبرهای تازهٔ بازار · '+fa(news.headline_count)+' تیتر</h4><p>خبرها از چند خوراک خبری گردآوری شده‌اند؛ این تیترها به‌تنهایی مبنای پیش‌بینی عددی نیستند.</p><div class="ai-news-list">'+headlines.slice(0,8).map(item=>'<article class="ai-news-item"><div class="ai-news-meta"><span>'+escapeHtml(item.domain||'منبع خبری')+'</span><small>'+escapeHtml(item.published_at||'')+'</small></div><a href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(item.title||'خبر')+' ↗</a></article>').join('')+'</div></div>':'<div class="ai-driver"><h4>خبرخوان بازار</h4><p>در بازهٔ ۷۲ ساعت اخیر، تیتر قابل‌تأییدی دریافت نشد.</p></div>';
-   output.innerHTML='<div class="ai-kicker">ADAPTIVE FORECAST ENGINE · موتور پیش‌بینی تطبیقی</div><h3 class="ai-headline">فعلاً پیش‌بینی قابل‌اتکا منتشر نشد</h3><p class="ai-summary">'+escapeHtml(f.reason||'شواهد خارج از نمونه برای انتشار کافی نیست.')+'</p><div class="ai-metrics"><article><small>تعداد مشاهدات</small><b>'+fa(f.observations)+'</b></article><article><small>نمونه‌های آزمون</small><b>'+fa(v.samples)+'</b></article><article><small>سن قیمت مرجع</small><b>'+fa(v.quote_age_hours)+' ساعت</b></article><article><small>خطای مدل</small><b>'+(v.mae_pct==null?'—':fa(v.mae_pct)+'٪')+'</b></article><article><small>خطای مدل ساده</small><b>'+(v.naive_mae_pct==null?'—':fa(v.naive_mae_pct)+'٪')+'</b></article><article><small>بهبود نسبت به مدل ساده</small><b>'+(v.skill_vs_no_change_pct==null?'—':fa(v.skill_vs_no_change_pct)+'٪')+'</b></article><article><small>پیش‌بینی با خطای زیر ۲٪</small><b>'+(v.within_2pct_pct==null?'—':fa(v.within_2pct_pct)+'٪')+'</b></article><article><small>پیش‌بینی با خطای زیر ۵٪</small><b>'+(v.within_5pct_pct==null?'—':fa(v.within_5pct_pct)+'٪')+'</b></article><article><small>پوشش پیش‌بینی جهت‌دار</small><b>'+(v.directional_coverage_pct==null?'—':fa(v.directional_coverage_pct)+'٪')+'</b></article></div><p>سیستم عمداً از حدس‌زدن بدون شواهد کافی خودداری کرد. این رفتار بخشی از کنترل کیفیت است. درصدهای بالا از آزمون تاریخی‌اند، نه تضمین نتیجهٔ آینده.</p>'+newsHtml+decisionHtml(data.decision_brief);
+   const analyzedNewsHtml=simpleNewsAnalysisHtml(data.language_analysis,fa);
+   output.innerHTML='<div class="ai-kicker">ADAPTIVE FORECAST ENGINE · موتور پیش‌بینی تطبیقی</div><h3 class="ai-headline">فعلاً پیش‌بینی قابل‌اتکا منتشر نشد</h3><p class="ai-summary">'+escapeHtml(f.reason||'شواهد خارج از نمونه برای انتشار کافی نیست.')+'</p><div class="ai-metrics"><article><small>تعداد مشاهدات</small><b>'+fa(f.observations)+'</b></article><article><small>نمونه‌های آزمون</small><b>'+fa(v.samples)+'</b></article><article><small>سن قیمت مرجع</small><b>'+fa(v.quote_age_hours)+' ساعت</b></article><article><small>خطای مدل</small><b>'+(v.mae_pct==null?'—':fa(v.mae_pct)+'٪')+'</b></article><article><small>خطای مدل ساده</small><b>'+(v.naive_mae_pct==null?'—':fa(v.naive_mae_pct)+'٪')+'</b></article><article><small>بهبود نسبت به مدل ساده</small><b>'+(v.skill_vs_no_change_pct==null?'—':fa(v.skill_vs_no_change_pct)+'٪')+'</b></article><article><small>پیش‌بینی با خطای زیر ۲٪</small><b>'+(v.within_2pct_pct==null?'—':fa(v.within_2pct_pct)+'٪')+'</b></article><article><small>پیش‌بینی با خطای زیر ۵٪</small><b>'+(v.within_5pct_pct==null?'—':fa(v.within_5pct_pct)+'٪')+'</b></article><article><small>پوشش پیش‌بینی جهت‌دار</small><b>'+(v.directional_coverage_pct==null?'—':fa(v.directional_coverage_pct)+'٪')+'</b></article></div><p>سیستم عمداً از حدس‌زدن بدون شواهد کافی خودداری کرد. این رفتار بخشی از کنترل کیفیت است. درصدهای بالا از آزمون تاریخی‌اند، نه تضمین نتیجهٔ آینده.</p>'+newsHtml+analyzedNewsHtml+decisionHtml(data.decision_brief);
    setStatus(headlines.length?'پیش‌بینی متوقف شد · خبرخوان فعال':'انتشار متوقف شد · شواهد ناکافی');return;
   }
 if(f.forecast_mode==='baseline_only'){
@@ -47,6 +58,7 @@ if(f.forecast_mode==='baseline_only'){
   if(headlines.length){
    html+='<div class="ai-driver"><h4>تیترهای قابل‌ردیابی</h4><div class="ai-news-list">'+headlines.slice(0,8).map(item=>'<article class="ai-news-item"><div class="ai-news-meta"><span>'+escapeHtml(item.domain||'منبع خبری')+'</span><small>'+escapeHtml(item.published_at||'')+'</small></div><a href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(item.title||'خبر')+' ↗</a></article>').join('')+'</div></div>';
   }
+  html+=simpleNewsAnalysisHtml(data.language_analysis,fa);
   html+=decisionHtml(data.decision_brief);
   output.innerHTML=html;setStatus('مدل تطبیقی فعال · پردازش خبر و قیمت آماده');return;
  }
