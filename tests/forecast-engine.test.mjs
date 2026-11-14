@@ -155,13 +155,13 @@ test('error profile resists a single extreme residual and detects recent degrada
   const result=analyzeForecastErrors(rows);
   assert.equal(result.error_profile,'balanced');
   assert.equal(result.performance_drift,true);
-  assert.ok(result.recent_20_mae_pct > result.previous_40_mae_pct * 1.5);
+  assert.ok(result.recent_20_mae_pct > result.previous_60_mae_pct * 1.5);
 });
 
 test('row diagnosis identifies forecast symptoms and weak contextual risk factors separately', () => {
   const row={
     predicted_price:105,reference_price:100,actual_price:102,
-    predicted_change_pct:5,direction_correct:true,lower_price:101,upper_price:104,
+    predicted_change_pct:5,direction_correct:true,lower_price:103,upper_price:104,
     quote_source:'provider-a',model_weights:{trend:0.9,baseline:0.1},
     validation:{
       forecast_mode:'adaptive_directional',quote_age_hours:8,history_provider:'NerkhAra',
