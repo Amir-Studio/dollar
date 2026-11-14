@@ -1,6 +1,6 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
-import { buildDecisionBrief } from "./decision-engine.js";
+import { buildDecisionBrief, DECISION_ENGINE_VERSION } from "./decision-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -523,6 +523,14 @@ export default {
           external_api: false,
           note_fa: "مدل زبانی مولد مستقلی مستقر نیست."
         },
+        decision_engine: {
+          enabled: true,
+          name: "Dollar Evidence Decision Engine",
+          version: DECISION_ENGINE_VERSION,
+          mode: "deterministic_evidence_synthesis_not_llm",
+          probability_calibrated: false,
+          uses_news_and_price_history: true
+        },
         language_engine: {
           enabled: true,
           name: "Dollar Domain NLP",
@@ -553,7 +561,7 @@ export default {
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: false,
-        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","database-schema-diagnostics","no-external-language-model"]
+        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
