@@ -2,7 +2,7 @@
 export const DECISION_ENGINE_VERSION = "0.1.0";
 // Transparent, deterministic evidence synthesis. Not a trading or investment recommendation.
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
-const num=x=>Number.isFinite(Number(x))?Number(x):null;
+const num=x=>x===null||x===undefined||x===""?null:(Number.isFinite(Number(x))?Number(x):null);
 const EVENT_PRESSURE={
  sanction_new:{fa:"تشدید تحریم",usd:1.5,gold:0.25},
  sanction_relief:{fa:"کاهش تحریم",usd:-1.35,gold:-0.2},
