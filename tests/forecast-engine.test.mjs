@@ -187,13 +187,15 @@ test('error analysis reports only adequately sized source and regime cohorts', (
     predicted_price:100,reference_price:100,actual_price:i<6?102:100.5,
     predicted_change_pct:0,direction_correct:i>=6,lower_price:99,upper_price:101,
     quote_source:i<6?'source-a':'source-b',
-    validation:{quote_age_hours:i<6?1:12,history_provider:'history-a',forecast_mode:'adaptive_directional',quote_quality:{source_count:i<6?3:1,spread_pct:i<6?0.5:2.5},news_context:{event_risk_score:i<6?10:75}},
+    validation:{quote_age_hours:i<6?1:12,history_provider:'history-a',forecast_mode:'adaptive_directional',quote_quality:{source_count:i<6?3:1,spread_pct:i<6?0.5:2.5},news_context:{event_risk_score:i<6?10:75},market_regime:{volatility_regime:i<6?'low':'high',trend_regime:i<6?'up':'down',realized_vol_20_pct:i<6?0.2:1.2,realized_vol_60_pct:0.5}},
     actual_at:new Date(Date.UTC(2026,4,1)-i*86400000).toISOString()
   }));
   const result=analyzeForecastErrors(rows);
   assert.equal(result.cohort_diagnostics.quote_source['source-a'].samples,6);
   assert.equal(result.cohort_diagnostics.quote_source['source-b'].samples,6);
   assert.equal(result.cohort_diagnostics.event_risk_band.elevated.samples,6);
+  assert.equal(result.cohort_diagnostics.volatility_regime.high.samples,6);
+  assert.equal(result.cohort_diagnostics.trend_regime.down.samples,6);
   assert.ok(result.root_cause_candidates.some(x=>x.code==='thin_quote_consensus'&&x.count===6));
   assert.match(result.diagnosis_caution,/not proof of causation/);
 });
