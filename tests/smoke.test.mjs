@@ -85,6 +85,27 @@ test('Worker module parses and exposes its HTTP handler', async () => {
   assert.equal(typeof module.default.fetch, 'function');
 });
 
+test('multi-turn language endpoint analyzes Persian context and validates input', async () => {
+  const module = await import('../worker/index.js');
+  const response = await module.default.fetch(new Request('https://worker.example/language/conversation', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ language: 'fa', turns: [
+      { role: 'user', content: 'سه ساعت دیر رسیدی و همه منتظر ماندند.' },
+      { role: 'assistant', content: 'چه به موقع رسیدی' }
+    ] })
+  }), {});
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.engine, 'dollar-conversation-context');
+  assert.equal(body.result.analysis.interpretation_status, 'context_supported_candidate');
+  const invalid = await module.default.fetch(new Request('https://worker.example/language/conversation', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ turns: [] })
+  }), {});
+  assert.equal(invalid.status, 400);
+});
+
 test('health endpoint distinguishes missing credentials from working database storage', async () => {
   const module = await import('../worker/index.js');
   const response = await module.default.fetch(new Request('https://worker.example/health'), {});
