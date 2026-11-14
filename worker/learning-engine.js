@@ -54,7 +54,7 @@ export function analyzeForecastErrors(rows) {
   const errors=sample.map(row=>Math.abs((Number(row.actual_price)/Number(row.predicted_price)-1)*100));
   const baseline=sample.map(row=>Math.abs((Number(row.actual_price)/Number(row.reference_price)-1)*100));
   const signed=sample.map(row=>(Number(row.actual_price)/Number(row.predicted_price)-1)*100);
-  const mae=mean(errors),baselineMae=mean(baseline),signedBias=mean(signed);
+  const mae=mean(errors),baselineMae=mean(baseline),signedBias=median(signed);
   const directional=sample.filter(row=>typeof row.direction_correct==="boolean");
   const directionalAccuracy=directional.length?directional.filter(row=>row.direction_correct).length/directional.length*100:null;
   const recent=errors.slice(0,20),older=errors.slice(20);
