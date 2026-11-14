@@ -45,10 +45,24 @@ async function getJson(url) {
 }
 function historyRows(payload) {
   const raw = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.history) ? payload.history : Array.isArray(payload?.items) ? payload.items : Array.isArray(payload?.points) ? payload.points : Array.isArray(payload?.samples) ? payload.samples : [];
-  return raw.map(r => ({
-    date: dateMs(r.date ?? r.datetime ?? r.timestamp ?? r.time ?? r.date_gregorian ?? r.observed_at ?? r.day ?? r.t),
-    close: n(r.close ?? r.c ?? r.price ?? r.value ?? r.last ?? r.close_price ?? r.mean ?? r.average ?? r.avg)
-  })).filter(r => Number.isFinite(r.date) && Number.isFinite(r.close) && r.close > 0).sort((a,b) => a.date-b.date);
+  return raw.map(r => {
+    // NerkhAra's documented history format is [YYYY-MM-DD, price], while
+    // the fallback provider uses objects such as { t, close }.
+    const dateValue = Array.isArray(r) ? r[0] : r.date ?? r.datetime ?? r.timestamp ?? r.time ?? r.date_gregorian ?? r.observed_at ?? r.day ?? r.t;
+    const priceValue = Array.isArray(r) ? r[1] : r.close ?? r.c ?? r.price ?? r.value ?? r.last ?? r.close_price ?? r.mean ?? r.average ?? r.avg ?? r.p;
+    return { date:dateMs(dateValue), close:n(priceValue) };
+  }).filter(r => Number.isFinite(r.date) && Number.isFinite(r.close) && r.close > 0).sort((a,b) => a.date-b.date);
+}
+function runHistoryParserSelfTest() {
+  const tupleRows = historyRows({points:[["2026-11-12",100],["2026-11-13",101]]});
+  const objectRows = historyRows({data:[{t:"2026-11-12T00:00:00.000Z",close:100},{t:"2026-11-13T00:00:00.000Z",close:101}]});
+  const compactRows = historyRows([{timestamp:"2026-11-12T00:00:00.000Z",p:100}]);
+  const tests = [
+    {name:"nerkhara_date_price_tuples",passed:tupleRows.length===2&&tupleRows[1].close===101},
+    {name:"fallback_ohlc_objects",passed:objectRows.length===2&&objectRows[1].close===101},
+    {name:"compact_price_objects",passed:compactRows.length===1&&compactRows[0].close===100}
+  ];
+  return {total:tests.length,passed:tests.filter(x=>x.passed).length,failed:tests.filter(x=>!x.passed)};
 }
 function stats(rows) {
   const p = rows.slice(-30), y = p.map(x => Math.log(x.close)), len = y.length;
@@ -543,6 +557,7 @@ export default {
           external_api: false,
           note_fa: "مدل زبانی مولد مستقلی مستقر نیست."
         },
+        history_parser_self_test: runHistoryParserSelfTest(),
         decision_engine: {
           enabled: true,
           name: "Dollar Evidence Decision Engine",
