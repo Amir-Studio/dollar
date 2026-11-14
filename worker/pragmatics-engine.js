@@ -273,9 +273,9 @@ export function analyzePragmatics(text, language, context = "") {
   let status;
   if (quotedOnly) status="quoted_mention_not_intent";
   else if (!signals.length) status="no_known_marker";
-  else if (needsContext) status="context_required";
-  else if (ironyContextSupport) status="context_supported_candidate";
   else if (categories.includes("ambiguity")) status="ambiguous_multiple_readings";
+  else if (ironyContextSupport) status="context_supported_candidate";
+  else if (needsContext) status="context_required";
   else status="known_expression_match";
   return {
     language:lang,
