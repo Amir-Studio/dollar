@@ -3,7 +3,7 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.4-multisource-feedback";
+const MODEL_VERSION = "iran-ensemble-wf-2.7-maturity-safe-walkforward";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -188,19 +188,44 @@ function selectWeights(sample,keys) {
 }
 
 function backtest(points,h) {
-  const start=Math.max(260,points.length-365), records=[];
+  // Evaluate the latest 730 calendar days, with at least 260 prior observations
+  // available for feature construction. Origins are advanced by observed target
+  // timestamps, not row counts, so missing dates cannot create overlapping tests.
+  const evaluationWindowDays=730;
+  const latestTime=points[points.length-1]?.t||0;
+  const cutoff=latestTime-evaluationWindowDays*DAY;
+  let start=0;
+  while(start<points.length&&points[start].t<cutoff) start++;
+  start=Math.max(260,start);
+  const records=[];
+  let nextAllowedOrigin=-Infinity;
+  const targetToleranceDays=1.5;
   for(let i=start;i<points.length-1;i++){
-    const origin=points[i], targetTime=origin.t+h*DAY;
+    const origin=points[i];
+    if(origin.t<nextAllowedOrigin) continue;
+    const targetTime=origin.t+h*DAY;
     let j=i+1;
     while(j<points.length&&points[j].t<targetTime) j++;
-    if(j>=points.length||points[j].t-targetTime>2*DAY) continue;
+    if(j>=points.length) continue;
+    const targetDelayDays=(points[j].t-targetTime)/DAY;
+    if(targetDelayDays>targetToleranceDays) continue;
     const actual=Math.log(points[j].p/origin.p);
     const preds=candidates(points.slice(0,i+1),h).raw;
-    records.push({originTime:origin.t,targetTime:points[j].t,actual,preds});
+    records.push({
+      originTime:origin.t,targetTime,actualTime:points[j].t,
+      effectiveHorizonDays:(points[j].t-origin.t)/DAY,actual,preds
+    });
+    // Do not start the next test until the actual target observation has arrived.
+    nextAllowedOrigin=points[j].t;
   }
   const keys=records.length?Object.keys(records[0].preds):["no_change"];
   const n=records.length;
-  if(n<30) return {eligible:false,samples:n,reason:"برای ارزیابی معتبر حداقل ۳۰ نمونهٔ خارج از نمونه لازم است."};
+  if(n<30) return {
+    eligible:false,samples:n,evaluation_method:"non_overlapping_rolling_origin",
+    evaluation_window_days:evaluationWindowDays,target_tolerance_days:targetToleranceDays,
+    overlapping_test_windows:false,
+    reason:"برای ارزیابی معتبر حداقل ۳۰ نمونهٔ خارج از نمونه و تاریخچهٔ کافی لازم است."
+  };
   const candidateMae=Object.fromEntries(keys.map(k=>[
     k,records.reduce((s,r)=>s+relativeErrorPct(r.preds[k]??0,r.actual),0)/n
   ]));
@@ -208,7 +233,9 @@ function backtest(points,h) {
   let hits=0,directionalN=0,within1=0,within2=0,within5=0;
   for(let i=0;i<n;i++){
     const origin=records[i].originTime;
-    const matured=records.filter((r,j)=>j<i&&r.targetTime<=origin);
+    // Critical maturity guard: only outcomes whose actual observation timestamp
+    // was already available at this origin may train the ensemble weights.
+    const matured=records.filter((r,j)=>j<i&&r.actualTime<=origin);
     const weights=selectWeights(matured,keys);
     const blend=keys.reduce((s,k)=>s+(weights[k]||0)*(records[i].preds[k]??0),0);
     const actual=records[i].actual;
@@ -227,12 +254,18 @@ function backtest(points,h) {
   const mae=ensembleErrors.reduce((s,v)=>s+v,0)/n;
   const naiveMae=baselineErrors.reduce((s,v)=>s+v,0)/n;
   const skill=naiveMae>0?(1-mae/naiveMae)*100:0;
-  const maturedAll=records.filter(r=>r.targetTime<=points[points.length-1].t);
-  const liveWeights=selectWeights(maturedAll.length?maturedAll:records,keys);
+  const maturedAll=records.filter(r=>r.actualTime<=latestTime);
+  const liveWeights=selectWeights(maturedAll,keys);
+  const effectiveHorizons=records.map(r=>r.effectiveHorizonDays);
   const eligible=n>=30&&skill>=2;
   const selected=Object.entries(liveWeights).filter(([k,v])=>k!=="no_change"&&v>0).map(([model,weight])=>({model,weight:Number(weight.toFixed(3))}));
   return {
     eligible,samples:n,mae_pct:Number(mae.toFixed(4)),naive_mae_pct:Number(naiveMae.toFixed(4)),
+    evaluation_method:"non_overlapping_rolling_origin_maturity_guard",
+    evaluation_window_days:evaluationWindowDays,
+    target_tolerance_days:targetToleranceDays,
+    effective_horizon_days:{min:Number(Math.min(...effectiveHorizons).toFixed(3)),max:Number(Math.max(...effectiveHorizons).toFixed(3)),mean:Number((effectiveHorizons.reduce((a,b)=>a+b,0)/n).toFixed(3))},
+    overlapping_test_windows:false,
     skill_vs_no_change_pct:Number(skill.toFixed(2)),
     directional_accuracy_pct:directionalN?Number((hits/directionalN*100).toFixed(1)):null,
     directional_samples:directionalN,
@@ -248,7 +281,7 @@ function backtest(points,h) {
   };
 }
 
-export function buildForecast(points,price,horizon,newsContext=null) {
+function buildForecastPoint(points,price,horizon,newsContext=null) {
   const min={1:300,3:300,7:300}[horizon]||300;
   if(points.length<min) return {eligible:false,reason:"تاریخچه برای این افق کافی نیست.",observations:points.length,required:min};
   const validation=backtest(points,horizon);
@@ -299,6 +332,40 @@ export function buildForecast(points,price,horizon,newsContext=null) {
     direction:change>0.001?"up":change< -0.001?"down":"sideways",
     model_weights:validation.weights,validation,
     uncertainty_pct:band*100,news_context:newsContext||null
+  };
+}
+
+
+export function buildForecast(points,price,horizon,newsContext=null) {
+  const base=buildForecastPoint(points,price,horizon,newsContext);
+  if(horizon!==7 || !base.eligible) return base;
+  const curve=[{day:0,price,lower:price,upper:price,kind:"observed"}];
+  for(let day=1;day<=7;day++) {
+    const step=buildForecastPoint(points,price,day,newsContext);
+    if(!step.eligible) {
+      curve.push({day,available:false,reason:step.reason||"insufficient_validation"});
+      continue;
+    }
+    curve.push({
+      day,
+      price:Number(step.predicted_price.toFixed(4)),
+      lower:Number(step.lower_price.toFixed(4)),
+      upper:Number(step.upper_price.toFixed(4)),
+      kind:step.forecast_mode||"adaptive_directional",
+      validation_samples:step.validation?.samples??0,
+      skill_vs_no_change_pct:step.validation?.skill_vs_no_change_pct??null
+    });
+  }
+  const available=curve.filter(x=>x.available!==false).length-1;
+  return {
+    ...base,
+    forecast_curve:curve,
+    forecast_curve_meta:{
+      method:"daily_walk_forward_revalidated",
+      available_days:available,
+      complete:available===7,
+      note_fa:"هر نقطه با آزمون تاریخی افق همان روز محاسبه شده است؛ نوار بالا و پایین محدودهٔ عدم‌قطعیت بر پایهٔ خطای خارج از نمونه و نوسان تاریخی است، نه تضمین پوشش."
+    }
   };
 }
 
@@ -414,7 +481,7 @@ async function fetchInputs(env,asset,marketPayload) {
 
 async function liveBiasCalibration(env,asset,horizon) {
   try {
-    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&order=actual_at.desc&limit=60");
+    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
     const valid=(Array.isArray(rows)?rows:[]).filter(x=>Number(x.predicted_price)>0&&Number(x.actual_price)>0);
     if(valid.length<30) return {samples:valid.length,applied:false,log_bias:0};
     const errors=valid.map(x=>Math.log(Number(x.actual_price)/Number(x.predicted_price)));
@@ -467,6 +534,8 @@ async function issueForecast(env,asset,horizon,input) {
     predicted_change_pct:Number(result.predicted_change_pct.toFixed(3)),
     range:{low:Math.round(result.lower_price),high:Math.round(result.upper_price)},
     direction:result.direction,validation,news_context:input.newsContext,
+    forecast_curve:result.forecast_curve||null,
+    forecast_curve_meta:result.forecast_curve_meta||null,
     model_version:MODEL_VERSION,source:input.source,provider_meta:input.provider_meta,history_provider:input.history_provider
   };
 }
@@ -489,10 +558,65 @@ async function evaluateDue(env,market) {
   }
   return done;
 }
+async function runContinuousLearning(env, evaluatedNow) {
+  if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
+  try {
+    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&order=actual_at.desc&limit=1500");
+    const groups = new Map();
+    for (const row of (Array.isArray(rows)?rows:[])) {
+      const key = row.asset + ":" + row.horizon_days;
+      if (!groups.has(key)) groups.set(key,[]);
+      const group=groups.get(key);
+      if (group.length<60 && Number(row.predicted_price)>0 && Number(row.reference_price)>0 && Number(row.actual_price)>0) group.push(row);
+    }
+    const assetMetrics={}, actions=[];
+    for (const [key,sample] of groups) {
+      if (!sample.length) continue;
+      const errors=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.predicted_price)-1)*100));
+      const baseline=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.reference_price)-1)*100));
+      const mae=errors.reduce((a,b)=>a+b,0)/errors.length;
+      const baselineMae=baseline.reduce((a,b)=>a+b,0)/baseline.length;
+      const skill=baselineMae>0?(1-mae/baselineMae)*100:0;
+      const directional=sample.filter(r=>typeof r.direction_correct==="boolean");
+      const accuracy=directional.length?directional.filter(r=>r.direction_correct).length/directional.length*100:null;
+      const recent=errors.slice(0,20), older=errors.slice(20);
+      const recentMae=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:null;
+      const olderMae=older.length?older.reduce((a,b)=>a+b,0)/older.length:null;
+      const drift=recentMae!==null&&olderMae!==null&&olderMae>0&&recentMae>olderMae*1.5;
+      const [asset,horizonText]=key.split(":");
+      assetMetrics[key]={
+        samples:sample.length,mae_pct:Number(mae.toFixed(5)),
+        no_change_mae_pct:Number(baselineMae.toFixed(5)),
+        skill_vs_no_change_pct:Number(skill.toFixed(3)),
+        directional_accuracy_pct:accuracy===null?null:Number(accuracy.toFixed(2)),
+        directional_samples:directional.length,
+        recent_20_mae_pct:recentMae===null?null:Number(recentMae.toFixed(5)),
+        previous_40_mae_pct:olderMae===null?null:Number(olderMae.toFixed(5)),
+        performance_drift:drift
+      };
+      if(sample.length>=30 && skill>=2) actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline",skill_pct:Number(skill.toFixed(3))});
+      else if(sample.length>=30) actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
+      if(drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
+    }
+    const payload={
+      model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
+      asset_metrics:assetMetrics,learning_actions:actions
+    };
+    await db(env,"market_learning_cycles",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify({
+      model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
+      asset_metrics:assetMetrics,learning_actions:actions
+    })});
+    return {ran:true,evaluated:evaluatedNow.length,groups:Object.keys(assetMetrics).length,actions:actions.length};
+  } catch(error) {
+    console.error("Continuous learning cycle failed:",error?.message||error);
+    return {ran:false,error:String(error?.message||error).slice(0,180)};
+  }
+}
 export async function runForecastCycle(env,marketPayload) {
   if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY) return {enabled:false,reason:"database-not-configured"};
   const market=await getMarketSnapshot(env,marketPayload);
   const evaluated=await evaluateDue(env,market);
+  const learning=await runContinuousLearning(env,evaluated);
   const issued=[],withheld=[];
   for(const asset of ASSETS){
     try{
@@ -511,7 +635,7 @@ export async function runForecastCycle(env,marketPayload) {
   }
   console.log("Forecast cycle completed: published",issued.length,"withheld",withheld.length,"evaluated",evaluated.length);
   return {enabled:true,issued:issued.length,withheld:withheld.length,evaluated:evaluated.length,
-    withheld_reasons:withheld.slice(0,8)};
+    withheld_reasons:withheld.slice(0,8),learning};
 }
 export async function handleForecastApi(url,env) {
   const asset=url.searchParams.get("asset")||"USD_IRR_FREE";
@@ -545,10 +669,27 @@ export async function handleForecastApi(url,env) {
         note_fa:"آزمون walk-forward از داده‌های تاریخی استفاده می‌کند؛ دفتر زنده فقط پیش‌بینی‌هایی را می‌شمارد که موعدشان رسیده و با قیمت واقعی ارزیابی شده‌اند."
       },{headers:{"cache-control":"no-store"}});
     }
+    if(url.pathname==="/forecast/learning"){
+      const data=await db(env,"market_learning_cycles?select=cycle_at,model_version,evaluated_count,asset_metrics,learning_actions&order=cycle_at.desc&limit=100");
+      return Response.json({model_version:MODEL_VERSION,cycles:data||[],note_fa:"وزن‌های مدل با آزمون walk-forward و فقط با داده‌های بالغ‌شده دوباره محاسبه می‌شوند؛ این گزارش، عملکرد زنده و هشدار افت کیفیت را ثبت می‌کند."},{headers:{"cache-control":"no-store"}});
+    }
     if(url.pathname==="/forecast/history"){
-      const horizon=Math.max(1,Math.min(7,Number(url.searchParams.get("horizon_days")||7)));
-      const data=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation&asset=eq."+asset+"&horizon_days=eq."+horizon+"&order=issued_at.desc&limit=30");
-      return Response.json({asset,horizon_days:horizon,forecasts:data||[]},{headers:{"cache-control":"no-store"}});
+      const horizon=Number(url.searchParams.get("horizon_days")||7);
+      if(!HORIZONS.includes(horizon)) return Response.json({error:"افق باید ۱، ۳ یا ۷ روز باشد."},{status:400});
+      const requestedLimit=Number(url.searchParams.get("limit")||500);
+      if(!Number.isInteger(requestedLimit)||requestedLimit<1||requestedLimit>500) return Response.json({error:"limit باید عددی بین ۱ تا ۵۰۰ باشد."},{status:400});
+      const query=new URLSearchParams({
+        select:"id,asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,model_weights,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation",
+        asset:"eq."+asset,
+        horizon_days:"eq."+horizon,
+        order:"issued_at.desc",
+        limit:String(requestedLimit)
+      });
+      const data=await db(env,"market_forecast_runs?"+query.toString());
+      return Response.json({
+        asset,horizon_days:horizon,forecasts:data||[],
+        ledger_meta:{returned_rows:Array.isArray(data)?data.length:0,limit:requestedLimit,active_model_version:MODEL_VERSION,generated_at:new Date().toISOString(),truncated:Array.isArray(data)&&data.length===requestedLimit}
+      },{headers:{"cache-control":"no-store"}});
     }
     const horizon=Number(url.searchParams.get("horizon_days")||7);
     if(!HORIZONS.includes(horizon)) return Response.json({error:"افق باید ۱، ۳ یا ۷ روز باشد."},{status:400});
