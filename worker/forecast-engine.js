@@ -509,7 +509,7 @@ async function fetchInputs(env,asset,marketPayload) {
 
 async function liveBiasCalibration(env,asset,horizon) {
   try {
-    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
+    const rows=await db(env,"market_forecast_runs?select=predicted_price,reference_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
     return robustBiasCalibration(Array.isArray(rows)?rows:[]);
   } catch(error) {
     return {samples:0,applied:false,log_bias:0,reason:"feedback-unavailable",error:String(error?.message||error).slice(0,100)};
