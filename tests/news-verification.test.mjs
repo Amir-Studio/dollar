@@ -23,7 +23,7 @@ test('same direction across independent publishers is corroboration only at head
     item('نفت با افزایش قیمت همراه شد', 'three.example', 'https://three.example/c')
   ]);
   assert.ok(result.claims[0].verdict.includes('corroborated'));
-  assert.equal(result.claims[0].confidence_band, 'moderate');
+  assert.equal(result.claims[0].confidence_band, 'low');
   assert.match(result.claims[0].verdict_caution, /اثبات حقیقت نیست/);
 });
 
