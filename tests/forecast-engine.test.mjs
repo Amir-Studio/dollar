@@ -105,7 +105,7 @@ test('robust feedback requires 60 matured forecasts and rejects unstable trainin
 
 test('robust feedback limits outlier influence and promotes only after chronological holdout improvement', () => {
   const rows = Array.from({length:60}, (_,i) => ({
-    predicted_price:100,
+    predicted_price:100,reference_price:100,
     actual_price: i===0 ? 180 : 101,
     actual_at: new Date(Date.UTC(2026,1,1)-i*86400000).toISOString()
   }));
