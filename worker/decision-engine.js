@@ -229,6 +229,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
    drawdown_30_observations_pct:h.drawdown_30_observations_pct,direction_consistency:h.direction_consistency,
    trend_score_not_probability:h.trend_score_not_probability,price_signal:h.signal},
   news_context:n,
+  historical_event_reactions:eventReactions,
   synthesis:{state,explanation_fa:explanation.join(" ")||"شواهد کافی برای جمع‌بندی وجود ندارد.",
    important_distinction_fa:"جهت روند قیمت، فشار ریسک خبرها و پیش‌بینی آینده سه مفهوم جدا هستند؛ این موتور آن‌ها را یکی فرض نمی‌کند."},
   evidence_quality:quality,reasons_fa:explanation,
@@ -252,6 +253,7 @@ export function runDecisionEngineSelfTest(){
   {name:"risk_pressure_is_not_price_direction",input:{...common,news:[{title:"Conflict escalates",domain:"a.example",published_at:new Date(now).toISOString()},{title:"Military strike reported",domain:"b.example",published_at:new Date(now).toISOString()}],languageAnalysis:{per_news:[{title:"Conflict escalates",source:"a.example",published_at:new Date(now).toISOString(),input_mode:"headline_plus_rss_excerpt",content_chars:200,events:[{id:"conflict",market_effect:"risk_up"}],confidence:0.8},{title:"Military strike reported",source:"b.example",published_at:new Date(now).toISOString(),input_mode:"headline_plus_rss_excerpt",content_chars:200,events:[{id:"conflict",market_effect:"risk_up"}],confidence:0.8}],possible_conflicts:[]}},check:x=>x.news_context.risk_signal==="higher_risk_pressure"&&!String(x.synthesis.state).includes("upward")},
   {name:"stale_quote_requires_confirmation",input:{...common,quote:{price:120,source_time:new Date(now-9*3600000).toISOString()}},check:x=>x.action==="wait_for_confirmation"},
   {name:"short_history_does_not_claim_trend",input:{...common,history:{rows:rows.slice(-8)}},check:x=>x.action==="wait_for_confirmation"||x.action==="monitor_without_directional_claim"},
+  {name:"historical_event_reaction_requires_three_observations",input:{...common,languageAnalysis:{per_news:[],possible_conflicts:[],event_price_context:{observations:[1,2].map((v)=>({event_ids:["conflict"],subsequent_price_observations:{1:{change_pct:v}}}))}}},check:x=>x.historical_event_reactions[0]?.horizons[1]?.median_change_pct===null},
   {name:"contradictory_candidate_is_reported_as_quality_issue",input:{...common,languageAnalysis:{per_news:[],possible_conflicts:[{type:"opposing_event_frames"}]}},check:x=>x.evidence_quality.issues.some(v=>v.includes("ناسازگار"))}
  ];
  const results=tests.map(t=>{try{const out=buildDecisionBrief(t.input);return {name:t.name,passed:!!t.check(out)};}catch(e){return {name:t.name,passed:false,error:String(e?.message||e)};}});
