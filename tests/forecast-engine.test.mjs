@@ -92,7 +92,7 @@ test('NerkhAra snapshot is normalized with provider quality metadata and UTC tim
 });
 
 test('robust feedback requires 60 matured forecasts and rejects unstable training bias', () => {
-  const tooFew = Array.from({length:59}, (_,i) => ({predicted_price:100,actual_price:101,actual_at:new Date(Date.UTC(2026,0,1)-i*86400000).toISOString()}));
+  const tooFew = Array.from({length:59}, (_,i) => ({predicted_price:100,reference_price:100,actual_price:101,actual_at:new Date(Date.UTC(2026,0,1)-i*86400000).toISOString()}));
   assert.equal(robustBiasCalibration(tooFew).reason, 'insufficient_matured_forecasts');
   const unstable = Array.from({length:60}, (_,i) => ({
     predicted_price:100,
@@ -116,7 +116,7 @@ test('robust feedback limits outlier influence and promotes only after chronolog
   assert.ok(Math.abs(result.adjustment_log)<=0.01);
   assert.ok(result.adjustment_log>0);
   assert.ok(result.mad_log<0.001);
-  assert.ok(result.holdout_improvement_pct>=3);
+  assert.ok(result.holdout_improvement_pct>=3);\n  assert.equal(result.direction_accuracy_before_pct,0);\n  assert.equal(result.direction_accuracy_after_pct,100);
 });
 
 test('robust calibration rejects a training correction that fails on the recent holdout', () => {
