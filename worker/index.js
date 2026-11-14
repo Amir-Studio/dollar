@@ -105,7 +105,7 @@ function googleNewsUrl(query, locale) {
   return "https://news.google.com/rss/search?" + params.toString();
 }
 const NEWS_SOURCES = [
-  {source_id:"gdelt-doc-2",name:"GDELT DOC 2.0 web search",country_code:"GLOBAL",language_code:"multi",site_url:"https://www.gdeltproject.org",feed_url:"https://api.gdeltproject.org/api/v2/doc/doc",active:false,trust_tier:"unrated"},
+  {source_id:"gdelt-doc-2",name:"GDELT DOC 2.0 web search",country_code:"ZZ",language_code:"und",site_url:"https://www.gdeltproject.org",feed_url:"https://api.gdeltproject.org/api/v2/doc/doc",active:false,trust_tier:"unrated"},
   {source_id:"google-news-fa",name:"Google News · Persian search (temporarily unavailable)",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("(اقتصاد ایران OR بازار ارز OR دلار OR طلا OR تورم OR بانک مرکزی OR نرخ بهره OR نفت) when:3d","fa"),active:false,trust_tier:"unrated"},
   {source_id:"google-news-en",name:"Google News · Iran economy (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(Iran economy OR Iranian rial OR Iran currency OR Iran sanctions OR Iran oil OR Iran gold) when:3d","en"),active:false,trust_tier:"unrated"},
   {source_id:"google-news-global",name:"Google News · Global markets (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(gold price OR oil price OR inflation OR central bank OR interest rates OR currency markets) when:3d","en"),active:false,trust_tier:"unrated"},
@@ -171,7 +171,7 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
 }
 function gdeltTimestamp(value) {
   const raw=String(value||"");
-  const match=raw.match(/^(\d{4})(\d{2})(\d{2})T?(\d{2})(\d{2})(\d{2})$/);
+  const match=raw.match(/^(\d{4})(\d{2})(\d{2})T?(\d{2})(\d{2})(\d{2})Z?$/);
   if(match) return Date.UTC(Number(match[1]),Number(match[2])-1,Number(match[3]),Number(match[4]),Number(match[5]),Number(match[6]));
   return Date.parse(raw);
 }
