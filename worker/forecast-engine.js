@@ -3,7 +3,9 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.7-maturity-safe-walkforward";
+import { robustBiasCalibration, analyzeForecastErrors } from "./learning-engine.js";
+
+const MODEL_VERSION = "iran-ensemble-wf-2.8-robust-feedback";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -482,13 +484,10 @@ async function fetchInputs(env,asset,marketPayload) {
 async function liveBiasCalibration(env,asset,horizon) {
   try {
     const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
-    const valid=(Array.isArray(rows)?rows:[]).filter(x=>Number(x.predicted_price)>0&&Number(x.actual_price)>0);
-    if(valid.length<30) return {samples:valid.length,applied:false,log_bias:0};
-    const errors=valid.map(x=>Math.log(Number(x.actual_price)/Number(x.predicted_price)));
-    const mean=errors.reduce((a,b)=>a+b,0)/errors.length,shrink=Math.min(0.5,valid.length/60);
-    const adjustment=Math.max(-0.015,Math.min(0.015,mean*shrink));
-    return {samples:valid.length,applied:true,log_bias:Number(mean.toFixed(6)),adjustment_log:Number(adjustment.toFixed(6))};
-  } catch(error) { return {samples:0,applied:false,log_bias:0,error:String(error?.message||error).slice(0,100)}; }
+    return robustBiasCalibration(Array.isArray(rows)?rows:[]);
+  } catch(error) {
+    return {samples:0,applied:false,log_bias:0,reason:"feedback-unavailable",error:String(error?.message||error).slice(0,100)};
+  }
 }
 async function issueForecast(env,asset,horizon,input) {
   const issuedAt=new Date().toISOString();
@@ -561,7 +560,7 @@ async function evaluateDue(env,market) {
 async function runContinuousLearning(env, evaluatedNow) {
   if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
   try {
-    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
+    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,lower_price,upper_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
     const groups = new Map();
     for (const row of (Array.isArray(rows)?rows:[])) {
       const key = row.asset + ":" + row.horizon_days;
@@ -572,37 +571,20 @@ async function runContinuousLearning(env, evaluatedNow) {
     const assetMetrics={}, actions=[];
     for (const [key,sample] of groups) {
       if (!sample.length) continue;
-      const errors=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.predicted_price)-1)*100));
-      const baseline=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.reference_price)-1)*100));
-      const mae=errors.reduce((a,b)=>a+b,0)/errors.length;
-      const baselineMae=baseline.reduce((a,b)=>a+b,0)/baseline.length;
-      const skill=baselineMae>0?(1-mae/baselineMae)*100:0;
-      const directional=sample.filter(r=>typeof r.direction_correct==="boolean");
-      const accuracy=directional.length?directional.filter(r=>r.direction_correct).length/directional.length*100:null;
-      const recent=errors.slice(0,20), older=errors.slice(20);
-      const recentMae=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:null;
-      const olderMae=older.length?older.reduce((a,b)=>a+b,0)/older.length:null;
-      const drift=recent.length>=10&&older.length>=10&&recentMae!==null&&olderMae!==null&&olderMae>0&&recentMae>olderMae*1.5;
+      const metrics=analyzeForecastErrors(sample);
       const [asset,horizonText]=key.split(":");
-      assetMetrics[key]={
-        samples:sample.length,mae_pct:Number(mae.toFixed(5)),
-        no_change_mae_pct:Number(baselineMae.toFixed(5)),
-        skill_vs_no_change_pct:Number(skill.toFixed(3)),
-        directional_accuracy_pct:accuracy===null?null:Number(accuracy.toFixed(2)),
-        directional_samples:directional.length,
-        recent_20_mae_pct:recentMae===null?null:Number(recentMae.toFixed(5)),
-        previous_40_mae_pct:olderMae===null?null:Number(olderMae.toFixed(5)),
-        performance_drift:drift
-      };
-      if(sample.length>=30 && skill>=2) actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline for this model version",skill_pct:Number(skill.toFixed(3))});
-      else if(sample.length>=30) actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
-      else actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
-      if(drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
+      assetMetrics[key]=metrics;
+      if(sample.length>=30 && metrics.skill_vs_no_change_pct>=2) {
+        actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline with the required safety margin",skill_pct:metrics.skill_vs_no_change_pct});
+      } else if(sample.length>=30) {
+        actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:metrics.skill_vs_no_change_pct});
+      } else {
+        actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
+      }
+      if(metrics.performance_drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent forecast errors are materially worse than the preceding sample",recent_20_mae_pct:metrics.recent_20_mae_pct,previous_40_mae_pct:metrics.previous_40_mae_pct});
+      if(metrics.error_profile!=="balanced") actions.push({asset,horizon_days:Number(horizonText),action:"error_diagnosis",error_profile:metrics.error_profile,signed_bias_pct:metrics.signed_bias_pct,directional_accuracy_pct:metrics.directional_accuracy_pct});
+      if(metrics.interval_coverage_pct!==null && sample.length>=30 && metrics.interval_coverage_pct<70) actions.push({asset,horizon_days:Number(horizonText),action:"uncertainty_undercoverage_warning",reason:"actual outcomes fall inside the published interval too infrequently",interval_coverage_pct:metrics.interval_coverage_pct});
     }
-    const payload={
-      model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
-      asset_metrics:assetMetrics,learning_actions:actions
-    };
     await db(env,"market_learning_cycles",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify({
       model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
       asset_metrics:assetMetrics,learning_actions:actions
