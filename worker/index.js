@@ -1,5 +1,6 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
+import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION } from "./decision-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
@@ -538,7 +539,13 @@ export default {
           mode: "deterministic_domain_nlp_not_llm",
           languages: ["fa", "en"],
           news_input: "rss_excerpt_or_headline",
-          history_analysis: true
+          history_analysis: true,
+          pragmatics: {
+            enabled: true,
+            version: PRAGMATICS_VERSION,
+            curated_phrase_count: PRAGMATICS_PHRASE_COUNT,
+            capabilities: ["idioms","metaphors","irony_candidates","sarcasm_candidates","indirect_requests","taarof","politeness","rhetorical_questions","conversational_implicature","hedging","contextual_ambiguity"]
+          }
         },
         free_mode: true,
         free_forecast_enabled: true,
