@@ -32,7 +32,7 @@ test('flat series records a neutral baseline for calibration without inventing a
 });
 
 test('walk-forward ensemble can qualify on a stable synthetic trend and returns an uncertainty band', () => {
-  const points = series(420, 0.0025);
+  const points = series(600, 0.0025);
   const result = buildForecast(points, points.at(-1).p, 7);
   assert.equal(result.eligible, true, result.reason || 'Expected stable trend to beat the no-change baseline');
   assert.equal(result.horizon_days, 7);
@@ -41,6 +41,11 @@ test('walk-forward ensemble can qualify on a stable synthetic trend and returns 
   assert.ok(result.upper_price > result.predicted_price);
   assert.ok(result.validation.samples >= 30);
   assert.ok(result.validation.skill_vs_no_change_pct >= 2);
+  assert.equal(result.validation.evaluation_method, 'non_overlapping_rolling_origin_maturity_guard');
+  assert.equal(result.validation.overlapping_test_windows, false);
+  assert.ok(result.validation.effective_horizon_days.min >= 7);
+  assert.ok(result.validation.effective_horizon_days.max <= 8.5);
+  assert.equal(result.validation.target_tolerance_days, 1.5);
 });
 
 
