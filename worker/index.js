@@ -1,5 +1,6 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
+import { buildDecisionBrief } from "./decision-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -208,7 +209,7 @@ async function makeFreeAnalysis(env, asset) {
   if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
   const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
   if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 24*60*60*1000 || stamp>Date.now()+5*60*1000)
-    return reply({error:"آخرین نرخ ثبت‌شده بیش از ۷۲ ساعت قدیمی است؛ تحلیل جدید ساخته نشد."},424);
+    return reply({error:"آخرین نرخ ثبت‌شده بیش از ۲۴ ساعت قدیمی یا نامعتبر است؛ تحلیل جدید ساخته نشد."},424);
   const rows = historyRows(rawHistory);
   if (rows.length < 12) return reply({error:"تاریخچه کافی برای تحلیل در دسترس نیست."},424);
   const model = stats(rows);
@@ -218,6 +219,12 @@ async function makeFreeAnalysis(env, asset) {
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
   const languageAnalysis = analyzeMarketLanguage(news, rows);
   const topics = languageAnalysis.themes;
+  const decisionBrief = buildDecisionBrief({
+    asset,
+    quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown")},
+    history:{observations:model.count,daily_trend_pct:model.daily_pct,momentum_7d_pct:model.momentum_7d_pct,momentum_14d_pct:model.momentum_14d_pct,momentum_30d_pct:model.momentum_30d_pct,daily_volatility_pct:model.daily_volatility_pct},
+    news,languageAnalysis
+  });
   const direction = expected>0.35?"up":expected< -0.35?"down":"sideways";
   const directionFa = direction==="up"?"تمایل آماری صعودی":direction==="down"?"تمایل آماری نزولی":"روند آماری کم‌جهت";
   const summary = "بر پایهٔ رگرسیون لگاریتمی " + model.count + " مشاهدهٔ اخیر، روند روزانه حدود " +
@@ -238,6 +245,7 @@ async function makeFreeAnalysis(env, asset) {
       range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),
       confidence:null,uncertainty_pct:Number(uncertainty.toFixed(2))},
     drivers:topics,risks_fa:risks,sources:news,
+    decision_brief:decisionBrief,
     language_analysis:languageAnalysis,
     news_sources_count:news.length,recent_sources_count:recent.length,news_window_hours:72,
     coverage_score:Math.min(100,recent.length*12),
@@ -430,6 +438,17 @@ export default {
       const cachedNews = await readFreshCache(env,"news:latest",45*60*1000);
       const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
       const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
+      try {
+        const analysisResponse = await makeFreeAnalysis(env, asset);
+        if (analysisResponse.ok) {
+          const analysisBody = await analysisResponse.json();
+          data.decision_brief = analysisBody.decision_brief || null;
+          data.decision_brief_source = "same_asset_quote_and_history_analysis";
+        }
+      } catch (error) {
+        data.decision_brief = null;
+        data.decision_brief_error = String(error?.message || error).slice(0,120);
+      }
       data.news_context = {
         collected_at: cachedNews?.fetched_at || new Date().toISOString(),
         window_hours: 72,
