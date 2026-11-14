@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot } from '../worker/forecast-engine.js';
-import { robustBiasCalibration, analyzeForecastErrors } from '../worker/learning-engine.js';
+import { robustBiasCalibration, analyzeForecastErrors, diagnoseForecastRow } from '../worker/learning-engine.js';
 
 const DAY = 86_400_000;
 function series(count, dailyLogReturn) {
@@ -91,19 +91,19 @@ test('NerkhAra snapshot is normalized with provider quality metadata and UTC tim
   }
 });
 
-test('robust feedback waits for 30 matured forecasts and rejects unstable bias', () => {
-  const tooFew = Array.from({length:29}, () => ({predicted_price:100,actual_price:101,actual_at:'2026-01-01T00:00:00Z'}));
+test('robust feedback requires 60 matured forecasts and rejects unstable training bias', () => {
+  const tooFew = Array.from({length:59}, (_,i) => ({predicted_price:100,actual_price:101,actual_at:new Date(Date.UTC(2026,0,1)-i*86400000).toISOString()}));
   assert.equal(robustBiasCalibration(tooFew).reason, 'insufficient_matured_forecasts');
-  const unstable = Array.from({length:30}, (_,i) => ({
+  const unstable = Array.from({length:60}, (_,i) => ({
     predicted_price:100,
-    actual_price: i<15 ? 101 : 99,
-    actual_at: new Date(Date.UTC(2026,0,30-i)).toISOString()
+    actual_price: i>=20 && i<40 ? 101 : i>=40 ? 99 : 101,
+    actual_at: new Date(Date.UTC(2026,0,30)-i*86400000).toISOString()
   }));
   assert.equal(robustBiasCalibration(unstable).applied, false);
-  assert.equal(robustBiasCalibration(unstable).reason, 'bias_not_stable_across_windows');
+  assert.equal(robustBiasCalibration(unstable).reason, 'training_bias_not_stable');
 });
 
-test('robust feedback limits outlier influence and caps the correction', () => {
+test('robust feedback limits outlier influence and promotes only after chronological holdout improvement', () => {
   const rows = Array.from({length:60}, (_,i) => ({
     predicted_price:100,
     actual_price: i===0 ? 180 : 101,
@@ -111,9 +111,23 @@ test('robust feedback limits outlier influence and caps the correction', () => {
   }));
   const result=robustBiasCalibration(rows);
   assert.equal(result.applied,true);
+  assert.equal(result.training_samples,40);
+  assert.equal(result.holdout_samples,20);
   assert.ok(Math.abs(result.adjustment_log)<=0.01);
   assert.ok(result.adjustment_log>0);
   assert.ok(result.mad_log<0.001);
+  assert.ok(result.holdout_improvement_pct>=3);
+});
+
+test('robust calibration rejects a training correction that fails on the recent holdout', () => {
+  const rows = Array.from({length:60}, (_,i) => ({
+    predicted_price:100,
+    actual_price: i<20 ? 99 : 101,
+    actual_at: new Date(Date.UTC(2026,1,1)-i*86400000).toISOString()
+  }));
+  const result=robustBiasCalibration(rows);
+  assert.equal(result.applied,false);
+  assert.equal(result.reason,'holdout_does_not_confirm_training_bias');
 });
 
 test('error diagnosis separates systematic bias, directional accuracy and interval coverage', () => {
@@ -142,4 +156,44 @@ test('error profile resists a single extreme residual and detects recent degrada
   assert.equal(result.error_profile,'balanced');
   assert.equal(result.performance_drift,true);
   assert.ok(result.recent_20_mae_pct > result.previous_40_mae_pct * 1.5);
+});
+
+test('row diagnosis identifies forecast symptoms and weak contextual risk factors separately', () => {
+  const row={
+    predicted_price:105,reference_price:100,actual_price:102,
+    predicted_change_pct:5,direction_correct:true,lower_price:101,upper_price:104,
+    quote_source:'provider-a',model_weights:{trend:0.9,baseline:0.1},
+    validation:{
+      forecast_mode:'adaptive_directional',quote_age_hours:8,history_provider:'NerkhAra',
+      quote_quality:{source_count:1,spread_pct:2.4},
+      news_context:{event_risk_score:72}
+    }
+  };
+  const result=diagnoseForecastRow(row);
+  assert.equal(result.valid,true);
+  const codes=result.root_cause_candidates.map(x=>x.code);
+  assert.ok(codes.includes('magnitude_overforecast'));
+  assert.ok(codes.includes('aging_reference_quote'));
+  assert.ok(codes.includes('thin_quote_consensus'));
+  assert.ok(codes.includes('wide_quote_dispersion'));
+  assert.ok(codes.includes('elevated_news_event_risk'));
+  assert.ok(codes.includes('concentrated_ensemble_weight'));
+  assert.ok(codes.includes('prediction_interval_miss'));
+  assert.equal(result.contributing_factors.quote_age_band,'aging_6_24h');
+});
+
+test('error analysis reports only adequately sized source and regime cohorts', () => {
+  const rows=Array.from({length:12},(_,i)=>({
+    predicted_price:100,reference_price:100,actual_price:i<6?102:100.5,
+    predicted_change_pct:0,direction_correct:i>=6,lower_price:99,upper_price:101,
+    quote_source:i<6?'source-a':'source-b',
+    validation:{quote_age_hours:i<6?1:12,history_provider:'history-a',forecast_mode:'adaptive_directional',quote_quality:{source_count:i<6?3:1,spread_pct:i<6?0.5:2.5},news_context:{event_risk_score:i<6?10:75}},
+    actual_at:new Date(Date.UTC(2026,4,1)-i*86400000).toISOString()
+  }));
+  const result=analyzeForecastErrors(rows);
+  assert.equal(result.cohort_diagnostics.quote_source['source-a'].samples,6);
+  assert.equal(result.cohort_diagnostics.quote_source['source-b'].samples,6);
+  assert.equal(result.cohort_diagnostics.event_risk_band.elevated.samples,6);
+  assert.ok(result.root_cause_candidates.some(x=>x.code==='thin_quote_consensus'&&x.count===6));
+  assert.match(result.diagnosis_caution,/not proof of causation/);
 });
