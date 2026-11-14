@@ -10,6 +10,7 @@ test('opposing market headlines are flagged as a potential contradiction, not a 
     item('قیمت دلار افزایش یافت', 'one.example', 'https://one.example/a'),
     item('قیمت دلار کاهش یافت', 'two.example', 'https://two.example/b')
   ]);
+  console.log("DEBUG_CONFLICT",JSON.stringify(result.claims.map(x=>({metric:x.metric,polarity:x.polarity,tokens:x.tokens,day:x.published_day,domain:x.domain,checkable:x.checkable}))),JSON.stringify(result.conflicts));
   assert.equal(result.conflicts.length, 1);
   assert.equal(result.conflicts[0].relation, 'contradicts');
   assert.equal(result.conflicts[0].status, 'potential_conflict_requires_full_text_review');
