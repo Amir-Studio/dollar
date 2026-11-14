@@ -243,7 +243,6 @@ export function runPragmaticsBenchmark() {
       "Irony, sarcasm, indirect requests, politeness and implicature require conversational context; this engine only flags possible readings.",
       "Unseen expressions, dialects, cultural variation and multi-turn intent may be missed."
     ],
-    examples:results
   };
 }
 
