@@ -600,21 +600,23 @@ async function runContinuousLearning(env, evaluatedNow) {
     for (const [key,sample] of groups) {
       if (!sample.length) continue;
       const metrics=analyzeForecastErrors(sample);
+      const adaptiveSample=sample.filter(row=>row.validation?.forecast_mode==="adaptive_directional");
+      const adaptiveMetrics=analyzeForecastErrors(adaptiveSample);
       const [asset,horizonText]=key.split(":");
-      assetMetrics[key]=metrics;
-      if(sample.length>=30 && metrics.skill_vs_no_change_pct>=2) {
-        actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline with the required safety margin",skill_pct:metrics.skill_vs_no_change_pct});
-      } else if(sample.length>=30) {
-        actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:metrics.skill_vs_no_change_pct});
+      assetMetrics[key]={...metrics,baseline_only_samples:sample.length-adaptiveSample.length,adaptive_directional_metrics:adaptiveMetrics};
+      if(adaptiveSample.length>=30 && adaptiveMetrics.skill_vs_no_change_pct>=2) {
+        actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"adaptive directional forecasts beat the no-change baseline on matured live outcomes",skill_pct:adaptiveMetrics.skill_vs_no_change_pct,samples:adaptiveSample.length});
+      } else if(adaptiveSample.length>=30) {
+        actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"adaptive directional forecasts have not beaten the no-change baseline by the 2% safety margin",skill_pct:adaptiveMetrics.skill_vs_no_change_pct,samples:adaptiveSample.length});
       } else {
-        actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
+        actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_adaptive_evidence",reason:"baseline-only forecasts are excluded from directional skill scoring; at least 30 matured adaptive forecasts are required",samples:adaptiveSample.length,required:30,baseline_only_samples:sample.length-adaptiveSample.length});
       }
-      if(metrics.performance_drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent forecast errors are materially worse than the preceding sample",recent_20_mae_pct:metrics.recent_20_mae_pct,previous_60_mae_pct:metrics.previous_60_mae_pct});
-      if(metrics.error_profile!=="balanced") actions.push({asset,horizon_days:Number(horizonText),action:"error_diagnosis",error_profile:metrics.error_profile,signed_bias_pct:metrics.signed_bias_pct,directional_accuracy_pct:metrics.directional_accuracy_pct});
-      for(const candidate of metrics.root_cause_candidates||[]) {
+      if(adaptiveMetrics.performance_drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent adaptive forecast errors are materially worse than the preceding sample",recent_20_mae_pct:adaptiveMetrics.recent_20_mae_pct,previous_60_mae_pct:adaptiveMetrics.previous_60_mae_pct});
+      if(adaptiveMetrics.error_profile!=="balanced") actions.push({asset,horizon_days:Number(horizonText),action:"error_diagnosis",error_profile:adaptiveMetrics.error_profile,signed_bias_pct:adaptiveMetrics.signed_bias_pct,directional_accuracy_pct:adaptiveMetrics.directional_accuracy_pct});
+      for(const candidate of adaptiveMetrics.root_cause_candidates||[]) {
         if(candidate.count>=3) actions.push({asset,horizon_days:Number(horizonText),action:"repeated_error_pattern",candidate_code:candidate.code,count:candidate.count,share_pct:candidate.share_pct,interpretation:"association_only_not_causal_proof"});
       }
-      for(const [dimension,cohorts] of Object.entries(metrics.cohort_diagnostics||{})) {
+      for(const [dimension,cohorts] of Object.entries(adaptiveMetrics.cohort_diagnostics||{})) {
         const ranked=Object.entries(cohorts).filter(([,value])=>value.samples>=5).sort((a,b)=>b[1].mae_pct-a[1].mae_pct);
         if(ranked.length>=2) {
           const [worstKey,worst]=ranked[0], [bestKey,best]=ranked[ranked.length-1];
