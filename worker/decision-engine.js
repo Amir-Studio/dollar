@@ -91,6 +91,33 @@ function historyMetrics(history,now){
   direction_consistency:null,median_observation_interval_hours:null,trend_score_not_probability:fallbackScore.length?score:null,
   signal:fallbackScore.length<1?"unknown":score>0.5?"up":score< -0.5?"down":"sideways",raw_rows_used:0};
 }
+function historicalEventReactions(context){
+ const observations=Array.isArray(context?.observations)?context.observations:[];
+ const grouped=new Map();
+ for(const item of observations){
+  for(const id of Array.isArray(item.event_ids)?item.event_ids:[]){
+   const group=grouped.get(id)||{event_id:id,by_horizon:{1:[],3:[],7:[]}};
+   const after=item.subsequent_price_observations||{};
+   for(const h of [1,3,7]){
+    const change=num(after[h]?.change_pct);
+    if(change!==null)group.by_horizon[h].push(change);
+   }
+   grouped.set(id,group);
+  }
+ }
+ const median=values=>{const a=[...values].sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;};
+ return [...grouped.values()].map(group=>{
+  const horizons={};
+  for(const h of [1,3,7]){
+   const values=group.by_horizon[h],up=values.filter(x=>x>0).length;
+   horizons[h]={sample_count:values.length,median_change_pct:values.length>=3?Number(median(values).toFixed(3)):null,
+    positive_observation_share:values.length>=3?Number((up/values.length).toFixed(2)):null,
+    usable_for_pattern_summary:values.length>=3};
+  }
+  return {event_id:group.event_id,label_fa:EVENT_LABELS[group.event_id]||group.event_id,horizons,
+   interpretation:"historical_temporal_association_not_causation"};
+ }).sort((a,b)=>Math.max(b.horizons[1].sample_count,b.horizons[3].sample_count,b.horizons[7].sample_count)-Math.max(a.horizons[1].sample_count,a.horizons[3].sample_count,a.horizons[7].sample_count));
+}
 function newsMetrics(news,analyses,now){
  const raw=Array.isArray(news)?news:[];
  const rows=Array.isArray(analyses)?analyses:[];
@@ -107,8 +134,8 @@ function newsMetrics(news,analyses,now){
   const uncertaintyFactor=a.uncertain?0.45:1;
   const assertion=a.english_semantics?.assertion||"";
   const assertionFactor=["conditional","forecast_or_possibility","negated_or_denied"].includes(assertion)?0.45:assertion==="attributed_report"?0.72:1;
-  const confidence=clamp(num(a.confidence)??0.35,0.2,0.92);
-  const weight=fresh*textFactor*uncertaintyFactor*assertionFactor*(0.55+0.45*confidence);
+  const lexicalMatchScore=clamp(num(a.confidence)??0.35,0.2,0.92);
+  const weight=fresh*textFactor*uncertaintyFactor*assertionFactor*(0.55+0.45*lexicalMatchScore);
   const domain=hostOf(a.source);
   for(const event of events){
    const id=event.id;
@@ -117,7 +144,7 @@ function newsMetrics(news,analyses,now){
    evidence.push({event_id:id,label_fa:EVENT_LABELS[id],risk_direction:risk,title:a.title||"",source:domain,
     published_at:a.published_at||null,age_hours:ageHours===null?null:Number(ageHours.toFixed(1)),
     content_type:textFactor===1?"rss_excerpt":"headline_only",assertion,uncertain:!!a.uncertain,
-    semantic_confidence:confidence,weight:Number(weight.toFixed(3))});
+    lexicon_match_score_not_calibrated:lexicalMatchScore,weight:Number(weight.toFixed(3))});
   }
  }
  const riskUp=evidence.filter(x=>x.risk_direction==="up").reduce((s,x)=>s+x.weight,0);
@@ -143,9 +170,11 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  const quoteAge=quoteStamp===null?null:Math.max(0,(now-quoteStamp)/3600000);
  const h=historyMetrics(history,now);
  const n=newsMetrics(news,languageAnalysis?.per_news,now);
+ const eventReactions=historicalEventReactions(languageAnalysis?.event_price_context);
  const conflicts=Array.isArray(languageAnalysis?.possible_conflicts)?languageAnalysis.possible_conflicts:[];
  const quoteFresh=quoteAge!==null&&quoteAge<=6;
  const historyFresh=h.last_observation_age_hours===null||h.last_observation_age_hours<=72;
+ const quoteHistoryGap=h.last_price&&price>0?((price/h.last_price)-1)*100:null;
  const enoughHistory=h.observations>=30;
  const enoughNews=n.recent_72h_count>=3&&n.unique_story_clusters>=3&&n.unique_publisher_domains>=2;
  const sourceDiversity=n.unique_publisher_domains>=3&&n.unique_story_clusters>=5;
@@ -156,6 +185,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  if(h.observations<12)issues.push("کمتر از ۱۲ مشاهدهٔ تاریخی موجود است.");
  else if(!enoughHistory)issues.push("تاریخچه برای سنجش پایدار روند هنوز به ۳۰ مشاهده نرسیده است.");
  if(!historyFresh)issues.push("آخرین مشاهدهٔ تاریخچه بیش از ۷۲ ساعت قدیمی است.");
+ if(quoteHistoryGap!==null&&Math.abs(quoteHistoryGap)>5)issues.push("قیمت فعلی با آخرین نقطهٔ تاریخچه بیش از ۵٪ اختلاف دارد؛ احتمال تفاوت زمان یا منبع داده بررسی شود.");
  if(!enoughNews)issues.push("تعداد خبرهای تازه، داستان‌های مستقل یا ناشران کافی نیست.");
  if(n.likely_syndication_ratio>=0.35)issues.push("بخشی از تیترها احتمالاً بازنشر یک خبر واحد هستند.");
  if(n.excerpt_coverage_pct<30)issues.push("بیشتر داده‌های خبری تیترمحورند و متن چکیدهٔ کافی ندارند.");
@@ -192,7 +222,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
   engine:"deterministic_evidence_synthesis",version:DECISION_ENGINE_VERSION,asset,as_of:new Date(now).toISOString(),
   decision_label_fa:action==="wait_for_reliable_data"?"دادهٔ معتبر بیشتری لازم است":action==="wait_for_confirmation"?"فعلاً نیازمند تأیید بیشتر":action==="monitor_without_directional_claim"?"پایش؛ بدون جهت‌گیری": "پایش روند و ریسک خبرها",
   action,
-  price_context:{reference_price:price,quote_age_hours:quoteAge===null?null:Number(quoteAge.toFixed(2)),history_observations:h.observations,
+  price_context:{reference_price:price,quote_history_gap_pct:quoteHistoryGap===null?null:Number(quoteHistoryGap.toFixed(2)),quote_age_hours:quoteAge===null?null:Number(quoteAge.toFixed(2)),history_observations:h.observations,
    last_observation_at:h.last_observation_at,last_observation_age_hours:h.last_observation_age_hours,
    return_7_observations_pct:h.return_7_observations_pct,return_14_observations_pct:h.return_14_observations_pct,
    return_30_observations_pct:h.return_30_observations_pct,volatility_pct:h.volatility_pct,
@@ -205,7 +235,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
   limitations_fa:["وزن‌ها و آستانه‌ها قواعد شفاف‌اند و هنوز با آزمون تاریخی کالیبره نشده‌اند.",
    "فشار ریسک خبری معادل جهت حرکت قیمت دارایی نیست.",
    "تعداد دامنه‌ها استقلال تحریریه‌ای ناشران را ثابت نمی‌کند.",
-   "خبرهای تیترمحور ممکن است زمینه، تکذیب یا شرط مهم را حذف کرده باشند.",
+   "خبرهای تیترمحور ممکن است زمینه، تکذیب یا شرط مهم را حذف کرده باشند.",\n   "واکنش‌های تاریخی به رویدادها فقط همراهی زمانی هستند و به‌دلیل تغییر شرایط، اثر آینده را تضمین نمی‌کنند.",
    "این خروجی اطلاعاتی است و توصیهٔ خرید، فروش یا نگهداری دارایی نیست."]
  };
 }
