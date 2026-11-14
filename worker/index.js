@@ -1,7 +1,7 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
-import { buildDecisionBrief, DECISION_ENGINE_VERSION } from "./decision-engine.js";
+import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -223,7 +223,7 @@ async function makeFreeAnalysis(env, asset) {
   const decisionBrief = buildDecisionBrief({
     asset,
     quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown")},
-    history:{observations:model.count,daily_trend_pct:model.daily_pct,momentum_7d_pct:model.momentum_7d_pct,momentum_14d_pct:model.momentum_14d_pct,momentum_30d_pct:model.momentum_30d_pct,daily_volatility_pct:model.daily_volatility_pct},
+    history:{rows,summary:{observations:model.count,last_price:model.last_price,daily_trend_pct:model.daily_pct,momentum_7d_pct:model.momentum_7d_pct,momentum_14d_pct:model.momentum_14d_pct,momentum_30d_pct:model.momentum_30d_pct,daily_volatility_pct:model.daily_volatility_pct,max_drawdown_30d_pct:model.max_drawdown_30d_pct}},
     news,languageAnalysis
   });
   const direction = expected>0.35?"up":expected< -0.35?"down":"sideways";
@@ -530,7 +530,8 @@ export default {
           version: DECISION_ENGINE_VERSION,
           mode: "deterministic_evidence_synthesis_not_llm",
           probability_calibrated: false,
-          uses_news_and_price_history: true
+          uses_news_and_price_history: true,
+          self_test: runDecisionEngineSelfTest()
         },
         language_engine: {
           enabled: true,
