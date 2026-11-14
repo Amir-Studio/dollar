@@ -569,7 +569,7 @@ export default {
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
-        source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
+        source_count:new Set(items.map(x=>x.domain||x.source_id)).size,
         potential_conflicts:conflicts,
         potential_conflict_count:conflicts.length,
         verification,
@@ -672,6 +672,8 @@ export default {
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: true,
+        web_search_provider:"GDELT DOC 2.0",
+        web_search_live_status:"checked_on_request_not_by_health",
         news_verification_engine:{enabled:true,name:"Dollar Evidence-Aware News Verifier",version:"1.0.0",provider:"GDELT DOC 2.0",verdicts:["corroborated_by_independent_headlines","contradicted_by_independent_headlines","mixed_evidence","insufficient_independent_evidence","not_checkable_from_headline"],full_text_verification:false},
         capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-error-root-cause-diagnostics","forecast-drift-monitoring","forecast-performance-api","free-news-rss","gdelt-web-search","evidence-aware-news-verification","cross-source-contradiction-screening","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
