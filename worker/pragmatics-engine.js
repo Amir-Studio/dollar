@@ -1,7 +1,7 @@
 // Dollar bilingual pragmatics module.
 // Curated phrase-level support for figurative language and conversational intent.
 // This is deterministic NLP, not a generative model or human-level comprehension.
-export const PRAGMATICS_VERSION = "dollar-pragmatics-0.1.0";
+export const PRAGMATICS_VERSION = "dollar-pragmatics-0.2.0";
 
 const normalize = value => String(value ?? "")
   .replace(/[ي]/g, "ی").replace(/[ك]/g, "ک").replace(/[ۀة]/g, "ه")
@@ -157,47 +157,145 @@ const RULES = {
 
 const PRIORITY = ["idiom","metaphor","sarcasm","irony","taarof","politeness","indirect_request","rhetorical_question","implicature","hedging","ambiguity"];
 
-function detect(text, language) {
+const CONTEXT_CUES = {
+  fa: {
+    negative:["خراب","بد","بدتر","شکست","اشتباه","دیر","مشکل","افتضاح","ناراحت","عصبانی","زیان","ضرر","سرد","باران","ناموفق","خرابی"],
+    positive:["عالی","خوب","موفق","درست","به موقع","خوشحال","سود","پیشرفت","زیبا","دلپذیر"],
+    negation:["نه","نیست","نبود","نمی","هرگز","اصلاً","هیچ","بدون","قرار نیست"],
+    contrast:["اما","ولی","با این حال","در حالی که","برعکس","هرچند","باوجود"]
+  },
+  en: {
+    negative:["bad","worse","broken","failed","failure","mistake","late","problem","terrible","upset","angry","loss","cold","rain","unsuccessful","wrong"],
+    positive:["great","good","successful","right","on time","happy","profit","progress","beautiful","lovely","perfect"],
+    negation:["not","no","never","without","isn't","aren't","wasn't","weren't","don't","doesn't","didn't","can't","cannot","won't"],
+    contrast:["but","however","although","though","whereas","nevertheless","despite","in contrast"]
+  }
+};
+
+const CONTEXT_DEPENDENT = new Set(["irony","sarcasm","indirect_request","taarof","politeness","implicature","ambiguity"]);
+
+function hasTokenSequence(haystack, needle) {
+  return (" " + haystack + " ").includes(" " + needle + " ");
+}
+
+function hasNegationNear(normalized, phrase) {
+  const tokens = normalized.split(" ");
+  const phraseTokens = phrase.split(" ");
+  for (let i=0;i<=tokens.length-phraseTokens.length;i++) {
+    if (tokens.slice(i,i+phraseTokens.length).join(" ") !== phrase) continue;
+    const before = tokens.slice(Math.max(0,i-3),i);
+    if (before.some(token => ["not","no","never","without","isnt","arent","wasnt","werent","dont","doesnt","didnt","cant","cannot","wont","نه","نیست","نبود","نمی","هرگز","اصلا","هیچ","بدون"].includes(token))) return true;
+  }
+  return false;
+}
+
+function isQuotedMention(originalText, phrase) {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s+");
+  const patterns = [
+    new RegExp("[«“‘]" + escaped + "[»”’]","i"),
+    new RegExp('["\\u0027]' + escaped + '["\\u0027]',"i")
+  ];
+  return patterns.some(pattern=>pattern.test(String(originalText||"")));
+}
+
+function detect(text, language, source="utterance") {
   const normalized = normalize(text);
+  if (!normalized) return [];
   const matches = [];
   for (const group of RULES[language] || []) {
     for (const [phrase, meaning] of group.entries) {
       const needle = normalize(phrase);
-      if (needle && normalized.includes(needle)) {
-        matches.push({
-          category:group.category,
-          category_fa:group.label_fa,
-          phrase,
-          possible_meaning_fa:meaning,
-          requires_context:group.requires_context === true
-        });
-      }
+      if (!needle || !hasTokenSequence(normalized,needle)) continue;
+      const negated = hasNegationNear(normalized,needle);
+      const quoted = isQuotedMention(text,phrase);
+      matches.push({
+        category:group.category,
+        category_fa:group.label_fa,
+        phrase,
+        possible_meaning_fa:meaning,
+        requires_context:group.requires_context === true || CONTEXT_DEPENDENT.has(group.category),
+        source,
+        negated,
+        quoted_mention:quoted,
+        usable_as_intent_evidence:!quoted && !(negated && CONTEXT_DEPENDENT.has(group.category))
+      });
     }
   }
-  return matches.sort((a,b) => PRIORITY.indexOf(a.category)-PRIORITY.indexOf(b.category));
+  return matches.sort((a,b) => {
+    const length = normalize(b.phrase).length-normalize(a.phrase).length;
+    return length || PRIORITY.indexOf(a.category)-PRIORITY.indexOf(b.category);
+  });
+}
+
+function inspectContext(text, language) {
+  const normalized=normalize(text);
+  const cues=CONTEXT_CUES[language];
+  const hits=list=>list.filter(term=>hasTokenSequence(normalized,normalize(term)));
+  const negative=hits(cues.negative);
+  const positive=hits(cues.positive);
+  const negation=hits(cues.negation);
+  const contrast=hits(cues.contrast);
+  return {
+    negative_cues:negative,
+    positive_cues:positive,
+    negation_cues:negation,
+    contrast_cues:contrast,
+    polarity:negative.length>positive.length?"negative":positive.length>negative.length?"positive":"mixed_or_unknown"
+  };
 }
 
 export function analyzePragmatics(text, language, context = "") {
-  const lang = language === "fa" || language === "en" ? language : (/[؀-ۿ]/.test(String(text||"")) ? "fa" : "en");
-  const combined = [context,text].filter(Boolean).join(" ");
-  const signals = detect(combined, lang);
-  const categories = [...new Set(signals.map(x => x.category))];
-  const requiresContext = signals.some(x => x.requires_context);
-  const ambiguous = categories.includes("ambiguity");
-  const strongest = signals[0] || null;
+  const lang = language === "fa" || language === "en" ? language : (/[\u0600-\u06ff]/.test(String(text||"")) ? "fa" : "en");
+  const utteranceSignals=detect(text,lang,"utterance");
+  const contextSignals=detect(context,lang,"context");
+  const signals=utteranceSignals.filter(signal=>signal.usable_as_intent_evidence);
+  const contextFeatures=inspectContext(context,lang);
+  const utteranceFeatures=inspectContext(text,lang);
+  const categories=[...new Set(signals.map(x=>x.category))];
+  const contextDependent=signals.some(x=>x.requires_context);
+  const quotedOnly=utteranceSignals.length>0 && signals.length===0 && utteranceSignals.every(x=>x.quoted_mention);
+  const contextHasNegative= contextFeatures.polarity==="negative";
+  const contextHasPositive= contextFeatures.polarity==="positive";
+  const ironyCandidates=signals.filter(x=>x.category==="irony"||x.category==="sarcasm");
+  const ironyContextSupport=ironyCandidates.length>0 && (
+    (utteranceFeatures.polarity==="positive" && contextHasNegative) ||
+    (utteranceFeatures.polarity==="negative" && contextHasPositive) ||
+    contextFeatures.contrast_cues.length>0
+  );
+  const needsContext=contextDependent && !ironyContextSupport;
+  const alternatives=[];
+  if (categories.includes("ambiguity")) alternatives.push("موافقت واقعی","پذیرش موقت","پایان دادن به بحث","نارضایتی غیرمستقیم");
+  if (categories.includes("indirect_request")) alternatives.push("گزارش ساده وضعیت","درخواست غیرمستقیم برای تغییر شرایط");
+  if (categories.includes("implicature")) alternatives.push("تعویق تصمیم","تردید","رد مؤدبانه","پاسخ خنثی");
+  if (ironyCandidates.length) alternatives.push("تعریف واقعی","طعنه یا کنایه وابسته به موقعیت");
+  const strongest=signals[0]||null;
+  const confidence=quotedOnly?0.9:!signals.length?0.2:contextDependent?(ironyContextSupport?0.68:0.42):0.78;
+  let status;
+  if (quotedOnly) status="quoted_mention_not_intent";
+  else if (!signals.length) status="no_known_marker";
+  else if (needsContext) status="context_required";
+  else if (ironyContextSupport) status="context_supported_candidate";
+  else if (categories.includes("ambiguity")) status="ambiguous_multiple_readings";
+  else status="known_expression_match";
   return {
     language:lang,
     categories,
     signals,
-    possible_intent_fa:ambiguous
-      ? "چند برداشت ممکن است؛ بدون بافت مکالمه نباید یکی را قطعی دانست."
-      : strongest?.possible_meaning_fa || "نشانه روشن از معنای غیرتحت‌اللفظی پیدا نشد؛ ممکن است جمله literal باشد یا نشانه آن در واژگان موجود نباشد.",
-    interpretation_status:!signals.length ? "no_known_marker"
-      : ambiguous ? "ambiguous_multiple_readings"
-      : requiresContext ? "context_required"
-      : "known_expression_match",
-    confidence_ceiling:!signals.length ? 0.25 : requiresContext ? 0.55 : 0.82,
-    requires_more_context:requiresContext || ambiguous,
+    context_signals:contextSignals.map(({phrase,category,possible_meaning_fa})=>({phrase,category,possible_meaning_fa})),
+    context_features:contextFeatures,
+    possible_intent_fa:quotedOnly
+      ? "عبارت در متن نقل یا بررسی شده است؛ نباید آن را قصد واقعی گوینده تلقی کرد."
+      : !strongest
+        ? "نشانه شناخته‌شده‌ای پیدا نشد؛ این به معنی نبود کنایه یا منظور ضمنی نیست."
+        : needsContext
+          ? "چند برداشت ممکن است؛ برای تعیین منظور، جمله‌های قبل و بعد و موقعیت لازم است."
+          : strongest.possible_meaning_fa,
+    alternative_readings:alternatives,
+    interpretation_status:status,
+    confidence_estimate:confidence,
+    confidence_is_calibrated:false,
+    requires_more_context:needsContext,
+    context_supports_irony_candidate:ironyContextSupport,
     safety_rule:"این خروجی برداشت احتمالی است؛ از روی یک عبارت به‌تنهایی احساس، نیت یا صداقت گوینده را قطعی اعلام نکن."
   };
 }
