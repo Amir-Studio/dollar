@@ -160,13 +160,13 @@ const PRIORITY = ["idiom","metaphor","sarcasm","irony","taarof","politeness","in
 const CONTEXT_CUES = {
   fa: {
     negative:["خراب","بد","بدتر","شکست","اشتباه","دیر","مشکل","افتضاح","ناراحت","عصبانی","زیان","ضرر","سرد","باران","ناموفق","خرابی"],
-    positive:["عالی","خوب","موفق","درست","به موقع","خوشحال","سود","پیشرفت","زیبا","دلپذیر"],
+    positive:["عالی","خوب","خوبی","موفق","درست","به موقع","خوشحال","سود","پیشرفت","زیبا","دلپذیر"],
     negation:["نه","نیست","نبود","نمی","هرگز","اصلاً","هیچ","بدون","قرار نیست"],
     contrast:["اما","ولی","با این حال","در حالی که","برعکس","هرچند","باوجود"]
   },
   en: {
     negative:["bad","worse","broken","failed","failure","mistake","late","problem","terrible","upset","angry","loss","cold","rain","unsuccessful","wrong"],
-    positive:["great","good","successful","right","on time","happy","profit","progress","beautiful","lovely","perfect"],
+    positive:["great","good","successful","right","on time","happy","profit","progress","beautiful","lovely","perfect","brilliant","genius","well done"],
     negation:["not","no","never","without","isn't","aren't","wasn't","weren't","don't","doesn't","didn't","can't","cannot","won't"],
     contrast:["but","however","although","though","whereas","nevertheless","despite","in contrast"]
   }
@@ -260,7 +260,7 @@ export function analyzePragmatics(text, language, context = "") {
   const ironyContextSupport=ironyCandidates.length>0 && (
     (utteranceFeatures.polarity==="positive" && contextHasNegative) ||
     (utteranceFeatures.polarity==="negative" && contextHasPositive) ||
-    contextFeatures.contrast_cues.length>0
+    (contextFeatures.contrast_cues.length>0 && contextHasNegative && contextHasPositive)
   );
   const needsContext=contextDependent && !ironyContextSupport;
   const alternatives=[];
