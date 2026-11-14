@@ -605,7 +605,7 @@ export async function handleForecastApi(url,env) {
       const data=await db(env,"market_forecast_runs?"+query.toString());
       return Response.json({
         asset,horizon_days:horizon,forecasts:data||[],
-        ledger_meta:{returned_rows:Array.isArray(data)?data.length:0,limit:requestedLimit,generated_at:new Date().toISOString(),truncated:Array.isArray(data)&&data.length===requestedLimit}
+        ledger_meta:{returned_rows:Array.isArray(data)?data.length:0,limit:requestedLimit,active_model_version:MODEL_VERSION,generated_at:new Date().toISOString(),truncated:Array.isArray(data)&&data.length===requestedLimit}
       },{headers:{"cache-control":"no-store"}});
     }
     const horizon=Number(url.searchParams.get("horizon_days")||7);
