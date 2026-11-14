@@ -63,7 +63,7 @@ test('non-checkable headlines abstain rather than receiving a fabricated verdict
 
 test('Persian digits and source provenance are normalized', () => {
   const claim = extractNewsClaim(item('قیمت نفت برنت به ۷۰ دلار رسید', 'www.example.com', 'https://www.example.com/a'));
-  assert.equal(claim.domain, 'www.example.com');
+  assert.equal(claim.domain, 'example.com');
   assert.equal(claim.numbers[0].value, 70);
   assert.equal(claim.source_class, 'publisher_unrated');
 });
@@ -82,4 +82,45 @@ test('claim search comparison allows older retrieved evidence when claim has no 
   ]);
   assert.equal(result.verdict, 'corroborated_by_retrieved_headlines');
   assert.equal(result.supporting_count, 2);
+});
+
+
+test('news verification API searches GDELT and exposes linked evidence without overstating certainty', async () => {
+  const worker = (await import('../worker/index.js')).default;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    assert.match(url, /api\.gdeltproject\.org\/api\/v2\/doc\/doc/);
+    assert.match(url, /mode=ArtList/);
+    return new Response(JSON.stringify({articles:[
+      {title:'قیمت دلار افزایش یافت',url:'https://one.example/news/a',domain:'one.example',seendate:'20261113T100000Z'},
+      {title:'قیمت دلار رشد کرد',url:'https://two.example/news/b',domain:'two.example',seendate:'20261113T110000Z'}
+    ]}),{status:200,headers:{'content-type':'application/json'}});
+  };
+  try {
+    const response=await worker.fetch(new Request('https://worker.example/news/verify?claim='+encodeURIComponent('قیمت دلار افزایش یافت')), {});
+    assert.equal(response.status,200);
+    const body=await response.json();
+    assert.equal(body.search_provider,'GDELT DOC 2.0');
+    assert.equal(body.verdict,'corroborated_by_retrieved_headlines');
+    assert.equal(body.supporting_count,2);
+    assert.ok(body.evidence.every(x=>x.url.startsWith('https://')));
+    assert.match(body.caution,/نمی‌تواند خبر را قطعی درست یا دروغ اعلام کند/);
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
+test('news verification API abstains when internet search is unavailable', async () => {
+  const worker = (await import('../worker/index.js')).default;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response('rate limited',{status:429,headers:{'content-type':'text/plain'}});
+  try {
+    const response=await worker.fetch(new Request('https://worker.example/news/verify?claim='+encodeURIComponent('قیمت دلار افزایش یافت')), {});
+    assert.equal(response.status,503);
+    const body=await response.json();
+    assert.equal(body.verdict,'search_unavailable');
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
 });
