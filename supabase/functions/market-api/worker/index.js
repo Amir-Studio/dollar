@@ -1,4 +1,8 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
+import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
+import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
+import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
+import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -17,7 +21,7 @@ const ANALYSIS_ASSETS = new Set([
 const H = {
   "content-type": "application/json; charset=utf-8",
   "access-control-allow-origin": ORIGIN,
-  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers": "Content-Type",
   "x-content-type-options": "nosniff"
 };
@@ -68,31 +72,6 @@ function stats(rows) {
     daily_volatility_pct: dailyVol, max_drawdown_30d_pct: maxDrawdown
   };
 }
-function citations(resp) {
-  const out = [];
-  const add = (url, title, publishedAt, snippet) => {
-    if (!url || !/^https?:\/\//i.test(url)) return;
-    let parsed; try { parsed = new URL(url); } catch { return; }
-    const existing = out.find(x => x.url === url);
-    const date = publishedAt ? String(publishedAt) : null;
-    if (existing) {
-      if (!existing.published_at && date) existing.published_at = date;
-      if (!existing.snippet && snippet) existing.snippet = String(snippet).slice(0,360);
-      return;
-    }
-    out.push({title:title || parsed.hostname, url, domain:parsed.hostname.replace(/^www\./,""),
-      published_at:date, snippet:snippet ? String(snippet).slice(0,360) : null});
-  };
-  for (const item of resp.output || []) {
-    const ss = item.type === "web_search_call" ? (item.action?.sources || item.results || []) : [];
-    for (const s of ss) add(s.url || s.uri, s.title, s.published_date || s.publishedAt || s.date || s.last_updated, s.snippet || s.description);
-    for (const c of (item.content || [])) for (const a of (c.annotations || [])) {
-      if (a.type === "url_citation") add(a.url, a.title, a.published_at || a.published_date, a.snippet);
-    }
-  }
-  return out.slice(0,12);
-}
-
 function xmlText(value) {
   return String(value || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
@@ -144,7 +123,7 @@ function rssLink(block, feedUrl) {
   const raw = textLink || atomLink || rssTag(block,"guid");
   try { return new URL(xmlText(raw),feedUrl).href; } catch { return ""; }
 }
-async function readNewsFeed(feed) {
+async function readNewsFeed(feed, maxAgeHours = 72) {
   const response = await fetch(feed.url, {
     headers: { accept:"application/rss+xml, application/atom+xml, application/xml, text/xml", "user-agent":"DollarMarketBrief/2.0" },
     signal:AbortSignal.timeout(12000)
@@ -155,10 +134,11 @@ async function readNewsFeed(feed) {
   let invalid=0, outsideWindow=0, irrelevant=0;
   for (const match of blocks) {
     const block=match[2], title=rssTag(block,"title"), link=rssLink(block,feed.url);
+    const articleText=(rssTag(block,"content:encoded") || rssTag(block,"description") || rssTag(block,"summary") || rssTag(block,"content")).slice(0,3000);
     const publishedText=rssTag(block,"pubDate") || rssTag(block,"published") || rssTag(block,"updated") || rssTag(block,"dc:date") || rssTag(block,"date");
     const published=Date.parse(publishedText);
     if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) { invalid++; continue; }
-    if (published>Date.now()+5*60*1000 || Date.now()-published>72*60*60*1000) { outsideWindow++; continue; }
+    if (published>Date.now()+5*60*1000 || Date.now()-published>maxAgeHours*60*60*1000) { outsideWindow++; continue; }
     if (!isMarketNews(title)) { irrelevant++; continue; }
     const sourceMatch=block.match(/<source\b([^>]*)>([\s\S]*?)<\/source>/i);
     const sourceUrl=sourceMatch?.[1]?.match(/\burl=["']([^"']+)["']/i)?.[1];
@@ -166,14 +146,15 @@ async function readNewsFeed(feed) {
     try { domain=new URL(sourceUrl || link).hostname.replace(/^www\./,""); } catch {}
     items.push({
       title,url:link,domain,published_at:new Date(published).toISOString(),
-      source_id:feed.source_id,language_code:feed.language_code,original_title:title
+      source_id:feed.source_id,language_code:feed.language_code,original_title:title,
+      original_text:articleText
     });
   }
-  console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_72h",outsideWindow,"irrelevant",irrelevant);
+  console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
-async function collectNews() {
-  const results=await Promise.allSettled(NEWS_FEEDS.map(readNewsFeed));
+async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
+  const results=await Promise.allSettled(NEWS_FEEDS.map(feed => readNewsFeed(feed,maxAgeHours)));
   const seenUrls=new Set(),items=[];
   results.forEach((result,index)=>{
     const sourceId=NEWS_FEEDS[index].source_id;
@@ -190,7 +171,7 @@ async function collectNews() {
       seenUrls.add(urlKey);items.push(item);
     }
   });
-  const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,50);
+  const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,Math.max(1,Math.min(200,Number(limit)||50)));
   console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"unique",sorted.length);
   return sorted;
 }
@@ -225,12 +206,12 @@ async function makeFreeAnalysis(env, asset) {
   ]);
   const market = cachedMarket?.payload || await getMarketSnapshot(env);
   const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
-  const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
+  const news = cachedNews?.items || storedNews;
   const item = (market.data || []).find(x => x.symbol === asset);
   if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
   const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
   if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 24*60*60*1000 || stamp>Date.now()+5*60*1000)
-    return reply({error:"آخرین نرخ ثبت‌شده بیش از ۷۲ ساعت قدیمی است؛ تحلیل جدید ساخته نشد."},424);
+    return reply({error:"آخرین نرخ ثبت‌شده بیش از ۲۴ ساعت قدیمی یا نامعتبر است؛ تحلیل جدید ساخته نشد."},424);
   const rows = historyRows(rawHistory);
   if (rows.length < 12) return reply({error:"تاریخچه کافی برای تحلیل در دسترس نیست."},424);
   const model = stats(rows);
@@ -238,7 +219,14 @@ async function makeFreeAnalysis(env, asset) {
   const target = price*(1+expected/100);
   const uncertainty = Math.max(2.5,Math.min(18,model.sigma*Math.sqrt(7)*100*1.5));
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
-  const topics = newsTopics(news);
+  const languageAnalysis = analyzeMarketLanguage(news, rows);
+  const topics = languageAnalysis.themes;
+  const decisionBrief = buildDecisionBrief({
+    asset,
+    quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown")},
+    history:{rows,summary:{observations:model.count,last_price:model.last_price,daily_trend_pct:model.daily_pct,momentum_7d_pct:model.momentum_7d_pct,momentum_14d_pct:model.momentum_14d_pct,momentum_30d_pct:model.momentum_30d_pct,daily_volatility_pct:model.daily_volatility_pct,max_drawdown_30d_pct:model.max_drawdown_30d_pct}},
+    news,languageAnalysis
+  });
   const direction = expected>0.35?"up":expected< -0.35?"down":"sideways";
   const directionFa = direction==="up"?"تمایل آماری صعودی":direction==="down"?"تمایل آماری نزولی":"روند آماری کم‌جهت";
   const summary = "بر پایهٔ رگرسیون لگاریتمی " + model.count + " مشاهدهٔ اخیر، روند روزانه حدود " +
@@ -249,7 +237,8 @@ async function makeFreeAnalysis(env, asset) {
   if (recent.length < 3) risks.push("پوشش خبرهای دارای تاریخ در ۲۴ ساعت اخیر محدود است؛ ممکن است رویداد مهمی از دست رفته باشد.");
   if (rows.length < 30) risks.push("تاریخچه کمتر از ۳۰ مشاهده دارد؛ برآورد آماری ناپایدارتر است.");
   if (model.daily_volatility_pct > 2) risks.push("نوسان روزانهٔ تاریخی بالاست؛ محدودهٔ سناریو را با احتیاط بخوان.");
-  risks.push("تیتر خبرها به‌تنهایی جهت اثر بر قیمت را مشخص نمی‌کند؛ اثر واقعی به متن کامل، زمان‌بندی و واکنش بازار بستگی دارد.");
+  risks.push("هستهٔ زبانی نسخهٔ ۰.۱ تیترها را تحلیل می‌کند، نه متن کامل مقاله‌ها؛ جهت اثر خبر بدون شواهد تکمیلی قطعی نیست.");
+  if (languageAnalysis.possible_conflicts.length) risks.push("چند تیتر با چارچوب رویدادی متفاوت شناسایی شد؛ این موارد تناقض قطعی نیستند و نیاز به بررسی متن کامل دارند.");
   return reply({
     mode:"free-algorithmic",asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
     quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown"),provider_meta:item.provider_meta||null},
@@ -258,6 +247,8 @@ async function makeFreeAnalysis(env, asset) {
       range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),
       confidence:null,uncertainty_pct:Number(uncertainty.toFixed(2))},
     drivers:topics,risks_fa:risks,sources:news,
+    decision_brief:decisionBrief,
+    language_analysis:languageAnalysis,
     news_sources_count:news.length,recent_sources_count:recent.length,news_window_hours:72,
     coverage_score:Math.min(100,recent.length*12),
     baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),
@@ -267,94 +258,8 @@ async function makeFreeAnalysis(env, asset) {
       daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),
       max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),
       regression_target:Math.round(model.baseline7),observations:model.count},
-    note_fa:"تحلیل الگوریتمی رایگان بر پایهٔ تاریخچه و تیتر خبرهاست؛ مدل زبانی یا توصیهٔ خریدوفروش نیست."
+    note_fa:"تحلیل نسخهٔ نخست هستهٔ پردازش زبان تخصصی فارسی و انگلیسی به‌همراه تاریخچهٔ قیمت است؛ هنوز مدل زبانی مولد نیست و توصیهٔ خریدوفروش ارائه نمی‌کند."
   },200,{"cache-control":"public, max-age=300","vary":"Origin"});
-}
-
-async function makeForecast(env, asset) {
-  if (!ANALYSIS_ASSETS.has(asset)) return reply({error:"تاریخچهٔ معتبر این دارایی هنوز بررسی نشده است."},424);
-  if (!env.OPENAI_API_KEY) return reply({error:"OPENAI_API_KEY secret is not configured."},503);
-  const [market, rawHistory] = await Promise.all([
-    getMarketSnapshot(env),
-    getJson((env.HISTORY_BASE_URL || HISTORY_URL) + encodeURIComponent(asset) + ".json")
-  ]);
-  const item = (market.data || []).find(x => x.symbol === asset);
-  if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ پیش‌بینی جدید ساخته نشد."},424);
-  const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
-  if (!(price > 0) || !Number.isFinite(stamp) || Date.now()-stamp > 45*60*1000 || stamp>Date.now()+5*60*1000) {
-    return reply({error:"برای پیش‌بینی، قیمت معتبر و تازه لازم است."},424);
-  }
-  const rows = historyRows(rawHistory);
-  if (rows.length < 12) return reply({error:"تاریخچه کافی برای پیش‌بینی در دسترس نیست."},424);
-  const model = stats(rows);
-  const recent = rows.slice(-30).map(x=>({date:new Date(x.date).toISOString().slice(0,10),close:x.close}));
-  const prompt = [
-    "تو تحلیلگر تخصصی بازار ارز و طلای ایران هستی؛ فقط پیش‌بینی احتمالی ۷ روز آینده ارائه می‌کنی.",
-    "با ابزار جست‌وجوی زنده وب، ابتدا خبرهای منتشرشده در ۷۲ ساعت اخیر را بررسی کن و فقط در صورت نیاز برای زمینه به گزارش‌های قدیمی‌تر رجوع کن. رسانه‌های نوشتاری معتبر، منابع رسمی، اطلاعیه‌های بانک مرکزی، داده‌های تورم، نفت، تحریم‌ها، مذاکرات، سیاست داخلی و ریسک‌های منطقه‌ای را جست‌وجو کن. تا جای ممکن ۵ تا ۸ نتیجهٔ مرتبط از چند ناشر مستقل بررسی کن؛ خبر تکراری را چند شاهد حساب نکن. تاریخ انتشار را از تاریخ به‌روزرسانی جدا کن و اگر تاریخ روشن نیست، آن را تازه معرفی نکن. برای هر عامل مهم، شاهد و لینک واقعی منبع لازم است؛ شایعه را واقعیت تلقی نکن و اگر منبع قابل اتکا پیدا نشد، صریحاً بگو.",
-    "خروجی فارسی و JSON مطابق schema باشد. expected_change_pct برآورد مستقل تو از درصد تغییر طی ۷ روز از قیمت فعلی است؛ آن را صرفاً برای تأیید فرض افزایش قیمت به سمت بالا منحرف نکن. به نرخ ارز ایران، تورم و ریسک‌های سیاسی توجه کن اما خبر منفی/مثبت را با شواهد بسنج. روند آماری فقط یک مبناست و سرور بعداً آن را با برآورد خبری ترکیب می‌کند. اگر خبرها متناقض یا کم‌کیفیت‌اند، تغییر را محتاطانه و confidence را پایین‌تر بگذار. confidence امتیاز اطمینان تحلیلی است، نه احتمال آماری کالیبره‌شده. از توصیه خریدوفروش پرهیز کن.",
-    "دارایی: " + ASSETS[asset],
-    "قیمت فعلی منبع: " + price,
-    "زمان منبع: " + new Date(stamp).toISOString(),
-    "تعداد نقاط تاریخچه: " + rows.length,
-    "هدف مبنای رگرسیون ۷روزه: " + model.baseline7,
-    "روند روزانه مبنا درصد: " + model.daily_pct,
-    "بازده ۷ روز گذشته درصد: " + model.momentum_7d_pct,
-    "بازده ۱۴ روز گذشته درصد: " + model.momentum_14d_pct,
-    "بازده ۳۰ روز گذشته درصد: " + model.momentum_30d_pct,
-    "نوسان روزانه بازده درصد: " + model.daily_volatility_pct,
-    "بیشترین افت از سقف ۳۰ روزه درصد: " + model.max_drawdown_30d_pct,
-    "نوسان باقیمانده لگاریتمی: " + model.sigma,
-    "آخرین نقاط تاریخی: " + JSON.stringify(recent)
-  ].join("\n");
-  const schema = {
-    type:"json_schema", name:"market_forecast", strict:true,
-    schema:{type:"object",additionalProperties:false,properties:{
-      headline_fa:{type:"string"},summary_fa:{type:"string"},expected_change_pct:{type:"number"},confidence:{type:"integer"},
-      drivers:{type:"array",items:{type:"object",additionalProperties:false,properties:{
-        title_fa:{type:"string"},impact:{type:"string",enum:["positive","negative","mixed","unknown"]},
-        explanation_fa:{type:"string"},evidence:{type:"string"}
-      },required:["title_fa","impact","explanation_fa","evidence"]}},
-      risks_fa:{type:"array",items:{type:"string"}}
-    },required:["headline_fa","summary_fa","expected_change_pct","confidence","drivers","risks_fa"]}
-  };
-  const api = await fetch("https://api.openai.com/v1/responses", {
-    method:"POST",
-    headers:{authorization:"Bearer "+env.OPENAI_API_KEY,"content-type":"application/json"},
-    body:JSON.stringify({model:env.OPENAI_MODEL || "gpt-5.5",tools:[{type:"web_search"}],tool_choice:"required",include:["web_search_call.action.sources"],text:{format:schema},input:prompt,store:false}),
-    signal:AbortSignal.timeout(90000)
-  });
-  if (!api.ok) return reply({error:"AI provider request failed.",detail:(await api.text()).slice(0,400)},502);
-  const resp = await api.json();
-  const text = resp.output_text || (resp.output || []).flatMap(x=>x.content || []).find(x=>x.type==="output_text")?.text;
-  let ai;
-  try { ai = JSON.parse(text); } catch { return reply({error:"ساختار پاسخ هوش مصنوعی قابل‌خواندن نبود."},502); }
-  const aiChange = Math.max(-25,Math.min(25,n(ai.expected_change_pct)));
-  const baselineChange = Math.max(-12,Math.min(12,model.daily_pct*7));
-  const change = Math.max(-25,Math.min(25,aiChange*0.65+baselineChange*0.35));
-  const target = price*(1+change/100);
-  const rawConfidence = Math.max(0,Math.min(100,Math.round(n(ai.confidence))));
-  const sources = citations(resp);
-  const recentSources = sources.filter(s => {
-    const published = s.published_at ? Date.parse(s.published_at) : NaN;
-    return Number.isFinite(published) && published <= Date.now()+5*60*1000 && Date.now()-published <= 72*60*60*1000;
-  });
-  const conf = sources.length >= 4 && recentSources.length >= 2
-    ? rawConfidence
-    : Math.min(rawConfidence, sources.length >= 2 ? 50 : 30);
-  const empiricalDailyVol = Math.max(model.sigma, model.daily_volatility_pct / 100);
-  const uncertainty = Math.max(2.5,Math.min(20,(empiricalDailyVol*Math.sqrt(7)*100*1.45)+(100-conf)*0.04));
-  return reply({
-    asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
-    quote:{price,source_time:new Date(stamp).toISOString(),source:"Iran Market Data / " + String(item.source || "unknown").toUpperCase()},
-    forecast:{horizon_days:7,direction:change>0.35?"up":change< -0.35?"down":"sideways",headline_fa:ai.headline_fa,summary_fa:ai.summary_fa,expected_change_pct:Number(change.toFixed(2)),target_price:Math.round(target),range_low:Math.round(target*(1-uncertainty/100)),range_high:Math.round(target*(1+uncertainty/100)),confidence:conf,uncertainty_pct:Number(uncertainty.toFixed(2))},
-    drivers:ai.drivers,risks_fa:ai.risks_fa,
-    baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),momentum_7d_pct:model.momentum_7d_pct===null?null:Number(model.momentum_7d_pct.toFixed(3)),momentum_14d_pct:model.momentum_14d_pct===null?null:Number(model.momentum_14d_pct.toFixed(3)),momentum_30d_pct:model.momentum_30d_pct===null?null:Number(model.momentum_30d_pct.toFixed(3)),daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),regression_target:Math.round(model.baseline7),observations:model.count},
-    sources,
-    news_sources_count:sources.length,
-    recent_sources_count:recentSources.length,
-    news_window_hours:72,
-    note_fa:"این یک برآورد احتمالی ۷روزه است، نه تضمین یا توصیه خریدوفروش."
-  },200,{"cache-control":"private, max-age=300","vary":"Origin"});
 }
 
 async function readFreshCache(env, key, maxAgeMs) {
@@ -428,7 +333,7 @@ async function readNewsFromSupabase(env) {
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return [];
   const params = new URLSearchParams({
-    select: "title,url,domain,published_at,source_id,language_code,original_title",
+    select: "title,url,domain,published_at,source_id,language_code,original_title,original_text,translated_text_fa,summary_fa,article_status",
     published_at: "gte." + new Date(Date.now()-72*60*60*1000).toISOString(),
     order: "published_at.desc",
     limit: "30"
@@ -461,14 +366,16 @@ async function syncNewsToSupabase(env) {
     return { enabled:true, refreshed:false, items:await readNewsFromSupabase(env) };
   }
 
-  const items = await collectNews();
+  const items = await collectNews({maxAgeHours:30*24,limit:100});
   const fetchedAt = new Date().toISOString();
   if (items.length) {
     const rows = items.map(item => ({
       url:item.url, title:item.title, domain:item.domain || "unknown",
       published_at:item.published_at, fetched_at:fetchedAt,
       source_id:item.source_id || null, language_code:item.language_code || null,
-      original_title:item.original_title || item.title, article_status:"headline_only"
+      original_title:item.original_title || item.title,
+      original_text:String(item.original_text || "").slice(0,3000) || null,
+      article_status:item.original_text ? "extracted" : "headline_only"
     }));
     const response = await fetch(base + "/rest/v1/market_news_items?on_conflict=url", {
       method:"POST",
@@ -482,7 +389,7 @@ async function syncNewsToSupabase(env) {
     body:JSON.stringify({id:1,last_fetched_at:fetchedAt}), signal:AbortSignal.timeout(12000)
   });
   if (!stateUpdate.ok) throw Error("Supabase news state update HTTP " + stateUpdate.status);
-  return { enabled:true, refreshed:true, items };
+  return { enabled:true, refreshed:true, items:await readNewsFromSupabase(env), archived_items:items.length };
 }
 
 export async function refreshBackground(env) {
@@ -525,14 +432,43 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
+    if (url.pathname === "/language/conversation") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      const declaredLength = Number(request.headers.get("content-length") || 0);
+      if (declaredLength > 20000) return reply({error:"Request body too large"},413);
+      let payload;
+      try { payload = await request.json(); }
+      catch { return reply({error:"Invalid JSON body"},400); }
+      const turns = payload?.turns;
+      if (!Array.isArray(turns) || turns.length === 0 || turns.length > 100) {
+        return reply({error:"turns must be a non-empty array with at most 100 entries"},400);
+      }
+      const totalChars = turns.reduce((sum,turn)=>sum+String(turn?.content ?? turn?.text ?? "").length,0);
+      if (totalChars > 20000) return reply({error:"Conversation text exceeds the 20,000 character limit"},413);
+      const result = analyzeConversationContext(turns,payload?.language);
+      return reply({ok:true,engine:"dollar-conversation-context",version:CONVERSATION_CONTEXT_VERSION,result},200,{"cache-control":"no-store"});
+    }
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
     if (url.pathname === "/forecast/v2") {
+      const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
+      if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
       const response = await handleForecastApi(url,env);
       let data = {};
       try { data = await response.json(); } catch {}
       const cachedNews = await readFreshCache(env,"news:latest",45*60*1000);
       const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
-      const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
+      const news = cachedNews?.items || storedNews;
+      try {
+        const analysisResponse = await makeFreeAnalysis(env, asset);
+        if (analysisResponse.ok) {
+          const analysisBody = await analysisResponse.json();
+          data.decision_brief = analysisBody.decision_brief || null;
+          data.decision_brief_source = "same_asset_quote_and_history_analysis";
+        }
+      } catch (error) {
+        data.decision_brief = null;
+        data.decision_brief_error = String(error?.message || error).slice(0,120);
+      }
       data.news_context = {
         collected_at: cachedNews?.fetched_at || new Date().toISOString(),
         window_hours: 72,
@@ -547,21 +483,19 @@ export default {
       return reply(data,200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/news") {
-      const readOnly = url.searchParams.get("read_only") === "1";
-      let sync = null;
-      if (!readOnly) {
-        try { sync = await syncNewsToSupabase(env); }
-        catch (error) { console.error("On-demand news refresh failed:",error?.message || error); }
-      }
-      const stored = sync?.items?.length ? sync.items : await readNewsFromSupabase(env).catch(() => []);
-      const items = cleanNewsItems(stored.length ? stored : await collectNews().catch(() => []));
+      // Public GET requests are read-only. RSS ingestion runs only in the
+      // scheduled refresh path, not on arbitrary visitor traffic.
+      const stored = await readNewsFromSupabase(env).catch(() => []);
+      const items = cleanNewsItems(stored);
+      const conflicts = headlineConflictCandidates(items);
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
         source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
-        potential_conflicts:headlineConflictCandidates(items),
-        potential_conflict_count:headlineConflictCandidates(items).length,
-        refreshed:sync?.refreshed===true,
+        potential_conflicts:conflicts,
+        potential_conflict_count:conflicts.length,
+        refreshed:false,
+        refresh_mode:"scheduled_only",
         topics:newsTopics(items),items
       },200,{"cache-control":"no-store"});
     }
@@ -599,9 +533,40 @@ export default {
       return reply({
         ok: true,
         service: "dollar-market-intelligence",
-        configured: Boolean(env.OPENAI_API_KEY),
-        llm_configured: Boolean(env.OPENAI_API_KEY),
-        model: env.OPENAI_MODEL || null,
+        configured: databaseConfigured,
+        llm_configured: false,
+        model: null,
+        language_model: {
+          enabled: false,
+          status: "not_deployed",
+          provider: null,
+          external_api: false,
+          note_fa: "مدل زبانی مولد مستقلی مستقر نیست."
+        },
+        decision_engine: {
+          enabled: true,
+          name: "Dollar Evidence Decision Engine",
+          version: DECISION_ENGINE_VERSION,
+          mode: "deterministic_evidence_synthesis_not_llm",
+          probability_calibrated: false,
+          uses_news_and_price_history: true,
+          self_test: runDecisionEngineSelfTest()
+        },
+        language_engine: {
+          enabled: true,
+          name: "Dollar Domain NLP",
+          version: LANGUAGE_ENGINE_VERSION,
+          mode: "deterministic_domain_nlp_not_llm",
+          languages: ["fa", "en"],
+          news_input: "rss_excerpt_or_headline",
+          history_analysis: true,
+          pragmatics: {
+            enabled: true,
+            version: PRAGMATICS_VERSION,
+            curated_phrase_count: PRAGMATICS_PHRASE_COUNT,
+            capabilities: ["idioms","metaphors","irony_candidates","sarcasm_candidates","indirect_requests","taarof","politeness","rhetorical_questions","conversational_implicature","hedging","contextual_ambiguity"]
+          }
+        },
         free_mode: true,
         free_forecast_enabled: true,
         database_configured: databaseConfigured,
@@ -623,8 +588,8 @@ export default {
         news_conflict_screening_enabled: true,
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
-        web_search_enabled: Boolean(env.OPENAI_API_KEY),
-        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","database-schema-diagnostics",...(env.OPENAI_API_KEY?["openai-web-search"]:[])]
+        web_search_enabled: false,
+        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
