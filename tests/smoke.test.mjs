@@ -44,7 +44,7 @@ test('chart forecast uses live AI endpoint when configured and labels statistica
 
 test('news intelligence backend uses source-linked RSS context and a no-key forecast engine', () => {
   assert.match(worker, /from "\.\/forecast-engine\.js"/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.7-maturity-safe-walkforward"/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.8-robust-feedback"/);
   assert.match(forecastEngine, /fetchNewsContext/);
   assert.match(forecastEngine, /selectWeights/);
   assert.match(forecastEngine, /isMarketRelevantHeadline/);
@@ -60,9 +60,10 @@ test('news intelligence backend uses source-linked RSS context and a no-key fore
   assert.match(worker, /async function readNewsFeed/);
   assert.match(worker, /const NEWS_SOURCES/);
   assert.ok(worker.includes('url.pathname === "/news"'));
-  assert.ok(worker.includes('url.searchParams.get("read_only") === "1"'));
-  assert.ok(worker.includes('if (!readOnly) {'), 'read-only requests must skip refresh writes');
-  assert.ok(worker.includes('sync = await syncNewsToSupabase(env);'), 'normal news requests retain their refresh path');
+  assert.ok(worker.includes('refresh_mode:"scheduled_only"'), 'public news reads must use scheduled ingestion');
+  assert.ok(worker.includes('refreshed:false'), 'public news reads must not trigger RSS ingestion');
+  const newsRoute = worker.slice(worker.indexOf('if (url.pathname === "/news")'), worker.indexOf('if (url.pathname === "/forecast/history"'));
+  assert.doesNotMatch(newsRoute, /syncNewsToSupabase|fetch\(.*rss/i, 'public news reads must remain read-only');
   assert.match(worker, /persistQuotesToSupabase/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /market_quotes\?on_conflict=asset,source,observed_at/);
@@ -153,7 +154,7 @@ test('stylesheet contains mobile responsive breakpoints', () => {
 test('production market intelligence runs without an external AI key and preserves honest forecast calibration', () => {
   assert.match(supabaseEntry, /SUPABASE_SERVICE_ROLE_KEY: Deno\.env\.get/);
   assert.doesNotMatch(supabaseEntry, /OPENAI_API_KEY/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.7-maturity-safe-walkforward"/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.8-robust-feedback"/);
   assert.match(forecastEngine, /skill>=2/);
   assert.match(forecastEngine, /forecast_mode:"baseline_only"/);
   assert.match(forecastEngine, /directional_signal:false/);

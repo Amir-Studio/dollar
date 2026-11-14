@@ -3,7 +3,9 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.7-maturity-safe-walkforward";
+import { robustBiasCalibration, analyzeForecastErrors, diagnoseForecastRow } from "./learning-engine.js";
+
+const MODEL_VERSION = "iran-ensemble-wf-2.8-robust-feedback";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -109,6 +111,32 @@ function regression(points,window=45) {
   const residual=ys.map((v,i)=>v-(intercept+slope*xs[i]));
   const sigma=Math.sqrt(residual.reduce((s,v)=>s+v*v,0)/Math.max(1,residual.length-2));
   return {slope,intercept,x0,sigma,trendNow:intercept+slope*xs[xs.length-1]};
+}
+
+function marketRegimeContext(points) {
+  const returns=[];
+  for(let i=1;i<points.length;i++){
+    const days=(points[i].t-points[i-1].t)/DAY;
+    if(days>0) returns.push(Math.log(points[i].p/points[i-1].p)/days);
+  }
+  const recent=returns.slice(-20), reference=returns.slice(-80,-20);
+  const volatility=values=>{
+    if(values.length<10) return null;
+    const avg=values.reduce((sum,value)=>sum+value,0)/values.length;
+    return Math.sqrt(values.reduce((sum,value)=>sum+(value-avg)**2,0)/Math.max(1,values.length-1))*100;
+  };
+  const recentVol=volatility(recent), referenceVol=volatility(reference);
+  const last=points.at(-1), prior=points.at(-21);
+  const trend=last&&prior?Math.log(last.p/prior.p)*100:null;
+  return {
+    realized_vol_20_pct:recentVol===null?null:Number(recentVol.toFixed(5)),
+    realized_vol_60_pct:referenceVol===null?null:Number(referenceVol.toFixed(5)),
+    volatility_regime:recentVol===null||referenceVol===null?"unknown":
+      recentVol>Math.max(0.1,referenceVol*1.5)?"high":
+      recentVol<referenceVol*0.67?"low":"normal",
+    trend_20d_pct:trend===null?null:Number(trend.toFixed(4)),
+    trend_regime:trend===null?"unknown":trend>2?"up":trend< -2?"down":"range_bound"
+  };
 }
 
 function candidates(points,h) {
@@ -481,14 +509,11 @@ async function fetchInputs(env,asset,marketPayload) {
 
 async function liveBiasCalibration(env,asset,horizon) {
   try {
-    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
-    const valid=(Array.isArray(rows)?rows:[]).filter(x=>Number(x.predicted_price)>0&&Number(x.actual_price)>0);
-    if(valid.length<30) return {samples:valid.length,applied:false,log_bias:0};
-    const errors=valid.map(x=>Math.log(Number(x.actual_price)/Number(x.predicted_price)));
-    const mean=errors.reduce((a,b)=>a+b,0)/errors.length,shrink=Math.min(0.5,valid.length/60);
-    const adjustment=Math.max(-0.015,Math.min(0.015,mean*shrink));
-    return {samples:valid.length,applied:true,log_bias:Number(mean.toFixed(6)),adjustment_log:Number(adjustment.toFixed(6))};
-  } catch(error) { return {samples:0,applied:false,log_bias:0,error:String(error?.message||error).slice(0,100)}; }
+    const rows=await db(env,"market_forecast_runs?select=predicted_price,reference_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
+    return robustBiasCalibration(Array.isArray(rows)?rows:[]);
+  } catch(error) {
+    return {samples:0,applied:false,log_bias:0,reason:"feedback-unavailable",error:String(error?.message||error).slice(0,100)};
+  }
 }
 async function issueForecast(env,asset,horizon,input) {
   const issuedAt=new Date().toISOString();
@@ -508,7 +533,7 @@ async function issueForecast(env,asset,horizon,input) {
     result.predicted_change_pct=(result.predicted_price/input.price-1)*100;
     result.direction=result.predicted_change_pct>0.1?"up":result.predicted_change_pct< -0.1?"down":"sideways";
   }
-  const validation={...result.validation,forecast_mode:result.forecast_mode||"adaptive_directional",live_error_feedback:calibration,quote_quality:input.provider_meta?{provider:input.provider_meta.provider||"unknown",method:input.provider_meta.method||null,source_count:input.provider_meta.source_count??null,spread_pct:input.provider_meta.spread_pct??null,unit:input.provider_meta.unit||null}:null,history_provider:input.history_provider||"unknown",quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
+  const validation={...result.validation,forecast_mode:result.forecast_mode||"adaptive_directional",market_regime:marketRegimeContext(input.points),live_error_feedback:calibration,quote_quality:input.provider_meta?{provider:input.provider_meta.provider||"unknown",method:input.provider_meta.method||null,source_count:input.provider_meta.source_count??null,spread_pct:input.provider_meta.spread_pct??null,unit:input.provider_meta.unit||null}:null,history_provider:input.history_provider||"unknown",quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
     event_risk_score:input.newsContext?.event_risk_score??0,
     headline_count:input.newsContext?.headline_count??0,
     source_count:input.newsContext?.source_count??0,
@@ -561,53 +586,89 @@ async function evaluateDue(env,market) {
 async function runContinuousLearning(env, evaluatedNow) {
   if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
   try {
-    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
+    const rows = await db(env,"market_forecast_runs?select=id,asset,horizon_days,model_version,issued_at,target_at,quote_source,quote_observed_at,predicted_price,predicted_change_pct,reference_price,lower_price,upper_price,direction,model_weights,actual_price,actual_at,direction_correct,validation&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
     const groups = new Map();
+    const byId = new Map();
     for (const row of (Array.isArray(rows)?rows:[])) {
+      byId.set(String(row.id),row);
       const key = row.asset + ":" + row.horizon_days;
       if (!groups.has(key)) groups.set(key,[]);
       const group=groups.get(key);
-      if (group.length<60 && Number(row.predicted_price)>0 && Number(row.reference_price)>0 && Number(row.actual_price)>0) group.push(row);
+      if (group.length<80 && Number(row.predicted_price)>0 && Number(row.reference_price)>0 && Number(row.actual_price)>0) group.push(row);
     }
     const assetMetrics={}, actions=[];
     for (const [key,sample] of groups) {
       if (!sample.length) continue;
-      const errors=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.predicted_price)-1)*100));
-      const baseline=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.reference_price)-1)*100));
-      const mae=errors.reduce((a,b)=>a+b,0)/errors.length;
-      const baselineMae=baseline.reduce((a,b)=>a+b,0)/baseline.length;
-      const skill=baselineMae>0?(1-mae/baselineMae)*100:0;
-      const directional=sample.filter(r=>typeof r.direction_correct==="boolean");
-      const accuracy=directional.length?directional.filter(r=>r.direction_correct).length/directional.length*100:null;
-      const recent=errors.slice(0,20), older=errors.slice(20);
-      const recentMae=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:null;
-      const olderMae=older.length?older.reduce((a,b)=>a+b,0)/older.length:null;
-      const drift=recent.length>=10&&older.length>=10&&recentMae!==null&&olderMae!==null&&olderMae>0&&recentMae>olderMae*1.5;
+      const metrics=analyzeForecastErrors(sample);
+      const adaptiveSample=sample.filter(row=>row.validation?.forecast_mode==="adaptive_directional");
+      const adaptiveMetrics=analyzeForecastErrors(adaptiveSample);
       const [asset,horizonText]=key.split(":");
-      assetMetrics[key]={
-        samples:sample.length,mae_pct:Number(mae.toFixed(5)),
-        no_change_mae_pct:Number(baselineMae.toFixed(5)),
-        skill_vs_no_change_pct:Number(skill.toFixed(3)),
-        directional_accuracy_pct:accuracy===null?null:Number(accuracy.toFixed(2)),
-        directional_samples:directional.length,
-        recent_20_mae_pct:recentMae===null?null:Number(recentMae.toFixed(5)),
-        previous_40_mae_pct:olderMae===null?null:Number(olderMae.toFixed(5)),
-        performance_drift:drift
-      };
-      if(sample.length>=30 && skill>=2) actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline for this model version",skill_pct:Number(skill.toFixed(3))});
-      else if(sample.length>=30) actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
-      else actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
-      if(drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
+      assetMetrics[key]={...metrics,baseline_only_samples:sample.length-adaptiveSample.length,adaptive_directional_metrics:adaptiveMetrics};
+      if(adaptiveSample.length>=30 && adaptiveMetrics.skill_vs_no_change_pct>=2) {
+        actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"adaptive directional forecasts beat the no-change baseline on matured live outcomes",skill_pct:adaptiveMetrics.skill_vs_no_change_pct,samples:adaptiveSample.length});
+      } else if(adaptiveSample.length>=30) {
+        actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"adaptive directional forecasts have not beaten the no-change baseline by the 2% safety margin",skill_pct:adaptiveMetrics.skill_vs_no_change_pct,samples:adaptiveSample.length});
+      } else {
+        actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_adaptive_evidence",reason:"baseline-only forecasts are excluded from directional skill scoring; at least 30 matured adaptive forecasts are required",samples:adaptiveSample.length,required:30,baseline_only_samples:sample.length-adaptiveSample.length});
+      }
+      if(adaptiveMetrics.performance_drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent adaptive forecast errors are materially worse than the preceding sample",recent_20_mae_pct:adaptiveMetrics.recent_20_mae_pct,previous_60_mae_pct:adaptiveMetrics.previous_60_mae_pct});
+      if(adaptiveMetrics.error_profile!=="balanced") actions.push({asset,horizon_days:Number(horizonText),action:"error_diagnosis",error_profile:adaptiveMetrics.error_profile,signed_bias_pct:adaptiveMetrics.signed_bias_pct,directional_accuracy_pct:adaptiveMetrics.directional_accuracy_pct});
+      for(const candidate of adaptiveMetrics.root_cause_candidates||[]) {
+        if(candidate.count>=3) actions.push({asset,horizon_days:Number(horizonText),action:"repeated_error_pattern",candidate_code:candidate.code,count:candidate.count,share_pct:candidate.share_pct,interpretation:"association_only_not_causal_proof"});
+      }
+      for(const [dimension,cohorts] of Object.entries(adaptiveMetrics.cohort_diagnostics||{})) {
+        const ranked=Object.entries(cohorts).filter(([,value])=>value.samples>=5).sort((a,b)=>b[1].mae_pct-a[1].mae_pct);
+        if(ranked.length>=2) {
+          const [worstKey,worst]=ranked[0], [bestKey,best]=ranked[ranked.length-1];
+          if(worst.mae_pct>best.mae_pct*1.5) actions.push({
+            asset,horizon_days:Number(horizonText),action:"cohort_performance_gap",
+            dimension,worst_cohort:worstKey,worst_mae_pct:worst.mae_pct,
+            best_cohort:bestKey,best_mae_pct:best.mae_pct,
+            interpretation:"association_only_requires_more_samples_and_review"
+          });
+        }
+      }
+      if(adaptiveMetrics.interval_coverage_pct!==null && adaptiveSample.length>=30 && adaptiveMetrics.interval_coverage_pct<70) actions.push({asset,horizon_days:Number(horizonText),action:"uncertainty_undercoverage_warning",reason:"actual outcomes fall inside the published interval too infrequently",interval_coverage_pct:adaptiveMetrics.interval_coverage_pct});
     }
-    const payload={
-      model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
-      asset_metrics:assetMetrics,learning_actions:actions
-    };
+
+    // Persist one immutable diagnosis per newly matured forecast. A failed
+    // diagnostic write must not erase the aggregate learning audit.
+    const diagnosticRows=(evaluatedNow||[]).map(item=>{
+      const row=byId.get(String(item.id));
+      if(!row) return null;
+      const diagnosis=diagnoseForecastRow(row);
+      if(!diagnosis.valid) return null;
+      return {
+        forecast_id:row.id,asset:row.asset,horizon_days:row.horizon_days,
+        model_version:row.model_version,diagnosed_at:new Date().toISOString(),
+        error_metrics:diagnosis.error_metrics,
+        contributing_factors:diagnosis.contributing_factors,
+        root_cause_candidates:diagnosis.root_cause_candidates
+      };
+    }).filter(Boolean);
+    let diagnosticsPersisted=false,diagnosticWriteError=null;
+    if(diagnosticRows.length) {
+      try {
+        await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
+          method:"POST",
+          headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},
+          body:JSON.stringify(diagnosticRows)
+        });
+        diagnosticsPersisted=true;
+      } catch(error) {
+        diagnosticWriteError=String(error?.message||error).slice(0,180);
+        console.error("Forecast error diagnostic persistence failed:",diagnosticWriteError);
+      }
+    }
     await db(env,"market_learning_cycles",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify({
       model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,evaluated:evaluatedNow.length,groups:Object.keys(assetMetrics).length,actions:actions.length};
+    return {
+      ran:true,evaluated:evaluatedNow.length,groups:Object.keys(assetMetrics).length,
+      actions:actions.length,diagnostics_written:diagnosticRows.length,
+      diagnostics_persisted:diagnosticsPersisted,diagnostic_write_error:diagnosticWriteError
+    };
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};
@@ -671,8 +732,15 @@ export async function handleForecastApi(url,env) {
       },{headers:{"cache-control":"no-store"}});
     }
     if(url.pathname==="/forecast/learning"){
-      const data=await db(env,"market_learning_cycles?select=cycle_at,model_version,evaluated_count,asset_metrics,learning_actions&order=cycle_at.desc&limit=100");
-      return Response.json({model_version:MODEL_VERSION,cycles:data||[],note_fa:"وزن‌های مدل با آزمون walk-forward و فقط با داده‌های بالغ‌شده دوباره محاسبه می‌شوند؛ این گزارش، عملکرد زنده و هشدار افت کیفیت را ثبت می‌کند."},{headers:{"cache-control":"no-store"}});
+      const [cycles,diagnostics]=await Promise.all([
+        db(env,"market_learning_cycles?select=cycle_at,model_version,evaluated_count,asset_metrics,learning_actions&order=cycle_at.desc&limit=100"),
+        db(env,"market_forecast_error_diagnostics?select=forecast_id,asset,horizon_days,model_version,diagnosed_at,error_metrics,contributing_factors,root_cause_candidates&order=diagnosed_at.desc&limit=100")
+      ]);
+      return Response.json({
+        model_version:MODEL_VERSION,cycles:cycles||[],diagnostics:diagnostics||[],
+        diagnostic_count:Array.isArray(diagnostics)?diagnostics.length:0,
+        note_fa:"این گزارش خطاهای واقعی پیش‌بینی‌های بالغ‌شده، عوامل زمینه‌ای، الگوهای تکرارشونده و مقایسهٔ گروه‌ها را نشان می‌دهد. عوامل زمینه‌ای همبستگی‌اند، نه اثبات علت."
+      },{headers:{"cache-control":"no-store"}});
     }
     if(url.pathname==="/forecast/history"){
       const horizon=Number(url.searchParams.get("horizon_days")||7);
