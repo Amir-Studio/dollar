@@ -5,7 +5,7 @@ const median = values => {
 };
 const mean = values => values.length ? values.reduce((sum,value)=>sum+value,0)/values.length : 0;
 const positive = value => Number.isFinite(Number(value)) && Number(value)>0;
-const number = value => Number.isFinite(Number(value)) ? Number(value) : null;
+const number = value => value===null||value===undefined||value==="" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 const round = (value,digits=4) => Number(value.toFixed(digits));
 const priceError = (predicted,actual) => Math.abs((actual/predicted-1)*100);
 
