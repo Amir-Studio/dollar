@@ -148,6 +148,7 @@ export function robustBiasCalibration(rows) {
     recent_training_bias_log:round(recent,6),older_training_bias_log:round(older,6),
     holdout_bias_log:round(holdoutBias,6),holdout_mae_before_pct:round(before*100),
     holdout_mae_after_pct:round(after*100),holdout_improvement_pct:round(improvement,3),
+    direction_accuracy_before_pct:directionBefore.accuracy_pct,direction_accuracy_after_pct:directionAfter.accuracy_pct,
     adjustment_log:round(candidate,6),reason:"chronological_holdout_confirmed_robust_residual_bias"
   };
 }
