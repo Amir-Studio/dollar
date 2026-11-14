@@ -548,9 +548,13 @@ export default {
       const query=buildGdeltQuery(claim);
       if(!query) return reply({error:"از متن ادعا عبارت قابل جست‌وجویی استخراج نشد."},400);
       try{
+        const cacheKey="news:verify:"+query;
+        const cached=await readFreshCache(env,cacheKey,5*60*1000);
+        if(cached?.result) return reply({...cached.result,cached:true},200,{"cache-control":"no-store"});
         const evidence=await searchGdelt(query,{timespan:"7d",limit:75});
-        const result=compareClaimToSearchEvidence(claim,evidence);
-        return reply({...result,search_provider:"GDELT DOC 2.0",search_query:query,search_window:"7d",retrieved_at:new Date().toISOString(),search_status:evidence.length?"completed":"no_results"},200,{"cache-control":"no-store"});
+        const result={...compareClaimToSearchEvidence(claim,evidence),search_provider:"GDELT DOC 2.0",search_query:query,search_window:"7d",retrieved_at:new Date().toISOString(),search_status:evidence.length?"completed":"no_results",cached:false};
+        if(env.MARKET_CACHE) await env.MARKET_CACHE.put(cacheKey,JSON.stringify({fetched_at:new Date().toISOString(),result}),{expirationTtl:300});
+        return reply(result,200,{"cache-control":"no-store"});
       }catch(error){
         return reply({claim,verdict:"search_unavailable",search_provider:"GDELT DOC 2.0",error:String(error?.message||error).slice(0,160),caution:"به‌دلیل در دسترس نبودن جست‌وجو هیچ نتیجه‌ای دربارهٔ درستی ادعا صادر نشد."},503,{"cache-control":"no-store"});
       }
