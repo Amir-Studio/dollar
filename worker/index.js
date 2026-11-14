@@ -1,5 +1,5 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
-import { analyzeMarketLanguage } from "./language-engine.js";
+import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -507,7 +507,7 @@ export default {
         language_engine: {
           enabled: true,
           name: "Dollar Domain NLP",
-          version: "0.2.0",
+          version: LANGUAGE_ENGINE_VERSION,
           mode: "deterministic_domain_nlp_not_llm",
           languages: ["fa", "en"],
           news_input: "rss_excerpt_or_headline",
