@@ -3,7 +3,7 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-import { robustBiasCalibration, analyzeForecastErrors } from "./learning-engine.js";
+import { robustBiasCalibration, analyzeForecastErrors, diagnoseForecastRow } from "./learning-engine.js";
 
 const MODEL_VERSION = "iran-ensemble-wf-2.8-robust-feedback";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
@@ -560,13 +560,15 @@ async function evaluateDue(env,market) {
 async function runContinuousLearning(env, evaluatedNow) {
   if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
   try {
-    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,lower_price,upper_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
+    const rows = await db(env,"market_forecast_runs?select=id,asset,horizon_days,model_version,issued_at,target_at,quote_source,quote_observed_at,predicted_price,predicted_change_pct,reference_price,lower_price,upper_price,direction,model_weights,actual_price,actual_at,direction_correct,validation&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
     const groups = new Map();
+    const byId = new Map();
     for (const row of (Array.isArray(rows)?rows:[])) {
+      byId.set(String(row.id),row);
       const key = row.asset + ":" + row.horizon_days;
       if (!groups.has(key)) groups.set(key,[]);
       const group=groups.get(key);
-      if (group.length<60 && Number(row.predicted_price)>0 && Number(row.reference_price)>0 && Number(row.actual_price)>0) group.push(row);
+      if (group.length<80 && Number(row.predicted_price)>0 && Number(row.reference_price)>0 && Number(row.actual_price)>0) group.push(row);
     }
     const assetMetrics={}, actions=[];
     for (const [key,sample] of groups) {
@@ -581,15 +583,64 @@ async function runContinuousLearning(env, evaluatedNow) {
       } else {
         actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
       }
-      if(metrics.performance_drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent forecast errors are materially worse than the preceding sample",recent_20_mae_pct:metrics.recent_20_mae_pct,previous_40_mae_pct:metrics.previous_40_mae_pct});
+      if(metrics.performance_drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent forecast errors are materially worse than the preceding sample",recent_20_mae_pct:metrics.recent_20_mae_pct,previous_60_mae_pct:metrics.previous_60_mae_pct});
       if(metrics.error_profile!=="balanced") actions.push({asset,horizon_days:Number(horizonText),action:"error_diagnosis",error_profile:metrics.error_profile,signed_bias_pct:metrics.signed_bias_pct,directional_accuracy_pct:metrics.directional_accuracy_pct});
+      for(const candidate of metrics.root_cause_candidates||[]) {
+        if(candidate.count>=3) actions.push({asset,horizon_days:Number(horizonText),action:"repeated_error_pattern",candidate_code:candidate.code,count:candidate.count,share_pct:candidate.share_pct,interpretation:"association_only_not_causal_proof"});
+      }
+      for(const [dimension,cohorts] of Object.entries(metrics.cohort_diagnostics||{})) {
+        const ranked=Object.entries(cohorts).filter(([,value])=>value.samples>=5).sort((a,b)=>b[1].mae_pct-a[1].mae_pct);
+        if(ranked.length>=2) {
+          const [worstKey,worst]=ranked[0], [bestKey,best]=ranked[ranked.length-1];
+          if(worst.mae_pct>best.mae_pct*1.5) actions.push({
+            asset,horizon_days:Number(horizonText),action:"cohort_performance_gap",
+            dimension,worst_cohort:worstKey,worst_mae_pct:worst.mae_pct,
+            best_cohort:bestKey,best_mae_pct:best.mae_pct,
+            interpretation:"association_only_requires_more_samples_and_review"
+          });
+        }
+      }
       if(metrics.interval_coverage_pct!==null && sample.length>=30 && metrics.interval_coverage_pct<70) actions.push({asset,horizon_days:Number(horizonText),action:"uncertainty_undercoverage_warning",reason:"actual outcomes fall inside the published interval too infrequently",interval_coverage_pct:metrics.interval_coverage_pct});
+    }
+
+    // Persist one immutable diagnosis per newly matured forecast. A failed
+    // diagnostic write must not erase the aggregate learning audit.
+    const diagnosticRows=(evaluatedNow||[]).map(item=>{
+      const row=byId.get(String(item.id));
+      if(!row) return null;
+      const diagnosis=diagnoseForecastRow(row);
+      if(!diagnosis.valid) return null;
+      return {
+        forecast_id:row.id,asset:row.asset,horizon_days:row.horizon_days,
+        model_version:row.model_version,diagnosed_at:new Date().toISOString(),
+        error_metrics:diagnosis.error_metrics,
+        contributing_factors:diagnosis.contributing_factors,
+        root_cause_candidates:diagnosis.root_cause_candidates
+      };
+    }).filter(Boolean);
+    let diagnosticsPersisted=false,diagnosticWriteError=null;
+    if(diagnosticRows.length) {
+      try {
+        await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
+          method:"POST",
+          headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},
+          body:JSON.stringify(diagnosticRows)
+        });
+        diagnosticsPersisted=true;
+      } catch(error) {
+        diagnosticWriteError=String(error?.message||error).slice(0,180);
+        console.error("Forecast error diagnostic persistence failed:",diagnosticWriteError);
+      }
     }
     await db(env,"market_learning_cycles",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify({
       model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,evaluated:evaluatedNow.length,groups:Object.keys(assetMetrics).length,actions:actions.length};
+    return {
+      ran:true,evaluated:evaluatedNow.length,groups:Object.keys(assetMetrics).length,
+      actions:actions.length,diagnostics_written:diagnosticRows.length,
+      diagnostics_persisted:diagnosticsPersisted,diagnostic_write_error:diagnosticWriteError
+    };
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};
