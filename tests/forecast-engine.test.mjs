@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot } from '../worker/forecast-engine.js';
+import { robustBiasCalibration, analyzeForecastErrors } from '../worker/learning-engine.js';
 
 const DAY = 86_400_000;
 function series(count, dailyLogReturn) {
@@ -88,4 +89,43 @@ test('NerkhAra snapshot is normalized with provider quality metadata and UTC tim
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('robust feedback waits for 30 matured forecasts and rejects unstable bias', () => {
+  const tooFew = Array.from({length:29}, () => ({predicted_price:100,actual_price:101,actual_at:'2026-01-01T00:00:00Z'}));
+  assert.equal(robustBiasCalibration(tooFew).reason, 'insufficient_matured_forecasts');
+  const unstable = Array.from({length:30}, (_,i) => ({
+    predicted_price:100,
+    actual_price: i<15 ? 101 : 99,
+    actual_at: new Date(Date.UTC(2026,0,30-i)).toISOString()
+  }));
+  assert.equal(robustBiasCalibration(unstable).applied, false);
+  assert.equal(robustBiasCalibration(unstable).reason, 'bias_not_stable_across_windows');
+});
+
+test('robust feedback limits outlier influence and caps the correction', () => {
+  const rows = Array.from({length:60}, (_,i) => ({
+    predicted_price:100,
+    actual_price: i===0 ? 180 : 101,
+    actual_at: new Date(Date.UTC(2026,1,1)-i*86400000).toISOString()
+  }));
+  const result=robustBiasCalibration(rows);
+  assert.equal(result.applied,true);
+  assert.ok(Math.abs(result.adjustment_log)<=0.01);
+  assert.ok(result.adjustment_log>0);
+  assert.ok(result.mad_log<0.001);
+});
+
+test('error diagnosis separates systematic bias, directional accuracy and interval coverage', () => {
+  const rows = Array.from({length:40}, (_,i) => ({
+    predicted_price:100, reference_price:100, actual_price:102,
+    lower_price:101, upper_price:103, direction_correct:true,
+    actual_at:new Date(Date.UTC(2026,2,1)-i*86400000).toISOString()
+  }));
+  const result=analyzeForecastErrors(rows);
+  assert.equal(result.samples,40);
+  assert.equal(result.error_profile,'systematic_underprediction');
+  assert.equal(result.directional_accuracy_pct,100);
+  assert.equal(result.interval_coverage_pct,100);
+  assert.equal(result.performance_drift,false);
 });
