@@ -36,7 +36,11 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Run application and forecast-engine tests
-        run: node --test
+        run: |
+          node --check worker/pragmatics-engine.js
+          node --check worker/language-engine.js
+          node --check worker/index.js
+          node --test
       - name: Deploy Cloudflare Worker
         if: steps.credentials.outputs.configured == 'true'
         run: npx --yes wrangler@4 deploy --config worker/wrangler.toml
