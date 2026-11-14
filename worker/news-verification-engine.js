@@ -95,20 +95,24 @@ function sameSyndicatedStory(a,b) {
 }
 export function extractNewsClaim(item) {
   const title=String(item?.title||item?.original_title||"").trim();
-  const text=String(item?.original_text||item?.summary_fa||"").trim();
-  const combined=[title,text].filter(Boolean).join(" ");
+  const text=String(item?.original_text||item?.summary_fa||"").trim().slice(0,700);
   const domain=sourceDomain(item);
-  const facts=numberFacts(combined);
-  const metric=metricOf(combined);
-  const polarity=polarityOf(combined);
-  const checkable=metric!=="unknown"&&(polarity!=="neutral"||facts.length>0||/اعلام کرد|تصویب|لغو|منع|ممنوع|تعیین کرد|announced|approved|banned|cut|hike/i.test(combined));
+  // Prefer the headline as the claim. Use a short RSS excerpt only when the
+  // headline omits the metric, direction, or figures; never mix all body facts.
+  const headlineMetric=metricOf(title),excerptMetric=metricOf(text);
+  const headlinePolarity=polarityOf(title),excerptPolarity=polarityOf(text);
+  const headlineNumbers=numberFacts(title);
+  const facts=headlineNumbers.length?headlineNumbers:numberFacts(text.slice(0,250));
+  const metric=headlineMetric!=="unknown"?headlineMetric:excerptMetric;
+  const polarity=headlinePolarity!=="neutral"?headlinePolarity:excerptPolarity;
+  const checkable=metric!=="unknown"&&(polarity!=="neutral"||facts.length>0||/اعلام کرد|تصویب|لغو|منع|ممنوع|تعیین کرد|announced|approved|banned|cut|hike/i.test(title+" "+text.slice(0,250)));
   return {
     id:String(item?.id||item?.url||title).slice(0,240),
     title:title.slice(0,500),url:String(item?.url||"").slice(0,2000),
     domain,published_at:item?.published_at||null,published_day:dateKey(item?.published_at),
     source_class:sourceClass(domain),evidence_depth:text.length>160?"rss_excerpt":"headline_only",
     metric,polarity,numbers:facts,checkable,
-    tokens:unique(tokens(combined)).slice(0,40)
+    tokens:unique(tokens(title)).slice(0,40)
   };
 }
 function relation(a,b) {
