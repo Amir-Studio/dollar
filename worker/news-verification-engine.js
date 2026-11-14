@@ -2,8 +2,8 @@ const STOP = new Set([
   "the","a","an","and","or","of","to","in","on","at","for","from","by","with","as","is","was","were","be","been","will","has","have","had",
   "در","از","به","با","برای","و","یا","را","که","این","آن","یک","های","ها","شد","شده","می","شود","است","هست","بود","بر","تا","پس","اما"
 ]);
-const POSITIVE = ["افزایش","افزود","بالا رفت","رشد","صعود","تقویت","گران شد","increase","increased","rises","rose","surge","gain","gains","up"];
-const NEGATIVE = ["کاهش","کاهش یافت","افت","نزول","پایین آمد","تضعیف","ارزان شد","decrease","decreased","falls","fell","drop","decline","down"];
+const POSITIVE = ["افزایش","افزود","بالا رفت","رشد","صعود","تقویت","گران شد","increase","increased","increasing","rise","rises","rose","surge","gain","gains","up"];
+const NEGATIVE = ["کاهش","کاهش یافت","افت","نزول","پایین آمد","تضعیف","ارزان شد","decrease","decreased","fall","falls","fell","drop","decline","down"];
 const METRICS = [
   {id:"usd_irr",terms:["دلار","usd","iranian rial","exchange rate","نرخ ارز","ارز آزاد"]},
   {id:"eur_irr",terms:["یورو","eur","euro"]},
@@ -46,7 +46,7 @@ function negatedPhrase(text, phrase) {
   const before=value.slice(Math.max(0,index-28),index);
   const after=value.slice(index+term.length,index+term.length+28);
   return /(?:عدم|بدون|نه|not|no|never|did not|does not|has not|hasn't)\s*$/.test(before) ||
-    /^(?:\s)*(?:نیافت|نکرد|نداشت|نشد|نمی\s*شود|نمی\s*یابد|نمی\s*کند|نیست|نخواهد|not|never)/.test(after);
+    /^(?:\s)*(?:پیدا\s*نکرد|نیافت|نکرد|نداشت|نشد|نمی\s*شود|نمی\s*یابد|نمی\s*کند|نیست|نخواهد|not|never)/.test(after);
 }
 function metricOf(text) {
   const matches=METRICS.filter(metric=>metric.terms.some(term=>hasPhrase(text,term))).map(x=>x.id);
