@@ -501,6 +501,8 @@ async function issueForecast(env,asset,horizon,input) {
     predicted_change_pct:Number(result.predicted_change_pct.toFixed(3)),
     range:{low:Math.round(result.lower_price),high:Math.round(result.upper_price)},
     direction:result.direction,validation,news_context:input.newsContext,
+    forecast_curve:result.forecast_curve||null,
+    forecast_curve_meta:result.forecast_curve_meta||null,
     model_version:MODEL_VERSION,source:input.source,provider_meta:input.provider_meta,history_provider:input.history_provider
   };
 }
