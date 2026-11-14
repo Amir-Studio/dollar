@@ -197,3 +197,15 @@ test('error analysis reports only adequately sized source and regime cohorts', (
   assert.ok(result.root_cause_candidates.some(x=>x.code==='thin_quote_consensus'&&x.count===6));
   assert.match(result.diagnosis_caution,/not proof of causation/);
 });
+
+test('missing provider metadata stays unknown and is never misclassified as a single-source quote', () => {
+  const result=diagnoseForecastRow({
+    predicted_price:101,reference_price:100,actual_price:102,
+    validation:{quote_quality:{source_count:null,spread_pct:null},news_context:{event_risk_score:null}}
+  });
+  assert.equal(result.contributing_factors.quote_source_count,null);
+  assert.equal(result.contributing_factors.quote_consensus_band,'unknown');
+  assert.equal(result.contributing_factors.quote_spread_band,'unknown');
+  assert.equal(result.contributing_factors.event_risk_band,'unknown');
+  assert.equal(result.root_cause_candidates.some(x=>x.code==='thin_quote_consensus'),false);
+});
