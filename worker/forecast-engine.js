@@ -591,9 +591,22 @@ export async function handleForecastApi(url,env) {
       },{headers:{"cache-control":"no-store"}});
     }
     if(url.pathname==="/forecast/history"){
-      const horizon=Math.max(1,Math.min(7,Number(url.searchParams.get("horizon_days")||7)));
-      const data=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation&asset=eq."+asset+"&horizon_days=eq."+horizon+"&order=issued_at.desc&limit=30");
-      return Response.json({asset,horizon_days:horizon,forecasts:data||[]},{headers:{"cache-control":"no-store"}});
+      const horizon=Number(url.searchParams.get("horizon_days")||7);
+      if(!HORIZONS.includes(horizon)) return Response.json({error:"افق باید ۱، ۳ یا ۷ روز باشد."},{status:400});
+      const requestedLimit=Number(url.searchParams.get("limit")||500);
+      if(!Number.isInteger(requestedLimit)||requestedLimit<1||requestedLimit>500) return Response.json({error:"limit باید عددی بین ۱ تا ۵۰۰ باشد."},{status:400});
+      const query=new URLSearchParams({
+        select:"id,asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation",
+        asset:"eq."+asset,
+        horizon_days:"eq."+horizon,
+        order:"issued_at.desc",
+        limit:String(requestedLimit)
+      });
+      const data=await db(env,"market_forecast_runs?"+query.toString());
+      return Response.json({
+        asset,horizon_days:horizon,forecasts:data||[],
+        ledger_meta:{returned_rows:Array.isArray(data)?data.length:0,limit:requestedLimit,generated_at:new Date().toISOString(),truncated:Array.isArray(data)&&data.length===requestedLimit}
+      },{headers:{"cache-control":"no-store"}});
     }
     const horizon=Number(url.searchParams.get("horizon_days")||7);
     if(!HORIZONS.includes(horizon)) return Response.json({error:"افق باید ۱، ۳ یا ۷ روز باشد."},{status:400});
