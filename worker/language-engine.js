@@ -775,7 +775,7 @@ function classifyOne(item) {
   const persianLiterature = languageIsEnglish(title) ? null : analyzePersianLiterature(title + " " + body);
   const languageFoundations = extractLanguageFoundations(title + " " + body,languageIsEnglish(title)?"en":"fa");
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
-  const pragmatics = analyzePragmatics(title + " " + body, language);
+  const pragmatics = analyzePragmatics(title, language, body);
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
