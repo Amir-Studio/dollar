@@ -704,8 +704,15 @@ export async function handleForecastApi(url,env) {
       },{headers:{"cache-control":"no-store"}});
     }
     if(url.pathname==="/forecast/learning"){
-      const data=await db(env,"market_learning_cycles?select=cycle_at,model_version,evaluated_count,asset_metrics,learning_actions&order=cycle_at.desc&limit=100");
-      return Response.json({model_version:MODEL_VERSION,cycles:data||[],note_fa:"وزن‌های مدل با آزمون walk-forward و فقط با داده‌های بالغ‌شده دوباره محاسبه می‌شوند؛ این گزارش، عملکرد زنده و هشدار افت کیفیت را ثبت می‌کند."},{headers:{"cache-control":"no-store"}});
+      const [cycles,diagnostics]=await Promise.all([
+        db(env,"market_learning_cycles?select=cycle_at,model_version,evaluated_count,asset_metrics,learning_actions&order=cycle_at.desc&limit=100"),
+        db(env,"market_forecast_error_diagnostics?select=forecast_id,asset,horizon_days,model_version,diagnosed_at,error_metrics,contributing_factors,root_cause_candidates&order=diagnosed_at.desc&limit=100")
+      ]);
+      return Response.json({
+        model_version:MODEL_VERSION,cycles:cycles||[],diagnostics:diagnostics||[],
+        diagnostic_count:Array.isArray(diagnostics)?diagnostics.length:0,
+        note_fa:"این گزارش خطاهای واقعی پیش‌بینی‌های بالغ‌شده، عوامل زمینه‌ای، الگوهای تکرارشونده و مقایسهٔ گروه‌ها را نشان می‌دهد. عوامل زمینه‌ای همبستگی‌اند، نه اثبات علت."
+      },{headers:{"cache-control":"no-store"}});
     }
     if(url.pathname==="/forecast/history"){
       const horizon=Number(url.searchParams.get("horizon_days")||7);
