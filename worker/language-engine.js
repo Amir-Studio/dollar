@@ -1,6 +1,8 @@
 // Dollar Market Language Engine v0.1
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
-export const VERSION = "dollar-domain-nlp-1.0.0";
+import { analyzePragmatics, runPragmaticsBenchmark, PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
+
+export const VERSION = "dollar-domain-nlp-1.1.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -773,6 +775,7 @@ function classifyOne(item) {
   const persianLiterature = languageIsEnglish(title) ? null : analyzePersianLiterature(title + " " + body);
   const languageFoundations = extractLanguageFoundations(title + " " + body,languageIsEnglish(title)?"en":"fa");
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
+  const pragmatics = analyzePragmatics(title + " " + body, language);
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
@@ -781,6 +784,7 @@ function classifyOne(item) {
     english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,
     persian_literature:persianLiterature,
     language_foundations:languageFoundations,
+    pragmatics,
     numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
@@ -888,12 +892,13 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping","persian_literature_genres_and_rhetorical_devices","bilingual_internal_comprehension_exam","general_english_and_persian_grammar_vocabulary_reading_writing_and_literature"],news_analyzed:analyses.length,
+    language_coverage:["fa","en"],english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping","persian_literature_genres_and_rhetorical_devices","bilingual_internal_comprehension_exam","general_english_and_persian_grammar_vocabulary_reading_writing_and_literature","idiom_and_proverb_recognition","metaphor_and_figurative_language","irony_and_sarcasm_candidate_detection","indirect_speech_act_detection","persian_taarof_and_english_politeness","rhetorical_questions","conversational_implicature","hedging_and_uncertainty","contextual_ambiguity_with_abstention"],news_analyzed:analyses.length,
     terminology_benchmark:terminologySelfTest(),
     persian_terminology_benchmark:persianTerminologySelfTest(),
     bilingual_comprehension_exam:languageComprehensionExam(),
     language_foundations_exam:languageFoundationsExam(),
     independent_language_benchmark:independentLanguageBenchmark(),
+    pragmatic_language:{version:PRAGMATICS_VERSION,phrase_count:PRAGMATICS_PHRASE_COUNT,benchmark:runPragmaticsBenchmark()},
     persian_literary_topics_count:PERSIAN_LITERARY_TERMS.length,
     english_language_foundations_count:ENGLISH_LANGUAGE_FOUNDATIONS.length,
     persian_language_foundations_count:PERSIAN_LANGUAGE_FOUNDATIONS.length,
