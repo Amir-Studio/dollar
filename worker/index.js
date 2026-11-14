@@ -206,7 +206,7 @@ async function makeFreeAnalysis(env, asset) {
   ]);
   const market = cachedMarket?.payload || await getMarketSnapshot(env);
   const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
-  const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
+  const news = cachedNews?.items || storedNews;
   const item = (market.data || []).find(x => x.symbol === asset);
   if (!item || item.stale === true || market.meta?.stale === true) return reply({error:"منبع قیمت تازه نیست؛ تحلیل جدید ساخته نشد."},424);
   const price = n(item.price), stamp = dateMs(item.timestamp || market.meta?.published_at);
@@ -450,12 +450,14 @@ export default {
     }
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
     if (url.pathname === "/forecast/v2") {
+      const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
+      if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
       const response = await handleForecastApi(url,env);
       let data = {};
       try { data = await response.json(); } catch {}
       const cachedNews = await readFreshCache(env,"news:latest",45*60*1000);
       const storedNews = cachedNews?.items ? [] : await readNewsFromSupabase(env).catch(() => []);
-      const news = cachedNews?.items || (storedNews.length ? storedNews : await collectNews().catch(() => []));
+      const news = cachedNews?.items || storedNews;
       try {
         const analysisResponse = await makeFreeAnalysis(env, asset);
         if (analysisResponse.ok) {
@@ -481,21 +483,19 @@ export default {
       return reply(data,200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/news") {
-      const readOnly = url.searchParams.get("read_only") === "1";
-      let sync = null;
-      if (!readOnly) {
-        try { sync = await syncNewsToSupabase(env); }
-        catch (error) { console.error("On-demand news refresh failed:",error?.message || error); }
-      }
-      const stored = sync?.items?.length ? sync.items : await readNewsFromSupabase(env).catch(() => []);
-      const items = cleanNewsItems(stored.length ? stored : await collectNews().catch(() => []));
+      // Public GET requests are read-only. RSS ingestion runs only in the
+      // scheduled refresh path, not on arbitrary visitor traffic.
+      const stored = await readNewsFromSupabase(env).catch(() => []);
+      const items = cleanNewsItems(stored);
+      const conflicts = headlineConflictCandidates(items);
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
         source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
-        potential_conflicts:headlineConflictCandidates(items),
-        potential_conflict_count:headlineConflictCandidates(items).length,
-        refreshed:sync?.refreshed===true,
+        potential_conflicts:conflicts,
+        potential_conflict_count:conflicts.length,
+        refreshed:false,
+        refresh_mode:"scheduled_only",
         topics:newsTopics(items),items
       },200,{"cache-control":"no-store"});
     }
