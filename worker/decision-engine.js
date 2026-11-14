@@ -1,4 +1,5 @@
 // Dollar Market Decision Engine v0.1
+export const DECISION_ENGINE_VERSION = "0.1.0";
 // Transparent, deterministic evidence synthesis. Not a trading or investment recommendation.
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 const num=x=>Number.isFinite(Number(x))?Number(x):null;
@@ -110,13 +111,13 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  if(newsConflict)reasons.push("شواهد خبری در دو جهت متفاوت قرار دارند.");
  if(!analyses.length)reasons.push("تحلیل زبانی قابل‌استفاده‌ای از خبرها در دسترس نیست.");
  return {
-  engine:"deterministic_evidence_synthesis",version:"0.1.0",
+  engine:"deterministic_evidence_synthesis",version:DECISION_ENGINE_VERSION,
   decision_label_fa:action==="wait_for_reliable_data"?"دادهٔ معتبر بیشتری لازم است":action==="wait_for_confirmation"?"فعلاً نیازمند تأیید بیشتر":"پایش؛ بدون توصیهٔ معاملاتی",
   action,asset,as_of:new Date(now).toISOString(),
   price_context:{reference_price:price,quote_age_hours:quoteAgeHours===null?null:Number(quoteAgeHours.toFixed(2)),quote_fresh_under_6h:quoteFresh,history_observations:observations,momentum_7d_pct:momentum7,momentum_14d_pct:momentum14,momentum_30d_pct:momentum30,daily_volatility_pct:volatility,price_signal:priceSignal,trend_score_not_probability:trendScore===null?null:Number(trendScore.toFixed(2))},
   news_context:{headline_count:rawNews.length,classified_news_count:analyses.length,unique_publisher_domains:domains.size,excerpt_coverage_pct:excerptPct,possible_conflict_count:conflicts,upward_pressure_items:upEvidence.length,downward_pressure_items:downEvidence.length,news_signal:newsSignal,news_balance_not_probability:Number(newsBalance.toFixed(2)),upward_evidence:upEvidence.slice(0,6),downward_evidence:downEvidence.slice(0,6),neutral_or_mixed_evidence:neutralEvidence.slice(0,4)},
   synthesis:{state:synthesis,price_and_news_agree:synthesis==="aligned_upward_pressure"||synthesis==="aligned_downward_pressure",conflicting_news:newsConflict,explanation_fa:reasons.join(" ")||"شواهد کافی برای جمع‌بندی وجود ندارد."},
-  evidence_quality:{score_not_probability:evidenceScore,confidence_label:confidence,issues:qualityIssues,source_independence_verified:false,full_article_text_available:excerptPct>0},
+  evidence_quality:{score_not_probability:evidenceScore,confidence_label:confidence,issues:qualityIssues,source_independence_verified:false,rss_excerpt_available:excerptPct>0,full_article_text_available:false},
   reasons_fa:reasons,
   limitations_fa:["این موتور الگوریتمی و قاعده‌محور است، نه مدل زبانی مولد.","امتیازها احتمال آماری نیستند و با داده‌های واقعی کالیبره نشده‌اند.","جهت فشار خبری، اثر علّی خبر بر قیمت را ثابت نمی‌کند.","تعداد دامنه‌های ناشر لزوماً به معنی استقلال تحریریه‌ای منابع نیست.","این خروجی آموزشی و اطلاعاتی است؛ توصیهٔ خرید، فروش یا نگهداری دارایی نیست."]
  };
