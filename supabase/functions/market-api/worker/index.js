@@ -565,7 +565,7 @@ export default {
         topics:newsTopics(items),items
       },200,{"cache-control":"no-store"});
     }
-    if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance") return handleForecastApi(url,env);
+    if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance" || url.pathname === "/forecast/learning") return handleForecastApi(url,env);
     if (url.pathname === "/health") {
       const databaseConfigured = Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
       const tableChecks = databaseConfigured ? await Promise.all([
@@ -573,7 +573,8 @@ export default {
         ["market_forecast_runs", "id"],
         ["market_news_items", "id"],
         ["market_news_sync_state", "id"],
-        ["market_news_sources", "source_id"]
+        ["market_news_sources", "source_id"],
+        ["market_learning_cycles", "id"]
       ].map(async ([table, column]) => {
         try {
           const base = String(env.SUPABASE_URL).replace(/\/+$/, "");
@@ -594,6 +595,7 @@ export default {
       const quotePersistenceReady = databaseConfigured && has("market_quotes");
       const newsStorageReady = databaseConfigured && has("market_news_items") && has("market_news_sync_state");
       const newsPipelineSchemaReady = newsStorageReady && has("market_news_sources");
+      const learningStorageReady = databaseConfigured && has("market_learning_cycles");
       return reply({
         ok: true,
         service: "dollar-market-intelligence",
@@ -606,6 +608,7 @@ export default {
         database_schema_ready: databaseConfigured && forecastLedgerReady && quotePersistenceReady && newsStorageReady,
         database_tables: databaseTables,
         forecast_ledger_enabled: forecastLedgerReady,
+        continuous_learning_ready: learningStorageReady,
         news_storage_enabled: newsStorageReady,
         news_pipeline_schema_ready: newsPipelineSchemaReady,
         forecast_ledger_table: "market_forecast_runs",
