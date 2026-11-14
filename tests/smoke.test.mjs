@@ -100,6 +100,9 @@ test('health endpoint distinguishes missing credentials from working database st
   assert.equal(health.kv_binding_present, false);
   assert.deepEqual(health.database_tables, {});
   assert.ok(health.capabilities.includes('database-schema-diagnostics'));
+  assert.equal(health.language_engine.enabled, true);
+  assert.equal(health.language_engine.pragmatics.enabled, true);
+  assert.equal(health.language_engine.pragmatics.curated_phrase_count, 100);
 });
 
 test('market data limitations and risk disclosure are visible', () => {
