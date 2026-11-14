@@ -522,7 +522,8 @@ export default {
         ["market_news_items", "id"],
         ["market_news_sync_state", "id"],
         ["market_news_sources", "source_id"],
-        ["market_learning_cycles", "id"]
+        ["market_learning_cycles", "id"],
+        ["market_forecast_error_diagnostics", "id"]
       ].map(async ([table, column]) => {
         try {
           const base = String(env.SUPABASE_URL).replace(/\/+$/, "");
@@ -544,6 +545,7 @@ export default {
       const newsStorageReady = databaseConfigured && has("market_news_items") && has("market_news_sync_state");
       const newsPipelineSchemaReady = newsStorageReady && has("market_news_sources");
       const learningStorageReady = databaseConfigured && has("market_learning_cycles");
+      const errorDiagnosticsReady = databaseConfigured && has("market_forecast_error_diagnostics");
       return reply({
         ok: true,
         service: "dollar-market-intelligence",
@@ -589,6 +591,7 @@ export default {
         database_tables: databaseTables,
         forecast_ledger_enabled: forecastLedgerReady,
         continuous_learning_ready: learningStorageReady,
+        forecast_error_diagnostics_ready: errorDiagnosticsReady,
         news_storage_enabled: newsStorageReady,
         news_pipeline_schema_ready: newsPipelineSchemaReady,
         forecast_ledger_table: "market_forecast_runs",
@@ -604,7 +607,7 @@ export default {
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: false,
-        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
+        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-error-root-cause-diagnostics","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
