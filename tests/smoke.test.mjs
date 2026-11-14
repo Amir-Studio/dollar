@@ -42,22 +42,14 @@ test('chart forecast uses live AI endpoint when configured and labels statistica
   assert.doesNotMatch(js, /Math\.random/, 'do not synthesize market prices');
 });
 
-test('news intelligence backend checks fresh quotes and provides source links', () => {
-  assert.match(worker, /type:"web_search"/);
-  assert.match(worker, /OPENAI_API_KEY/);
-  assert.match(worker, /aiChange\*0\.65\+baselineChange\*0\.35/);
-  assert.match(worker, /const sources = citations\(resp\)/);
-  assert.match(worker, /news_sources_count:sources\.length/);
-  assert.match(worker, /recent_sources_count:recentSources\.length/);
-  assert.match(worker, /momentum_14d_pct/);
-  assert.match(worker, /published_at:date/);
-  assert.match(aiJs, /خبرها و گزارش‌های رسانه‌ای بررسی‌شده/);
-  assert.match(aiJs, /checkHealth/);
-  assert.match(worker, /45\*60\*1000/);
-  assert.match(worker, /range_low/);
-  assert.match(worker, /momentum_14d_pct/);
-  assert.match(worker, /configured: Boolean\(env\.OPENAI_API_KEY\)/);
-  assert.match(worker, /tool_choice:"required"/);
+test('news intelligence backend uses source-linked RSS context and a no-key forecast engine', () => {
+  assert.match(worker, /from "\.\/forecast-engine\.js"/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.4-multisource-feedback"/);
+  assert.match(forecastEngine, /fetchNewsContext/);
+  assert.match(forecastEngine, /selectWeights/);
+  assert.match(forecastEngine, /isMarketRelevantHeadline/);
+  assert.match(forecastEngine, /skill>=2/);
+  assert.match(forecastEngine, /forecast_mode:"baseline_only"/);
   assert.match(worker, /async function makeFreeAnalysis/);
   assert.ok(worker.includes('news.google.com/rss/search'));
   assert.ok(worker.includes('url.pathname === "/analysis"'));
@@ -67,8 +59,8 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.match(worker, /background_refresh_provider/);
   assert.match(worker, /async function readNewsFeed/);
   assert.match(worker, /const NEWS_SOURCES/);
-  assert.match(worker, /url.pathname === "\/news"/);
-  assert.match(worker, /url.searchParams.get\("read_only"\) === "1"/);
+  assert.ok(worker.includes('url.pathname === "/news"'));
+  assert.ok(worker.includes('url.searchParams.get("read_only") === "1"'));
   assert.ok(worker.includes('if (!readOnly) {'), 'read-only requests must skip refresh writes');
   assert.ok(worker.includes('sync = await syncNewsToSupabase(env);'), 'normal news requests retain their refresh path');
   assert.match(worker, /persistQuotesToSupabase/);
@@ -83,6 +75,8 @@ test('news intelligence backend checks fresh quotes and provides source links', 
   assert.doesNotMatch(aiJs, /health.configured\?'/, 'the browser must never select the paid legacy route');
   assert.match(aiJs, /FREE MARKET ANALYSIS/);
   assert.match(js, /freeAnalysis/);
+  assert.doesNotMatch(worker, /OPENAI_API_KEY/, 'the production market worker must not depend on a paid model key');
+  assert.doesNotMatch(supabaseEntry, /OPENAI_API_KEY/, 'the Supabase market API must remain independent of an external model key');
 });
 
 
@@ -135,7 +129,7 @@ test('stylesheet contains mobile responsive breakpoints', () => {
 test('production market intelligence runs without an external AI key and preserves honest forecast calibration', () => {
   assert.match(supabaseEntry, /SUPABASE_SERVICE_ROLE_KEY: Deno\.env\.get/);
   assert.doesNotMatch(supabaseEntry, /OPENAI_API_KEY/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.3-fresh-quote-calibration"/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.4-multisource-feedback"/);
   assert.match(forecastEngine, /skill>=2/);
   assert.match(forecastEngine, /forecast_mode:"baseline_only"/);
   assert.match(forecastEngine, /directional_signal:false/);
