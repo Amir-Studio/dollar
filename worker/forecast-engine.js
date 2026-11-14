@@ -113,6 +113,32 @@ function regression(points,window=45) {
   return {slope,intercept,x0,sigma,trendNow:intercept+slope*xs[xs.length-1]};
 }
 
+function marketRegimeContext(points) {
+  const returns=[];
+  for(let i=1;i<points.length;i++){
+    const days=(points[i].t-points[i-1].t)/DAY;
+    if(days>0) returns.push(Math.log(points[i].p/points[i-1].p)/days);
+  }
+  const recent=returns.slice(-20), reference=returns.slice(-80,-20);
+  const volatility=values=>{
+    if(values.length<10) return null;
+    const avg=values.reduce((sum,value)=>sum+value,0)/values.length;
+    return Math.sqrt(values.reduce((sum,value)=>sum+(value-avg)**2,0)/Math.max(1,values.length-1))*100;
+  };
+  const recentVol=volatility(recent), referenceVol=volatility(reference);
+  const last=points.at(-1), prior=points.at(-21);
+  const trend=last&&prior?Math.log(last.p/prior.p)*100:null;
+  return {
+    realized_vol_20_pct:recentVol===null?null:Number(recentVol.toFixed(5)),
+    realized_vol_60_pct:referenceVol===null?null:Number(referenceVol.toFixed(5)),
+    volatility_regime:recentVol===null||referenceVol===null?"unknown":
+      recentVol>Math.max(0.1,referenceVol*1.5)?"high":
+      recentVol<referenceVol*0.67?"low":"normal",
+    trend_20d_pct:trend===null?null:Number(trend.toFixed(4)),
+    trend_regime:trend===null?"unknown":trend>2?"up":trend< -2?"down":"range_bound"
+  };
+}
+
 function candidates(points,h) {
   const p=points.slice(-260), returns=[];
   for(let i=1;i<p.length;i++){
@@ -507,7 +533,7 @@ async function issueForecast(env,asset,horizon,input) {
     result.predicted_change_pct=(result.predicted_price/input.price-1)*100;
     result.direction=result.predicted_change_pct>0.1?"up":result.predicted_change_pct< -0.1?"down":"sideways";
   }
-  const validation={...result.validation,forecast_mode:result.forecast_mode||"adaptive_directional",live_error_feedback:calibration,quote_quality:input.provider_meta?{provider:input.provider_meta.provider||"unknown",method:input.provider_meta.method||null,source_count:input.provider_meta.source_count??null,spread_pct:input.provider_meta.spread_pct??null,unit:input.provider_meta.unit||null}:null,history_provider:input.history_provider||"unknown",quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
+  const validation={...result.validation,forecast_mode:result.forecast_mode||"adaptive_directional",market_regime:marketRegimeContext(input.points),live_error_feedback:calibration,quote_quality:input.provider_meta?{provider:input.provider_meta.provider||"unknown",method:input.provider_meta.method||null,source_count:input.provider_meta.source_count??null,spread_pct:input.provider_meta.spread_pct??null,unit:input.provider_meta.unit||null}:null,history_provider:input.history_provider||"unknown",quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
     event_risk_score:input.newsContext?.event_risk_score??0,
     headline_count:input.newsContext?.headline_count??0,
     source_count:input.newsContext?.source_count??0,
