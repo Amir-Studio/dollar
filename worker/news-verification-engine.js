@@ -179,7 +179,7 @@ export function verifyNewsItems(items) {
   }
   return {
     engine:"dollar-news-verification",version:"1.0.0",
-    article_count:claims.length,checkable_count:claims.filter(x=>x.checkable).length,
+    article_count:claims.length,publisher_count:new Set(claims.map(x=>x.domain).filter(x=>x!=="unknown")).size,checkable_count:claims.filter(x=>x.checkable).length,
     verdict_counts:results.reduce((acc,item)=>(acc[item.verdict]=(acc[item.verdict]||0)+1,acc),{}),
     claims:results,conflicts,
     limitations:["تیتر یا چکیده جای متن کامل و سند اولیه را نمی‌گیرد.","تفاوت تاریخ، واحد، تعریف شاخص یا بازهٔ زمانی به‌تنهایی تناقض نیست.","تکرار یک خبر در چند رسانه، چند شاهد مستقل محسوب نمی‌شود.","امتیاز اطمینان کالیبره‌شده نیست و حکم قطعی صادر نمی‌شود."]
