@@ -34,15 +34,29 @@ function tokens(value) {
   return (normalizeNewsText(value).match(/[\p{L}\p{N}]{2,}/gu)||[]).filter(token=>!STOP.has(token));
 }
 function unique(values) { return [...new Set(values)]; }
+function hasPhrase(text, phrase) {
+  const value=" "+normalizeNewsText(text)+" ";
+  const term=" "+normalizeNewsText(phrase)+" ";
+  return value.includes(term);
+}
+function negatedPhrase(text, phrase) {
+  const value=normalizeNewsText(text),term=normalizeNewsText(phrase);
+  const index=value.indexOf(term);
+  if(index<0) return false;
+  const before=value.slice(Math.max(0,index-28),index);
+  const after=value.slice(index+term.length,index+term.length+28);
+  return /(?:عدم|بدون|نه|not|no|never|did not|does not|has not|hasn't)\s*$/.test(before) ||
+    /^(?:\s)*(?:نیافت|نکرد|نداشت|نشد|نمی\s*شود|نمی\s*یابد|نمی\s*کند|نیست|نخواهد|not|never)/.test(after);
+}
 function metricOf(text) {
-  const value=normalizeNewsText(text);
-  const matches=METRICS.filter(metric=>metric.terms.some(term=>value.includes(normalizeNewsText(term)))).map(x=>x.id);
+  const matches=METRICS.filter(metric=>metric.terms.some(term=>hasPhrase(text,term))).map(x=>x.id);
   return matches.length===1?matches[0]:matches.length? "multiple:"+matches.sort().join(","):"unknown";
 }
 function polarityOf(text) {
-  const value=normalizeNewsText(text);
-  const pos=POSITIVE.some(term=>value.includes(normalizeNewsText(term)));
-  const neg=NEGATIVE.some(term=>value.includes(normalizeNewsText(term)));
+  const positiveHits=POSITIVE.filter(term=>hasPhrase(text,term));
+  const negativeHits=NEGATIVE.filter(term=>hasPhrase(text,term));
+  const pos=positiveHits.some(term=>!negatedPhrase(text,term))||negativeHits.some(term=>negatedPhrase(text,term));
+  const neg=negativeHits.some(term=>!negatedPhrase(text,term))||positiveHits.some(term=>negatedPhrase(text,term));
   if(pos&&neg) return "mixed";
   return pos?"positive":neg?"negative":"neutral";
 }
@@ -106,7 +120,7 @@ function relation(a,b) {
   if(a.polarity!=="neutral"&&b.polarity!=="neutral"&&a.polarity!==b.polarity&&a.polarity!=="mixed"&&b.polarity!=="mixed")
     return {relation:"contradicts",similarity:Number(sim.toFixed(3)),reason:"opposite_direction_same_metric_and_day"};
   if(a.numbers.length&&b.numbers.length){
-    const sameUnits=a.numbers.some(x=>b.numbers.some(y=>x.unit===y.unit));
+    const sameUnits=a.numbers.some(x=>x.unit!=="unspecified"&&b.numbers.some(y=>y.unit===x.unit&&y.unit!=="unspecified"));
     const equal=a.numbers.some(x=>b.numbers.some(y=>x.unit===y.unit&&Math.abs(x.value-y.value)<=Math.max(0.01,Math.abs(x.value)*0.001)));
     if(sameUnits&&!equal)
       return {relation:"numeric_disagreement",similarity:Number(sim.toFixed(3)),reason:"different_numeric_values_same_unit"};
@@ -181,7 +195,14 @@ export function compareClaimToSearchEvidence(claimText, articles) {
     .sort((a,b)=>b.similarity-a.similarity);
   const supports=comparisons.filter(x=>x.relation==="supports");
   const contradicts=comparisons.filter(x=>["contradicts","numeric_disagreement"].includes(x.relation));
-  const independent=(rows)=>rows.filter((row,index)=>rows.findIndex(other=>other.item.domain===row.item.domain)===index);
+  const independent=(rows)=>{
+    const selected=[];
+    for(const row of rows){
+      if(selected.some(existing=>existing.item.domain===row.item.domain||sameSyndicatedStory(existing.item,row.item))) continue;
+      selected.push(row);
+    }
+    return selected;
+  };
   const supportSources=independent(supports),contradictSources=independent(contradicts);
   const verdict=supportSources.length&&contradictSources.length?"mixed_evidence":
     contradictSources.length>=2?"contradicted_by_retrieved_headlines":
