@@ -94,6 +94,18 @@ function cohortDiagnostics(rows,minimum=5) {
   return result;
 }
 
+function directionAccuracy(rows,adjustment=0) {
+  const sample=rows.filter(r=>positive(r.reference_price)&&positive(r.actual_price)&&positive(r.predicted_price));
+  if(!sample.length) return {samples:0,accuracy_pct:null};
+  const direction=value=>value>0.1?"up":value< -0.1?"down":"sideways";
+  const hits=sample.filter(r=>{
+    const actual=direction((Number(r.actual_price)/Number(r.reference_price)-1)*100);
+    const predicted=direction((Number(r.predicted_price)*Math.exp(adjustment)/Number(r.reference_price)-1)*100);
+    return actual===predicted;
+  }).length;
+  return {samples:sample.length,accuracy_pct:round(hits/sample.length*100,2)};
+}
+
 /** Train on older rows; promote a bounded correction only if a later holdout improves. */
 export function robustBiasCalibration(rows) {
   const valid=(Array.isArray(rows)?rows:[]).filter(r=>positive(r?.predicted_price)&&positive(r?.actual_price))
@@ -111,6 +123,16 @@ export function robustBiasCalibration(rows) {
   const holdoutBias=median(holdoutResiduals);
   if(Math.abs(holdoutBias)<0.0005||Math.sign(holdoutBias)!==Math.sign(candidate))
     return {samples:valid.length,training_samples:training.length,holdout_samples:holdout.length,applied:false,log_bias:round(center,6),adjustment_log:0,holdout_bias_log:round(holdoutBias,6),reason:"holdout_does_not_confirm_training_bias"};
+  const directionBefore=directionAccuracy(holdout,0);
+  const directionAfter=directionAccuracy(holdout,candidate);
+  if(directionBefore.samples>=10 && directionAfter.accuracy_pct<directionBefore.accuracy_pct-5)
+    return {
+      samples:valid.length,training_samples:training.length,holdout_samples:holdout.length,
+      applied:false,log_bias:round(center,6),adjustment_log:0,
+      direction_accuracy_before_pct:directionBefore.accuracy_pct,
+      direction_accuracy_after_pct:directionAfter.accuracy_pct,
+      reason:"holdout_directional_accuracy_would_degrade"
+    };
   const before=mean(holdoutResiduals.map(x=>Math.abs(Math.expm1(x))));
   const after=mean(holdoutResiduals.map(x=>Math.abs(Math.expm1(x-candidate))));
   const improvement=before>0?(1-after/before)*100:0;
