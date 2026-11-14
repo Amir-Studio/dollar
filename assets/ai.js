@@ -165,7 +165,9 @@ async function checkHealth(){
   if(!adaptive){setStatus('موتور اختصاصی هنوز آماده نیست');return}
   const refreshStatus=data.background_refresh_prerequisites_ready?'موتور آماری و خبرخوان RSS فعال · به‌روزرسانی خودکار روشن':'موتور آماری فعال · زمان‌بندی خودکار نیازمند بررسی';
   const languageStatus=data.language_engine?.enabled===true?'هستهٔ فهم خبر و تاریخچه v'+(data.language_engine.version||'')+' فعال':'هستهٔ فهم زبان هنوز آماده نیست';
-   setStatus(refreshStatus+' · '+languageStatus+' · بدون API خارجی');
+  const pragmatics=data.language_engine?.pragmatics;
+  const pragmaticsStatus=pragmatics?.enabled===true?'فهم کنایه و منظور ضمنی v'+(pragmatics.version||'')+' · '+new Intl.NumberFormat('fa-IR').format(Number(pragmatics.curated_phrase_count)||0)+' نمونه':'گسترش فهم کاربردی زبان در انتظار فعال‌سازی';
+  setStatus(refreshStatus+' · '+languageStatus+' · '+pragmaticsStatus+' · بدون API خارجی');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
