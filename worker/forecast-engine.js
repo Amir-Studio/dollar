@@ -3,7 +3,7 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.4-multisource-feedback";
+const MODEL_VERSION = "iran-ensemble-wf-2.5-daily-path";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -248,7 +248,7 @@ function backtest(points,h) {
   };
 }
 
-export function buildForecast(points,price,horizon,newsContext=null) {
+function buildForecastPoint(points,price,horizon,newsContext=null) {
   const min={1:300,3:300,7:300}[horizon]||300;
   if(points.length<min) return {eligible:false,reason:"تاریخچه برای این افق کافی نیست.",observations:points.length,required:min};
   const validation=backtest(points,horizon);
@@ -299,6 +299,40 @@ export function buildForecast(points,price,horizon,newsContext=null) {
     direction:change>0.001?"up":change< -0.001?"down":"sideways",
     model_weights:validation.weights,validation,
     uncertainty_pct:band*100,news_context:newsContext||null
+  };
+}
+
+
+export function buildForecast(points,price,horizon,newsContext=null) {
+  const base=buildForecastPoint(points,price,horizon,newsContext);
+  if(horizon!==7 || !base.eligible) return base;
+  const curve=[{day:0,price,lower:price,upper:price,kind:"observed"}];
+  for(let day=1;day<=7;day++) {
+    const step=buildForecastPoint(points,price,day,newsContext);
+    if(!step.eligible) {
+      curve.push({day,available:false,reason:step.reason||"insufficient_validation"});
+      continue;
+    }
+    curve.push({
+      day,
+      price:Number(step.predicted_price.toFixed(4)),
+      lower:Number(step.lower_price.toFixed(4)),
+      upper:Number(step.upper_price.toFixed(4)),
+      kind:step.forecast_mode||"adaptive_directional",
+      validation_samples:step.validation?.samples??0,
+      skill_vs_no_change_pct:step.validation?.skill_vs_no_change_pct??null
+    });
+  }
+  const available=curve.filter(x=>x.available!==false).length-1;
+  return {
+    ...base,
+    forecast_curve:curve,
+    forecast_curve_meta:{
+      method:"daily_walk_forward_revalidated",
+      available_days:available,
+      complete:available===7,
+      note_fa:"هر نقطه با آزمون تاریخی افق همان روز محاسبه شده است؛ نوار بالا و پایین محدودهٔ عدم‌قطعیت بر پایهٔ خطای خارج از نمونه و نوسان تاریخی است، نه تضمین پوشش."
+    }
   };
 }
 
