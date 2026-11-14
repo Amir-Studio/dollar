@@ -87,3 +87,7 @@ Calibration uses up to 40 older matured observations to estimate a robust residu
 - The live learning report is exposed at `/forecast/learning`, including aggregate cycles and individual diagnoses.
 
 The live database migration for the immutable diagnosis ledger is `20261114190000_market_forecast_error_diagnostics`. The Worker change remains subject to PR review and deployment; schema availability alone does not mean the new code is live.
+
+- Calibration promotion also checks that directional accuracy on the same chronological holdout does not deteriorate by more than five percentage points.
+- Baseline-only forecasts are retained for diagnosis and uncertainty monitoring but are excluded from the adaptive directional model's skill, drift, and cohort-promotion decisions. This prevents neutral benchmark records from masking the directional model's actual performance.
+- Issued forecasts now carry 20-day realized-volatility and trend-regime context. These regimes are used for post-outcome cohort comparison, not as a causal explanation or a direct trading trigger.
