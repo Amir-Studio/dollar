@@ -173,7 +173,7 @@ export function buildGdeltQuery(claim) {
   return words.slice(0,8).join(" ").slice(0,180);
 }
 export function compareClaimToSearchEvidence(claimText, articles) {
-  const claim=extractNewsClaim({title:claimText,published_at:new Date().toISOString(),url:"https://claim.invalid/"});
+  const claim=extractNewsClaim({title:claimText,published_at:null,url:"https://claim.invalid/"});
   const evidence=(Array.isArray(articles)?articles:[]).map(extractNewsClaim)
     .filter(item=>item.domain!=="claim.invalid"&&item.domain!=="unknown");
   const comparisons=evidence.map(item=>({item,...relation(claim,item)}))
