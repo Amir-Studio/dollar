@@ -123,7 +123,7 @@ function rssLink(block, feedUrl) {
   const raw = textLink || atomLink || rssTag(block,"guid");
   try { return new URL(xmlText(raw),feedUrl).href; } catch { return ""; }
 }
-async function readNewsFeed(feed) {
+async function readNewsFeed(feed, maxAgeHours = 72) {
   const response = await fetch(feed.url, {
     headers: { accept:"application/rss+xml, application/atom+xml, application/xml, text/xml", "user-agent":"DollarMarketBrief/2.0" },
     signal:AbortSignal.timeout(12000)
@@ -138,7 +138,7 @@ async function readNewsFeed(feed) {
     const publishedText=rssTag(block,"pubDate") || rssTag(block,"published") || rssTag(block,"updated") || rssTag(block,"dc:date") || rssTag(block,"date");
     const published=Date.parse(publishedText);
     if (!title || !/^https?:\/\//i.test(link) || !Number.isFinite(published)) { invalid++; continue; }
-    if (published>Date.now()+5*60*1000 || Date.now()-published>72*60*60*1000) { outsideWindow++; continue; }
+    if (published>Date.now()+5*60*1000 || Date.now()-published>maxAgeHours*60*60*1000) { outsideWindow++; continue; }
     if (!isMarketNews(title)) { irrelevant++; continue; }
     const sourceMatch=block.match(/<source\b([^>]*)>([\s\S]*?)<\/source>/i);
     const sourceUrl=sourceMatch?.[1]?.match(/\burl=["']([^"']+)["']/i)?.[1];
@@ -150,11 +150,11 @@ async function readNewsFeed(feed) {
       original_text:articleText
     });
   }
-  console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_72h",outsideWindow,"irrelevant",irrelevant);
+  console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
-async function collectNews() {
-  const results=await Promise.allSettled(NEWS_FEEDS.map(readNewsFeed));
+async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
+  const results=await Promise.allSettled(NEWS_FEEDS.map(feed => readNewsFeed(feed,maxAgeHours)));
   const seenUrls=new Set(),items=[];
   results.forEach((result,index)=>{
     const sourceId=NEWS_FEEDS[index].source_id;
@@ -171,7 +171,7 @@ async function collectNews() {
       seenUrls.add(urlKey);items.push(item);
     }
   });
-  const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,50);
+  const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,Math.max(1,Math.min(200,Number(limit)||50)));
   console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"unique",sorted.length);
   return sorted;
 }
@@ -366,7 +366,7 @@ async function syncNewsToSupabase(env) {
     return { enabled:true, refreshed:false, items:await readNewsFromSupabase(env) };
   }
 
-  const items = await collectNews();
+  const items = await collectNews({maxAgeHours:30*24,limit:100});
   const fetchedAt = new Date().toISOString();
   if (items.length) {
     const rows = items.map(item => ({
@@ -389,7 +389,7 @@ async function syncNewsToSupabase(env) {
     body:JSON.stringify({id:1,last_fetched_at:fetchedAt}), signal:AbortSignal.timeout(12000)
   });
   if (!stateUpdate.ok) throw Error("Supabase news state update HTTP " + stateUpdate.status);
-  return { enabled:true, refreshed:true, items };
+  return { enabled:true, refreshed:true, items:await readNewsFromSupabase(env), archived_items:items.length };
 }
 
 export async function refreshBackground(env) {
