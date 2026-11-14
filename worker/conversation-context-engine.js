@@ -58,8 +58,8 @@ export function analyzeConversationContext(turns, language) {
   const likelyRespondingToRequest = Boolean(previousRequest && previousRequest.role !== current.role);
 
   let conversationalRole = "standalone_or_unclear";
-  if (likelyRespondingToQuestion) conversationalRole = "possible_answer_to_previous_question";
-  else if (likelyRespondingToRequest) conversationalRole = "possible_response_to_previous_request";
+  if (likelyRespondingToRequest) conversationalRole = "possible_response_to_previous_request";
+  else if (likelyRespondingToQuestion) conversationalRole = "possible_answer_to_previous_question";
   else if (previousTurn && previousTurn.role !== current.role && isShortReply) conversationalRole = "short_reply_with_prior_context";
 
   return {
