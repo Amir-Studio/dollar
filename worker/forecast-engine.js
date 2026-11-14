@@ -3,7 +3,7 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.5-daily-path";
+const MODEL_VERSION = "iran-ensemble-wf-2.6-nonoverlap-validation";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -188,8 +188,13 @@ function selectWeights(sample,keys) {
 }
 
 function backtest(points,h) {
-  const start=Math.max(260,points.length-365), records=[];
-  for(let i=start;i<points.length-1;i++){
+  // Use a two-year evaluation window and non-overlapping forecast origins.
+  // A 7-day forecast is therefore evaluated once every 7 observations,
+  // avoiding the false precision caused by heavily overlapping target windows.
+  const evaluationWindowDays=730;
+  const originStrideDays=Math.max(1,Math.floor(h));
+  const start=Math.max(260,points.length-evaluationWindowDays), records=[];
+  for(let i=start;i<points.length-1;i+=originStrideDays){
     const origin=points[i], targetTime=origin.t+h*DAY;
     let j=i+1;
     while(j<points.length&&points[j].t<targetTime) j++;
@@ -233,6 +238,10 @@ function backtest(points,h) {
   const selected=Object.entries(liveWeights).filter(([k,v])=>k!=="no_change"&&v>0).map(([model,weight])=>({model,weight:Number(weight.toFixed(3))}));
   return {
     eligible,samples:n,mae_pct:Number(mae.toFixed(4)),naive_mae_pct:Number(naiveMae.toFixed(4)),
+    evaluation_method:"non_overlapping_rolling_origin",
+    evaluation_window_days:evaluationWindowDays,
+    origin_stride_days:originStrideDays,
+    overlapping_test_windows:false,
     skill_vs_no_change_pct:Number(skill.toFixed(2)),
     directional_accuracy_pct:directionalN?Number((hits/directionalN*100).toFixed(1)):null,
     directional_samples:directionalN,
