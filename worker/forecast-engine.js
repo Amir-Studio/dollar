@@ -596,7 +596,7 @@ export async function handleForecastApi(url,env) {
       const requestedLimit=Number(url.searchParams.get("limit")||500);
       if(!Number.isInteger(requestedLimit)||requestedLimit<1||requestedLimit>500) return Response.json({error:"limit باید عددی بین ۱ تا ۵۰۰ باشد."},{status:400});
       const query=new URLSearchParams({
-        select:"id,asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation",
+        select:"id,asset,horizon_days,model_version,issued_at,target_at,reference_price,quote_source,quote_observed_at,predicted_price,predicted_change_pct,lower_price,upper_price,direction,model_weights,status,actual_price,actual_at,absolute_error_pct,direction_correct,validation",
         asset:"eq."+asset,
         horizon_days:"eq."+horizon,
         order:"issued_at.desc",
