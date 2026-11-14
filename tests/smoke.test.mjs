@@ -60,9 +60,10 @@ test('news intelligence backend uses source-linked RSS context and a no-key fore
   assert.match(worker, /async function readNewsFeed/);
   assert.match(worker, /const NEWS_SOURCES/);
   assert.ok(worker.includes('url.pathname === "/news"'));
-  assert.ok(worker.includes('url.searchParams.get("read_only") === "1"'));
-  assert.ok(worker.includes('if (!readOnly) {'), 'read-only requests must skip refresh writes');
-  assert.ok(worker.includes('sync = await syncNewsToSupabase(env);'), 'normal news requests retain their refresh path');
+  assert.ok(worker.includes('refresh_mode:"scheduled_only"'), 'public news reads must use scheduled ingestion');
+  assert.ok(worker.includes('refreshed:false'), 'public news reads must not trigger RSS ingestion');
+  const newsRoute = worker.slice(worker.indexOf('if (url.pathname === "/news")'), worker.indexOf('if (url.pathname === "/forecast/history"'));
+  assert.doesNotMatch(newsRoute, /syncNewsToSupabase|fetch\(.*rss/i, 'public news reads must remain read-only');
   assert.match(worker, /persistQuotesToSupabase/);
   assert.match(worker, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(worker, /market_quotes\?on_conflict=asset,source,observed_at/);
