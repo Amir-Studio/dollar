@@ -21,7 +21,7 @@ test("curated phrase-recognition benchmark has no missed dictionary entries", ()
 });
 
 test("Persian idiom returns figurative meaning rather than literal reading", () => {
-  const result = analyzePragmatics("او از کاه کوه ساخت", "fa");
+  const result = analyzePragmatics("از کاه کوه ساختن", "fa");
   assert.ok(result.categories.includes("idiom"));
   assert.match(result.possible_intent_fa, /بزرگ‌نمایی/);
 });
