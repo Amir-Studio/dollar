@@ -561,7 +561,7 @@ async function evaluateDue(env,market) {
 async function runContinuousLearning(env, evaluatedNow) {
   if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
   try {
-    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&order=actual_at.desc&limit=1500");
+    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
     const groups = new Map();
     for (const row of (Array.isArray(rows)?rows:[])) {
       const key = row.asset + ":" + row.horizon_days;
@@ -582,7 +582,7 @@ async function runContinuousLearning(env, evaluatedNow) {
       const recent=errors.slice(0,20), older=errors.slice(20);
       const recentMae=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:null;
       const olderMae=older.length?older.reduce((a,b)=>a+b,0)/older.length:null;
-      const drift=recentMae!==null&&olderMae!==null&&olderMae>0&&recentMae>olderMae*1.5;
+      const drift=recent.length>=10&&older.length>=10&&recentMae!==null&&olderMae!==null&&olderMae>0&&recentMae>olderMae*1.5;
       const [asset,horizonText]=key.split(":");
       assetMetrics[key]={
         samples:sample.length,mae_pct:Number(mae.toFixed(5)),
@@ -594,8 +594,9 @@ async function runContinuousLearning(env, evaluatedNow) {
         previous_40_mae_pct:olderMae===null?null:Number(olderMae.toFixed(5)),
         performance_drift:drift
       };
-      if(sample.length>=30 && skill>=2) actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline",skill_pct:Number(skill.toFixed(3))});
+      if(sample.length>=30 && skill>=2) actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline for this model version",skill_pct:Number(skill.toFixed(3))});
       else if(sample.length>=30) actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
+      else actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
       if(drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
     }
     const payload={
