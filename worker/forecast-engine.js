@@ -3,7 +3,7 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.6-nonoverlap-validation";
+const MODEL_VERSION = "iran-ensemble-wf-2.7-maturity-safe-walkforward";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -188,24 +188,44 @@ function selectWeights(sample,keys) {
 }
 
 function backtest(points,h) {
-  // Use a two-year evaluation window and non-overlapping forecast origins.
-  // A 7-day forecast is therefore evaluated once every 7 observations,
-  // avoiding the false precision caused by heavily overlapping target windows.
+  // Evaluate the latest 730 calendar days, with at least 260 prior observations
+  // available for feature construction. Origins are advanced by observed target
+  // timestamps, not row counts, so missing dates cannot create overlapping tests.
   const evaluationWindowDays=730;
-  const originStrideDays=Math.max(1,Math.floor(h));
-  const start=Math.max(260,points.length-evaluationWindowDays), records=[];
-  for(let i=start;i<points.length-1;i+=originStrideDays){
-    const origin=points[i], targetTime=origin.t+h*DAY;
+  const latestTime=points[points.length-1]?.t||0;
+  const cutoff=latestTime-evaluationWindowDays*DAY;
+  let start=0;
+  while(start<points.length&&points[start].t<cutoff) start++;
+  start=Math.max(260,start);
+  const records=[];
+  let nextAllowedOrigin=-Infinity;
+  const targetToleranceDays=1.5;
+  for(let i=start;i<points.length-1;i++){
+    const origin=points[i];
+    if(origin.t<nextAllowedOrigin) continue;
+    const targetTime=origin.t+h*DAY;
     let j=i+1;
     while(j<points.length&&points[j].t<targetTime) j++;
-    if(j>=points.length||points[j].t-targetTime>2*DAY) continue;
+    if(j>=points.length) continue;
+    const targetDelayDays=(points[j].t-targetTime)/DAY;
+    if(targetDelayDays>targetToleranceDays) continue;
     const actual=Math.log(points[j].p/origin.p);
     const preds=candidates(points.slice(0,i+1),h).raw;
-    records.push({originTime:origin.t,targetTime:points[j].t,actual,preds});
+    records.push({
+      originTime:origin.t,targetTime,actualTime:points[j].t,
+      effectiveHorizonDays:(points[j].t-origin.t)/DAY,actual,preds
+    });
+    // Do not start the next test until the actual target observation has arrived.
+    nextAllowedOrigin=points[j].t;
   }
   const keys=records.length?Object.keys(records[0].preds):["no_change"];
   const n=records.length;
-  if(n<30) return {eligible:false,samples:n,reason:"برای ارزیابی معتبر حداقل ۳۰ نمونهٔ خارج از نمونه لازم است."};
+  if(n<30) return {
+    eligible:false,samples:n,evaluation_method:"non_overlapping_rolling_origin",
+    evaluation_window_days:evaluationWindowDays,target_tolerance_days:targetToleranceDays,
+    overlapping_test_windows:false,
+    reason:"برای ارزیابی معتبر حداقل ۳۰ نمونهٔ خارج از نمونه و تاریخچهٔ کافی لازم است."
+  };
   const candidateMae=Object.fromEntries(keys.map(k=>[
     k,records.reduce((s,r)=>s+relativeErrorPct(r.preds[k]??0,r.actual),0)/n
   ]));
@@ -213,7 +233,9 @@ function backtest(points,h) {
   let hits=0,directionalN=0,within1=0,within2=0,within5=0;
   for(let i=0;i<n;i++){
     const origin=records[i].originTime;
-    const matured=records.filter((r,j)=>j<i&&r.targetTime<=origin);
+    // Critical maturity guard: only outcomes whose actual observation timestamp
+    // was already available at this origin may train the ensemble weights.
+    const matured=records.filter((r,j)=>j<i&&r.actualTime<=origin);
     const weights=selectWeights(matured,keys);
     const blend=keys.reduce((s,k)=>s+(weights[k]||0)*(records[i].preds[k]??0),0);
     const actual=records[i].actual;
@@ -232,15 +254,17 @@ function backtest(points,h) {
   const mae=ensembleErrors.reduce((s,v)=>s+v,0)/n;
   const naiveMae=baselineErrors.reduce((s,v)=>s+v,0)/n;
   const skill=naiveMae>0?(1-mae/naiveMae)*100:0;
-  const maturedAll=records.filter(r=>r.targetTime<=points[points.length-1].t);
-  const liveWeights=selectWeights(maturedAll.length?maturedAll:records,keys);
+  const maturedAll=records.filter(r=>r.actualTime<=latestTime);
+  const liveWeights=selectWeights(maturedAll,keys);
+  const effectiveHorizons=records.map(r=>r.effectiveHorizonDays);
   const eligible=n>=30&&skill>=2;
   const selected=Object.entries(liveWeights).filter(([k,v])=>k!=="no_change"&&v>0).map(([model,weight])=>({model,weight:Number(weight.toFixed(3))}));
   return {
     eligible,samples:n,mae_pct:Number(mae.toFixed(4)),naive_mae_pct:Number(naiveMae.toFixed(4)),
-    evaluation_method:"non_overlapping_rolling_origin",
+    evaluation_method:"non_overlapping_rolling_origin_maturity_guard",
     evaluation_window_days:evaluationWindowDays,
-    origin_stride_days:originStrideDays,
+    target_tolerance_days:targetToleranceDays,
+    effective_horizon_days:{min:Number(Math.min(...effectiveHorizons).toFixed(3)),max:Number(Math.max(...effectiveHorizons).toFixed(3)),mean:Number((effectiveHorizons.reduce((a,b)=>a+b,0)/n).toFixed(3))},
     overlapping_test_windows:false,
     skill_vs_no_change_pct:Number(skill.toFixed(2)),
     directional_accuracy_pct:directionalN?Number((hits/directionalN*100).toFixed(1)):null,
@@ -457,7 +481,7 @@ async function fetchInputs(env,asset,marketPayload) {
 
 async function liveBiasCalibration(env,asset,horizon) {
   try {
-    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&order=actual_at.desc&limit=60");
+    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
     const valid=(Array.isArray(rows)?rows:[]).filter(x=>Number(x.predicted_price)>0&&Number(x.actual_price)>0);
     if(valid.length<30) return {samples:valid.length,applied:false,log_bias:0};
     const errors=valid.map(x=>Math.log(Number(x.actual_price)/Number(x.predicted_price)));
