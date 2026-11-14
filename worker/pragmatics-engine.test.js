@@ -55,3 +55,44 @@ test("ordinary literal text is not forced into a figurative category", () => {
 test("module version is explicit", () => {
   assert.match(PRAGMATICS_VERSION, /^dollar-pragmatics-/);
 });
+
+test("quoted sarcasm expression is treated as mention, not speaker intent", () => {
+  const result = analyzePragmatics('She wrote “brilliant move” in her review.', "en");
+  assert.equal(result.interpretation_status, "quoted_mention_not_intent");
+  assert.equal(result.signals.length, 0);
+});
+
+test("negated sarcasm candidate is not classified as sarcasm intent", () => {
+  const result = analyzePragmatics("That was not a brilliant move.", "en");
+  assert.equal(result.categories.includes("sarcasm"), false);
+});
+
+test("word-boundary matching avoids false positives inside longer words", () => {
+  const result = analyzePragmatics("Please define the term clearly.", "en");
+  assert.equal(result.categories.includes("ambiguity"), false);
+});
+
+test("negative surrounding context supports an irony candidate without claiming certainty", () => {
+  const result = analyzePragmatics("چه به موقع رسیدی", "fa", "سه ساعت دیر رسیدی و همه منتظر ماندند.");
+  assert.equal(result.interpretation_status, "context_supported_candidate");
+  assert.equal(result.context_supports_irony_candidate, true);
+  assert.equal(result.confidence_is_calibrated, false);
+});
+
+test("neutral context does not turn an irony phrase into a confirmed sarcastic intent", () => {
+  const result = analyzePragmatics("چه به موقع رسیدی", "fa", "امروز قرار است جلسه برگزار شود.");
+  assert.equal(result.interpretation_status, "context_required");
+  assert.equal(result.requires_more_context, true);
+});
+
+test("context-only expressions are not incorrectly reported as words spoken in the headline", () => {
+  const result = analyzePragmatics("The meeting is today.", "en", "They said it was a piece of cake.");
+  assert.equal(result.signals.length, 0);
+  assert.equal(result.context_signals.length, 1);
+});
+
+test("an ambiguous Persian reply retains multiple possible readings", () => {
+  const result = analyzePragmatics("باشه", "fa", "بعد از یک اختلاف نظر طولانی");
+  assert.equal(result.interpretation_status, "ambiguous_multiple_readings");
+  assert.ok(result.alternative_readings.length > 0);
+});
