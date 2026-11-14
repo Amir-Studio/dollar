@@ -116,7 +116,9 @@ test('robust feedback limits outlier influence and promotes only after chronolog
   assert.ok(Math.abs(result.adjustment_log)<=0.01);
   assert.ok(result.adjustment_log>0);
   assert.ok(result.mad_log<0.001);
-  assert.ok(result.holdout_improvement_pct>=3);\n  assert.equal(result.direction_accuracy_before_pct,0);\n  assert.equal(result.direction_accuracy_after_pct,100);
+  assert.ok(result.holdout_improvement_pct>=3);
+  assert.equal(result.direction_accuracy_before_pct,0);
+  assert.equal(result.direction_accuracy_after_pct,100);
 });
 
 test('robust calibration rejects a training correction that fails on the recent holdout', () => {
