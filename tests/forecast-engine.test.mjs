@@ -129,3 +129,17 @@ test('error diagnosis separates systematic bias, directional accuracy and interv
   assert.equal(result.interval_coverage_pct,100);
   assert.equal(result.performance_drift,false);
 });
+
+test('error profile resists a single extreme residual and detects recent degradation', () => {
+  const rows = Array.from({length:60}, (_,i) => ({
+    predicted_price:100, reference_price:100,
+    actual_price: i===0 ? 180 : (i<20 ? 102 : 100.1),
+    lower_price:99, upper_price:101,
+    direction_correct: i>=20,
+    actual_at:new Date(Date.UTC(2026,3,1)-i*86400000).toISOString()
+  }));
+  const result=analyzeForecastErrors(rows);
+  assert.equal(result.error_profile,'balanced');
+  assert.equal(result.performance_drift,true);
+  assert.ok(result.recent_20_mae_pct > result.previous_40_mae_pct * 1.5);
+});
