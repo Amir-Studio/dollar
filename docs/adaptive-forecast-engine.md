@@ -54,3 +54,36 @@ Cron پنج‌دقیقه‌ای داده را تازه‌سازی می‌کند�
 - اگر دو پنجره با هم اختلاف داشته باشند، اصلاح اعمال نمی‌شود و سامانه به‌جای حدس‌زدن، شواهد بیشتری جمع می‌کند.
 - تشخیص افت عملکرد و کم‌پوششی بازهٔ پیش‌بینی به‌عنوان اقدام یادگیری ثبت می‌شود؛ این هشدارها به‌تنهایی مجوز تغییر خودکار وزن‌ها نیستند.
 - نسخهٔ مدل به iran-ensemble-wf-2.8-robust-feedback افزایش یافته تا نتایج نسخهٔ قبلی بدون اعتبارسنجی وارد کالیبراسیون جدید نشوند.
+
+
+## Deep error-learning loop — version 2.8
+
+### 1. Immutable forecast-level diagnosis
+Each newly matured forecast receives one durable diagnosis in `market_forecast_error_diagnostics`. The record keeps the measured error, quote/provider context, volatility/trend regime, news-risk context, ensemble concentration, and candidate explanations. The diagnosis is unique per forecast and is not rewritten by later learning cycles.
+
+### 2. Error decomposition
+The diagnosis separates:
+- signed price residual (under-prediction vs over-prediction);
+- direction miss;
+- magnitude over-forecast vs under-forecast;
+- prediction-interval miss and interval width;
+- reference-quote age, provider consensus count, and provider spread;
+- elevated event-risk context and ensemble weight concentration.
+
+Observed symptoms are distinguished from contextual risk factors. The system must not describe correlation as proven causation.
+
+### 3. Cohort and regime analysis
+Rolling reports compare errors by quote source, historical-data provider, forecast mode, quote-age band, source-consensus band, spread band, news-risk band, realized-volatility regime, and 20-day trend regime. Cohorts smaller than five matured forecasts are hidden to reduce noise. A cohort gap is a review signal, not an automatic model-weight change.
+
+### 4. Out-of-sample calibration promotion
+Calibration uses up to 40 older matured observations to estimate a robust residual correction and keeps the latest 20 observations as a chronological holdout. The correction is rejected unless the training bias is stable across two windows, the holdout confirms its direction, and holdout absolute error improves by at least 3%. The log adjustment remains capped at 1%. No in-sample-only improvement is sufficient for promotion.
+
+### 5. Safety and evaluation rules
+- Pending, invalidated, stale, or malformed forecasts are excluded.
+- Each asset and horizon is evaluated separately.
+- No missing provider metadata is silently converted to zero or treated as evidence of a weak source.
+- No automatic strategy or weight change is made solely from a suspected root cause.
+- A new correction must improve a later holdout; historical forecast records remain unchanged.
+- The live learning report is exposed at `/forecast/learning`, including aggregate cycles and individual diagnoses.
+
+The live database migration for the immutable diagnosis ledger is `20261114190000_market_forecast_error_diagnostics`. The Worker change remains subject to PR review and deployment; schema availability alone does not mean the new code is live.
