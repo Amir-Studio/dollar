@@ -132,3 +132,44 @@ test('Persian negation does not invert or double-count direction words', () => {
   assert.equal(didNotRise.polarity,'negative');
   assert.equal(didNotFall.polarity,'positive');
 });
+
+
+test('headline direction is not polluted by a different direction in the RSS excerpt', () => {
+  const claim=extractNewsClaim({
+    title:'قیمت نفت برنت افزایش یافت',
+    original_text:'در ادامه گزارش به کاهش قیمت دلار و تغییر نرخ تورم اشاره شده است.',
+    url:'https://one.example/a',published_at:day
+  });
+  assert.equal(claim.metric,'oil');
+  assert.equal(claim.polarity,'positive');
+});
+
+test('repeated claim searches are served from short-lived cache', async () => {
+  const worker=(await import('../worker/index.js')).default;
+  const originalFetch=globalThis.fetch;
+  const values=new Map();
+  let searchCalls=0;
+  const cache={
+    get:async key=>values.has(key)?JSON.parse(values.get(key)):null,
+    put:async (key,value)=>values.set(key,value)
+  };
+  globalThis.fetch=async()=>{
+    searchCalls++;
+    return new Response(JSON.stringify({articles:[
+      {title:'قیمت دلار افزایش یافت',url:'https://one.example/a',domain:'one.example',seendate:'20261113T100000Z'}
+    ]}),{status:200,headers:{'content-type':'application/json'}});
+  };
+  try{
+    const url='https://worker.example/news/verify?claim='+encodeURIComponent('قیمت دلار افزایش یافت');
+    const first=await worker.fetch(new Request(url),{MARKET_CACHE:cache});
+    const second=await worker.fetch(new Request(url),{MARKET_CACHE:cache});
+    const a=await first.json(),b=await second.json();
+    assert.equal(first.status,200);
+    assert.equal(second.status,200);
+    assert.equal(a.cached,false);
+    assert.equal(b.cached,true);
+    assert.equal(searchCalls,1);
+  }finally{
+    globalThis.fetch=originalFetch;
+  }
+});
