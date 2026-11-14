@@ -91,3 +91,31 @@ The live database migration for the immutable diagnosis ledger is `2026111418445
 - Calibration promotion also checks that directional accuracy on the same chronological holdout does not deteriorate by more than five percentage points.
 - Baseline-only forecasts are retained for diagnosis and uncertainty monitoring but are excluded from the adaptive directional model's skill, drift, and cohort-promotion decisions. This prevents neutral benchmark records from masking the directional model's actual performance.
 - Issued forecasts now carry 20-day realized-volatility and trend-regime context. These regimes are used for post-outcome cohort comparison, not as a causal explanation or a direct trading trigger.
+
+
+## Evidence-aware news verification — version 1.0
+
+The news pipeline now combines scheduled RSS collection with GDELT DOC 2.0 web discovery. GDELT is queried once per scheduled collection cycle (not on every public page read), and a bounded on-demand endpoint is available at:
+
+- \`GET /news/verify?claim=<URL-encoded claim>\` — searches the web for up to 75 relevant article headlines from the last seven days and returns linked evidence.
+- \`GET /news\` — returns the collected items plus a structured cross-publisher verification report.
+
+### What the verifier does
+
+- Normalizes Persian and Arabic digits, Persian letter variants, and common whitespace differences.
+- Extracts checkable headline-level signals: market metric, direction, numeric values/units, publication day, publisher domain, and whether an RSS excerpt is available.
+- Compares only related claims with aligned metric and publication day. Opposing direction words or differing numeric values with the same unit are flagged as potential conflicts.
+- Separates supporting, contradicting, related-but-unclear, and different-publication-day evidence.
+- Does not count the same publisher twice or near-identical syndicated headlines as independent corroboration.
+- Identifies a small explicit allowlist of official primary-source domains; all other outlets remain \`publisher_unrated\`. No unsupported outlet credibility score is invented.
+- Preserves the article URL, domain, publication timestamp, search provider, and the relation used in each evidence comparison.
+
+### Verdict policy and limitations
+
+The engine uses evidence-oriented states such as \`corroborated_by_independent_headlines\`, \`contradicted_by_independent_headlines\`, \`mixed_evidence\`, \`insufficient_independent_evidence\`, and \`not_checkable_from_headline\`. These are not calibrated probabilities and are not claims that an article is definitively true or false.
+
+Headline-only search results are leads, not proof. Different dates, definitions, units, observation windows, and populations can explain apparent disagreement. A decisive verification still requires the full article and, when available, the original data release, official statement, or primary document. If web search fails or evidence is weak, the endpoint abstains instead of inventing a verdict.
+
+GDELT is an additional discovery index, not an authority or truth oracle. Its results are deduplicated against exact URLs, rate-limited by the provider, and fetched only in scheduled collection or explicit claim-verification requests. GDELT's API documentation describes its Article List search mode, query operators, time windows, and result limits: https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/.
+
+The verifier is not used to generate directional market predictions. News-derived direction remains disabled until a separate historical evaluation demonstrates incremental value.
