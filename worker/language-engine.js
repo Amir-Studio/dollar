@@ -2,7 +2,7 @@
 // Lightweight, deterministic Persian/English domain NLP. It does not claim to be a generative LLM.
 import { analyzePragmatics, runPragmaticsBenchmark, PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 
-export const VERSION = "dollar-domain-nlp-1.1.0";
+export const VERSION = "dollar-news-analyzer-1.2.0";
 
 const DIGITS = Object.freeze({"۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"});
 const CHAR_MAP = Object.freeze({"ي":"ی","ك":"ک","ۀ":"ه","ة":"ه","ؤ":"و","إ":"ا","أ":"ا","آ":"ا"});
@@ -758,6 +758,43 @@ function extractEnglishAmounts(text) {
 }
 
 function languageIsEnglish(title) { return !/[\u0600-\u06ff]/.test(String(title||"")); }
+function buildSimpleNewsAnalysis({title,body,language,events,themes,uncertain,text,english}) {
+  const isFa=language==="fa";
+  const denied=isFa
+    ? containsAny(text,["تکذیب شد","رد کرد","صحت ندارد","واقعیت ندارد","منتفی شد","انجام نشده","صورت نگرفت"]).length>0
+    : containsAny(text,["denied","denies","not true","did not happen","ruled out","rejected"]).length>0;
+  const conditional=isFa
+    ? containsAny(text,["اگر","در صورت","مشروط به","به شرط"]).length>0
+    : containsAny(text,["if ","unless ","provided that","conditional on"]).length>0;
+  const reported=isFa
+    ? containsAny(text,["اعلام کرد","اعلام کردند","به گفته","گفت","خبر داد","گزارش داد"]).length>0
+    : containsAny(text,["according to","officials said","the ministry said","the central bank said","reported"]).length>0;
+  const eventLabels=events.map(e=>e.label_fa);
+  const themeLabels=themes.map(id=>THEMES.find(t=>t.id===id)?.label_fa).filter(Boolean);
+  const status=denied?"denied_or_disputed":conditional?"conditional":uncertain?"unconfirmed_or_uncertain":reported?"reported_claim":"asserted_in_text";
+  const riskUp=events.some(e=>e.market_effect==="risk_up");
+  const riskDown=events.some(e=>e.market_effect==="risk_down");
+  const riskPressure=riskUp&&riskDown?"mixed":riskUp?"higher":riskDown?"lower":"unclear";
+  const relevance=themes.length||events.length?"مرتبط با بازار":"ارتباط مستقیم با بازار در متن شناسایی نشد";
+  const what=eventLabels.length?eventLabels.join("، "):themeLabels.length?themeLabels.join("، "):"موضوع اقتصادی مشخصی شناسایی نشد";
+  const statusFa={denied_or_disputed:"خبر یا ادعا تکذیب‌شده/مورد اختلاف است",conditional:"خبر مشروط است و هنوز قطعی نیست",unconfirmed_or_uncertain:"خبر با عدم‌قطعیت بیان شده",reported_claim:"گزارش یا نقل‌قول است و مستقلاً تأیید نشده",asserted_in_text:"متن خبر رویداد را به شکل خبری بیان می‌کند"};
+  return {
+    summary_fa: isFa ? `موضوع خبر: ${what}. ${statusFa[status]}.` : `موضوع خبر: ${what}. ${statusFa[status]}.`,
+    topic_fa:what,
+    market_relevance_fa:relevance,
+    claim_status:status,
+    claim_status_fa:statusFa[status],
+    risk_pressure:riskPressure,
+    risk_pressure_fa:riskPressure==="higher"?"افزایش فشار ریسک":riskPressure==="lower"?"کاهش فشار ریسک":riskPressure==="mixed"?"نشانه‌های متضاد":"نامشخص",
+    reported_or_attributed:reported,
+    conditional,
+    denied_or_disputed:denied,
+    uncertainty_detected:uncertain,
+    price_direction_forecast:null,
+    caution_fa:"این تحلیل فقط موضوع و فشار ریسک خبری را خلاصه می‌کند؛ به‌تنهایی جهت قیمت دلار یا طلا را پیش‌بینی نمی‌کند.",
+    evidence_basis:body.length?"headline_and_rss_excerpt":"headline_only"
+  };
+}
 function classifyOne(item) {
   const title = String(item?.title || item?.original_title || "");
   const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,3000);
@@ -777,9 +814,11 @@ function classifyOne(item) {
   const language = /[\u0600-\u06ff]/.test(title) ? "fa" : "en";
   const pragmatics = analyzePragmatics(title, language, body);
   const confidence = Math.min(0.92,0.2+themeHits.length*0.10+events.length*0.12+(numberMentions.length?0.05:0)+(english.actors.length?0.04:0))*(uncertain||english.assertion==="conditional"||english.assertion==="forecast_or_possibility"?0.7:1);
+  const simpleAnalysis=buildSimpleNewsAnalysis({title,body,language,events,themes:themeHits.map(t=>t.id),uncertain,text,english});
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
     language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
+    simple_analysis_fa:simpleAnalysis,
     themes:themeHits.map(t=>t.id),events,wording_tone:tone,uncertain,
     english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,
     persian_literature:persianLiterature,
