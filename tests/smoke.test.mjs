@@ -44,7 +44,7 @@ test('chart forecast uses live AI endpoint when configured and labels statistica
 
 test('news intelligence backend uses source-linked RSS context and a no-key forecast engine', () => {
   assert.match(worker, /from "\.\/forecast-engine\.js"/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.4-multisource-feedback"/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.7-maturity-safe-walkforward"/);
   assert.match(forecastEngine, /fetchNewsContext/);
   assert.match(forecastEngine, /selectWeights/);
   assert.match(forecastEngine, /isMarketRelevantHeadline/);
@@ -153,7 +153,7 @@ test('stylesheet contains mobile responsive breakpoints', () => {
 test('production market intelligence runs without an external AI key and preserves honest forecast calibration', () => {
   assert.match(supabaseEntry, /SUPABASE_SERVICE_ROLE_KEY: Deno\.env\.get/);
   assert.doesNotMatch(supabaseEntry, /OPENAI_API_KEY/);
-  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.4-multisource-feedback"/);
+  assert.match(forecastEngine, /MODEL_VERSION = "iran-ensemble-wf-2\.7-maturity-safe-walkforward"/);
   assert.match(forecastEngine, /skill>=2/);
   assert.match(forecastEngine, /forecast_mode:"baseline_only"/);
   assert.match(forecastEngine, /directional_signal:false/);
