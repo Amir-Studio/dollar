@@ -10,7 +10,7 @@ const round = (value,digits=4) => Number(value.toFixed(digits));
 const priceError = (predicted,actual) => Math.abs((actual/predicted-1)*100);
 
 function contextOf(row) {
-  const v=row?.validation||{}, q=v.quote_quality||{}, n=v.news_context||{};
+  const v=row?.validation||{}, q=v.quote_quality||{}, n=v.news_context||{}, regime=v.market_regime||{};
   const weights=Object.values(row?.model_weights||{}).map(Number).filter(Number.isFinite);
   const age=number(v.quote_age_hours), sources=number(q.source_count), spread=number(q.spread_pct), risk=number(n.event_risk_score);
   return {
@@ -25,7 +25,11 @@ function contextOf(row) {
     quote_spread_band:spread===null?"unknown":spread<1?"tight_under_1pct":spread<2?"moderate_1_2pct":"wide_2pct_plus",
     event_risk_score:risk,
     event_risk_band:risk===null?"unknown":risk<30?"low":risk<65?"moderate":"elevated",
-    max_model_weight:weights.length?Math.max(...weights):null
+    max_model_weight:weights.length?Math.max(...weights):null,
+    volatility_regime:String(regime.volatility_regime||"unknown"),
+    trend_regime:String(regime.trend_regime||"unknown"),
+    realized_vol_20_pct:number(regime.realized_vol_20_pct),
+    realized_vol_60_pct:number(regime.realized_vol_60_pct)
   };
 }
 
@@ -79,7 +83,7 @@ function cohortStats(rows) {
   };
 }
 function cohortDiagnostics(rows,minimum=5) {
-  const dimensions=["quote_source","history_provider","forecast_mode","quote_age_band","quote_consensus_band","quote_spread_band","event_risk_band"];
+  const dimensions=["quote_source","history_provider","forecast_mode","quote_age_band","quote_consensus_band","quote_spread_band","event_risk_band","volatility_regime","trend_regime"];
   const result={};
   for(const dimension of dimensions){
     const groups=new Map();
