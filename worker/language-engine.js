@@ -476,6 +476,78 @@ function extractLanguageFoundations(text,language="en") {
  const t=normalize(text),dict=language==="fa"?PERSIAN_LANGUAGE_FOUNDATIONS:ENGLISH_LANGUAGE_FOUNDATIONS;
  return dict.filter(item=>item.terms.some(term=>t.includes(normalize(term)))).map(item=>({id:item.id,meaning_fa:item.fa}));
 }
+function independentLanguageBenchmark() {
+ const suites = {
+  en: [
+   ["negation",["The committee did not approve the proposal.","The minister denied that a new tax was planned.","The bank has never confirmed the reported figure.","Exports are no longer falling.","There is no evidence that the rumour is accurate."]],
+   ["modality",["The currency may strengthen after the announcement.","Analysts could revise their outlook next week.","The central bank is likely to pause its programme.","Prices might remain volatile through June.","The proposal is expected to face resistance."]],
+   ["conditional",["If demand weakens, factories may reduce output.","Unless the vote is delayed, the rule starts Monday.","The rate will change only if the board agrees.","Should inflation accelerate, policymakers may respond.","The plan depends on whether parliament approves it."]],
+   ["reported",["Officials said the talks would continue.","The newspaper reported that exports had recovered.","According to the ministry, the figures are preliminary.","The central bank stated that no decision had been made.","A spokesperson said the claim was unverified."]],
+   ["contrast",["Although sales increased, profits declined.","The currency rose, whereas bond prices fell.","Demand was strong; however, supply remained limited.","Despite the delay, negotiations continued.","The first estimate was high, but the revised figure was lower."]],
+   ["causal",["The factory closed because energy costs increased.","Higher borrowing costs contributed to weaker demand.","The currency weakened as import payments rose.","The outage led to a temporary production decline.","The decline followed the policy change, but its cause is unknown."]],
+   ["future",["The company plans to open two new offices.","The bank will publish its decision tomorrow.","Officials intend to resume discussions next month.","The new rules are due to take effect in July.","The committee is scheduled to meet on Friday."]],
+   ["counterfactual",["If the shipment had arrived, output would have been higher.","Had rates fallen earlier, borrowing might have increased.","The project could have succeeded if funding had continued.","Without the delay, the vote would have taken place yesterday.","If demand were stronger, firms would invest more."]],
+   ["sequence",["After the announcement, the currency moved higher.","Before the meeting, officials released a statement.","The report came first; subsequently, the agency clarified it.","Meanwhile, oil prices remained almost unchanged.","The two events occurred in sequence, not at the same time."]],
+   ["causal_caution",["The price rise does not prove that the announcement caused it.","A correlation between the variables is not evidence of causation.","The timing alone cannot establish a causal link.","The report does not show that the policy was responsible.","Several factors may explain the change; one event is not enough."]]
+  ],
+  fa: [
+   ["negation",["کمیته این پیشنهاد را تصویب نکرد.","وزیر وجود برنامه‌ای برای مالیات جدید را تکذیب کرد.","بانک هرگز رقم گزارش‌شده را تأیید نکرده است.","صادرات دیگر روند کاهشی ندارد.","هیچ مدرکی درستی این شایعه را نشان نمی‌دهد."]],
+   ["modality",["ممکن است ارز پس از اعلام خبر تقویت شود.","تحلیلگران شاید پیش‌بینی خود را تغییر دهند.","احتمال دارد بانک مرکزی برنامه را متوقف کند.","قیمت‌ها ممکن است تا خرداد پرنوسان بمانند.","انتظار می‌رود این پیشنهاد با مخالفت روبه‌رو شود."]],
+   ["conditional",["اگر تقاضا ضعیف شود، کارخانه‌ها تولید را کم می‌کنند.","مگر اینکه رأی‌گیری عقب بیفتد، قانون از دوشنبه اجرا می‌شود.","نرخ فقط در صورتی تغییر می‌کند که هیئت موافقت کند.","چنانچه تورم شتاب بگیرد، سیاست‌گذاران واکنش نشان می‌دهند.","اجرای طرح به تصویب مجلس بستگی دارد."]],
+   ["reported",["مقام‌ها گفتند مذاکرات ادامه خواهد یافت.","روزنامه گزارش داد که صادرات بهبود یافته است.","بر اساس اعلام وزارتخانه، آمارها مقدماتی هستند.","بانک مرکزی اعلام کرد هنوز تصمیمی گرفته نشده است.","سخنگو گفت این ادعا تأیید نشده است."]],
+   ["contrast",["با اینکه فروش افزایش یافت، سود کاهش پیدا کرد.","ارز تقویت شد، در حالی که قیمت اوراق پایین آمد.","تقاضا قوی بود؛ بااین‌حال عرضه محدود ماند.","با وجود تأخیر، مذاکرات ادامه یافت.","برآورد نخست بالا بود، اما رقم اصلاح‌شده کمتر شد."]],
+   ["causal",["کارخانه تعطیل شد زیرا هزینه انرژی افزایش یافت.","هزینه بالاتر وام به کاهش تقاضا کمک کرد.","با افزایش پرداخت‌های وارداتی، ارزش پول تضعیف شد.","اختلال به افت موقت تولید منجر شد.","افت قیمت پس از تغییر سیاست رخ داد، اما علت آن روشن نیست."]],
+   ["future",["شرکت قصد دارد دو دفتر جدید افتتاح کند.","بانک فردا تصمیم خود را منتشر خواهد کرد.","مقام‌ها برنامه دارند ماه آینده گفت‌وگوها را از سر بگیرند.","قرار است مقررات جدید در تیر اجرا شوند.","کمیته روز جمعه جلسه خواهد داشت."]],
+   ["counterfactual",["اگر محموله رسیده بود، تولید بیشتر می‌شد.","اگر نرخ‌ها زودتر کاهش یافته بودند، وام‌گیری می‌توانست افزایش یابد.","پروژه می‌توانست موفق شود، اگر تأمین مالی ادامه پیدا می‌کرد.","بدون آن تأخیر، رأی‌گیری دیروز انجام شده بود.","اگر تقاضا قوی‌تر بود، شرکت‌ها سرمایه‌گذاری می‌کردند."]],
+   ["sequence",["پس از اعلام خبر، نرخ ارز افزایش یافت.","پیش از جلسه، مقام‌ها بیانیه‌ای منتشر کردند.","ابتدا گزارش منتشر شد و سپس نهاد مربوط توضیح داد.","در همین زمان، قیمت نفت تقریباً ثابت ماند.","این دو رویداد پشت سر هم رخ دادند، نه هم‌زمان."]],
+   ["causal_caution",["افزایش قیمت ثابت نمی‌کند که اعلام خبر علت آن بوده است.","همبستگی میان متغیرها دلیل رابطه علّی نیست.","صرف هم‌زمانی نمی‌تواند رابطه علت و معلولی را ثابت کند.","گزارش نشان نمی‌دهد که سیاست مسئول این تغییر بوده است.","چند عامل می‌توانند تغییر را توضیح دهند؛ یک رویداد کافی نیست."]]
+  ]
+ };
+ const rules = {
+  en:{
+   negation:["did not","denied","never","no longer","no evidence","not","cannot","without"],
+   modality:["may","could","might","likely","expected to","possibly","perhaps"],
+   conditional:["if ","unless","only if","should ","depends on whether"],
+   reported:["officials said","reported that","according to","stated that","spokesperson said"],
+   contrast:["although","whereas","however","despite","but"],
+   causal:["because","contributed to","as ","led to","followed"],
+   future:["plans to","will ","intend to","due to take effect","scheduled to"],
+   counterfactual:["would have","had ","could have","if ","without","were "],
+   sequence:["after","before","subsequently","meanwhile","in sequence"],
+   causal_caution:["does not prove","not evidence of causation","cannot establish a causal","does not show","not enough"]
+  },
+  fa:{
+   negation:["نکرد","تکذیب","هرگز","دیگر","هیچ مدرکی","نیست","نمی","تأیید نشده"],
+   modality:["ممکن است","شاید","احتمال دارد","انتظار می‌رود","می‌تواند"],
+   conditional:["اگر","مگر اینکه","در صورتی که","چنانچه","بستگی دارد"],
+   reported:["گفتند","گزارش داد","بر اساس اعلام","اعلام کرد","سخنگو گفت"],
+   contrast:["با اینکه","در حالی که","بااین‌حال","با وجود","اما"],
+   causal:["زیرا","کمک کرد","با افزایش","منجر شد","پس از"],
+   future:["قصد دارد","خواهد","برنامه دارند","قرار است","جلسه خواهد داشت"],
+   counterfactual:["می‌شد","می‌توانست","اگر","بدون","انجام شده بود"],
+   sequence:["پس از","پیش از","سپس","در همین زمان","پشت سر هم"],
+   causal_caution:["ثابت نمی‌کند","دلیل رابطه علّی نیست","نمی‌تواند رابطه","نشان نمی‌دهد","کافی نیست"]
+  }
+ };
+ const rows=[];
+ for(const language of ["en","fa"]) {
+  for(const [feature,sentences] of suites[language]) {
+   for(let i=0;i<sentences.length;i++) {
+    const text=sentences[i], t=normalize(text);
+    const detected=Object.entries(rules[language]).filter(([,markers])=>markers.some(m=>t.includes(normalize(m)))).map(([key])=>key);
+    rows.push({id:language+"-"+feature+"-"+(i+1),language,text,expected:feature,detected,passed:detected.includes(feature)});
+   }
+  }
+ }
+ const summarize=language=>{
+  const subset=rows.filter(x=>x.language===language);
+  const tp=subset.filter(x=>x.passed).length;
+  return {total:subset.length,matched:tp,missed:subset.length-tp,recall_pct:Number((tp/subset.length*100).toFixed(1)),failures:subset.filter(x=>!x.passed).map(x=>({id:x.id,expected:x.expected,text:x.text,detected:x.detected}))};
+ };
+ const en=summarize("en"),fa=summarize("fa");
+ return {exam_type:"independently_authored_100_sentence_semantic_marker_benchmark_not_general_comprehension_or_cefr",total:rows.length,passed:rows.filter(x=>x.passed).length,score_pct:Number((rows.filter(x=>x.passed).length/rows.length*100).toFixed(1)),english:en,persian:fa,limitations:["tests recognition of explicit semantic cues, not deep reading comprehension","no independent human annotation","does not test open-ended translation, paraphrase quality, or author-intent inference","rule-based detector can over-detect overlapping cues"],items:rows};
+}
+
 function languageFoundationsExam() {
  const make=(dict,language)=>dict.slice(0,50).map((item,i)=>{
   const term=item.terms[0];
@@ -821,6 +893,7 @@ export function analyzeMarketLanguage(items,rows) {
     persian_terminology_benchmark:persianTerminologySelfTest(),
     bilingual_comprehension_exam:languageComprehensionExam(),
     language_foundations_exam:languageFoundationsExam(),
+    independent_language_benchmark:independentLanguageBenchmark(),
     persian_literary_topics_count:PERSIAN_LITERARY_TERMS.length,
     english_language_foundations_count:ENGLISH_LANGUAGE_FOUNDATIONS.length,
     persian_language_foundations_count:PERSIAN_LANGUAGE_FOUNDATIONS.length,
