@@ -1,6 +1,7 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
+import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
@@ -20,7 +21,7 @@ const ANALYSIS_ASSETS = new Set([
 const H = {
   "content-type": "application/json; charset=utf-8",
   "access-control-allow-origin": ORIGIN,
-  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers": "Content-Type",
   "x-content-type-options": "nosniff"
 };
@@ -431,6 +432,22 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
+    if (url.pathname === "/language/conversation") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      const declaredLength = Number(request.headers.get("content-length") || 0);
+      if (declaredLength > 20000) return reply({error:"Request body too large"},413);
+      let payload;
+      try { payload = await request.json(); }
+      catch { return reply({error:"Invalid JSON body"},400); }
+      const turns = payload?.turns;
+      if (!Array.isArray(turns) || turns.length === 0 || turns.length > 100) {
+        return reply({error:"turns must be a non-empty array with at most 100 entries"},400);
+      }
+      const totalChars = turns.reduce((sum,turn)=>sum+String(turn?.content ?? turn?.text ?? "").length,0);
+      if (totalChars > 20000) return reply({error:"Conversation text exceeds the 20,000 character limit"},413);
+      const result = analyzeConversationContext(turns,payload?.language);
+      return reply({ok:true,engine:"dollar-conversation-context",version:CONVERSATION_CONTEXT_VERSION,result},200,{"cache-control":"no-store"});
+    }
     if (request.method !== "GET") return reply({error:"Method not allowed"},405);
     if (url.pathname === "/forecast/v2") {
       const response = await handleForecastApi(url,env);
