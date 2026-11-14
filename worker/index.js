@@ -1,4 +1,5 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
+import { verifyNewsItems, compareClaimToSearchEvidence, buildGdeltQuery } from "./news-verification-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
@@ -104,6 +105,7 @@ function googleNewsUrl(query, locale) {
   return "https://news.google.com/rss/search?" + params.toString();
 }
 const NEWS_SOURCES = [
+  {source_id:"gdelt-doc-2",name:"GDELT DOC 2.0 web search",country_code:"GLOBAL",language_code:"multi",site_url:"https://www.gdeltproject.org",feed_url:"https://api.gdeltproject.org/api/v2/doc/doc",active:false,trust_tier:"unrated"},
   {source_id:"google-news-fa",name:"Google News · Persian search (temporarily unavailable)",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("(اقتصاد ایران OR بازار ارز OR دلار OR طلا OR تورم OR بانک مرکزی OR نرخ بهره OR نفت) when:3d","fa"),active:false,trust_tier:"unrated"},
   {source_id:"google-news-en",name:"Google News · Iran economy (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(Iran economy OR Iranian rial OR Iran currency OR Iran sanctions OR Iran oil OR Iran gold) when:3d","en"),active:false,trust_tier:"unrated"},
   {source_id:"google-news-global",name:"Google News · Global markets (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(gold price OR oil price OR inflation OR central bank OR interest rates OR currency markets) when:3d","en"),active:false,trust_tier:"unrated"},
@@ -167,8 +169,45 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
   console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
+function gdeltTimestamp(value) {
+  const raw=String(value||"");
+  const match=raw.match(/^(\d{4})(\d{2})(\d{2})T?(\d{2})(\d{2})(\d{2})$/);
+  if(match) return Date.UTC(Number(match[1]),Number(match[2])-1,Number(match[3]),Number(match[4]),Number(match[5]),Number(match[6]));
+  return Date.parse(raw);
+}
+async function searchGdelt(query,{timespan="3d",limit=75}={}) {
+  const params=new URLSearchParams({query:String(query||"").slice(0,500),mode:"ArtList",format:"json",maxrecords:String(Math.max(1,Math.min(100,Number(limit)||75))),timespan:String(timespan),sort:"HybridRel"});
+  const endpoint="https://api.gdeltproject.org/api/v2/doc/doc?"+params.toString();
+  const response=await fetch(endpoint,{headers:{accept:"application/json","user-agent":"DollarMarketNewsVerifier/1.0 (+https://amir-studio.github.io/dollar/)"},signal:AbortSignal.timeout(12000)});
+  if(!response.ok) throw Error("GDELT search HTTP "+response.status);
+  const contentType=String(response.headers.get("content-type")||"").toLowerCase();
+  if(contentType&&!contentType.includes("json")) throw Error("GDELT returned non-JSON content");
+  const payload=await response.json();
+  const docs=Array.isArray(payload?.articles)?payload.articles:Array.isArray(payload?.docs)?payload.docs:[];
+  const now=Date.now();
+  return docs.flatMap(doc=>{
+    const title=String(doc?.title||"").trim(),url=String(doc?.url||"").trim(),stamp=gdeltTimestamp(doc?.seendate||doc?.published_at||doc?.date);
+    if(!title||!/^https?:\/\//i.test(url)||!Number.isFinite(stamp)||stamp>now+5*60000) return [];
+    let domain=String(doc?.domain||"");
+    try{domain=domain||new URL(url).hostname.replace(/^www\./,"");}catch{return [];}
+    return [{
+      title,url,domain,published_at:new Date(stamp).toISOString(),
+      source_id:"gdelt-doc-2",language_code:String(doc?.language||"unknown").toLowerCase(),
+      original_title:title,original_text:null,article_status:"headline_only",
+      search_provider:"GDELT DOC 2.0",source_country:String(doc?.sourcecountry||"unknown")
+    }];
+  });
+}
 async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
   const results=await Promise.allSettled(NEWS_FEEDS.map(feed => readNewsFeed(feed,maxAgeHours)));
+  let discovery=[];
+  try {
+    const days=Math.max(1,Math.min(30,Math.ceil(maxAgeHours/24)));
+    discovery=await searchGdelt('("Iran economy" OR "Iranian rial" OR "gold price" OR "oil price" OR inflation OR "central bank" OR "currency market")',{timespan:days+"d",limit:75});
+    console.log("GDELT discovery completed:","items",discovery.length,"window_days",days);
+  } catch(error) {
+    console.error("GDELT discovery unavailable:",String(error?.message||error).slice(0,180));
+  }
   const seenUrls=new Set(),items=[];
   results.forEach((result,index)=>{
     const sourceId=NEWS_FEEDS[index].source_id;
@@ -185,6 +224,10 @@ async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
       seenUrls.add(urlKey);items.push(item);
     }
   });
+  for(const item of discovery){
+    const urlKey=item.url.toLowerCase().replace(/[?#].*$/,"");
+    if(urlKey&&!seenUrls.has(urlKey)){seenUrls.add(urlKey);items.push(item);}
+  }
   const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,Math.max(1,Math.min(200,Number(limit)||50)));
   console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"unique",sorted.length);
   return sorted;
@@ -483,6 +526,8 @@ export default {
         data.decision_brief = null;
         data.decision_brief_error = String(error?.message || error).slice(0,120);
       }
+      const newsVerification=verifyNewsItems(news);
+      data.news_verification_summary={engine:newsVerification.engine,version:newsVerification.version,checkable_count:newsVerification.checkable_count,conflict_count:newsVerification.conflicts.length,verdict_counts:newsVerification.verdict_counts};
       data.news_context = {
         collected_at: cachedNews?.fetched_at || new Date().toISOString(),
         window_hours: 72,
@@ -496,18 +541,34 @@ export default {
       }
       return reply(data,200,{"cache-control":"no-store"});
     }
+    if(url.pathname==="/news/verify"){
+      const claim=String(url.searchParams.get("claim")||"").trim();
+      if(!claim) return reply({error:"پارامتر claim الزامی است."},400);
+      if(claim.length>500) return reply({error:"طول ادعا نباید بیشتر از ۵۰۰ نویسه باشد."},413);
+      const query=buildGdeltQuery(claim);
+      if(!query) return reply({error:"از متن ادعا عبارت قابل جست‌وجویی استخراج نشد."},400);
+      try{
+        const evidence=await searchGdelt(query,{timespan:"7d",limit:75});
+        const result=compareClaimToSearchEvidence(claim,evidence);
+        return reply({...result,search_provider:"GDELT DOC 2.0",search_query:query,search_window:"7d",retrieved_at:new Date().toISOString(),search_status:evidence.length?"completed":"no_results"},200,{"cache-control":"no-store"});
+      }catch(error){
+        return reply({claim,verdict:"search_unavailable",search_provider:"GDELT DOC 2.0",error:String(error?.message||error).slice(0,160),caution:"به‌دلیل در دسترس نبودن جست‌وجو هیچ نتیجه‌ای دربارهٔ درستی ادعا صادر نشد."},503,{"cache-control":"no-store"});
+      }
+    }
     if (url.pathname === "/news") {
       // Public GET requests are read-only. RSS ingestion runs only in the
       // scheduled refresh path, not on arbitrary visitor traffic.
       const stored = await readNewsFromSupabase(env).catch(() => []);
       const items = cleanNewsItems(stored);
-      const conflicts = headlineConflictCandidates(items);
+      const verification=verifyNewsItems(items);
+      const conflicts=verification.conflicts;
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
         source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
         potential_conflicts:conflicts,
         potential_conflict_count:conflicts.length,
+        verification,
         refreshed:false,
         refresh_mode:"scheduled_only",
         topics:newsTopics(items),items
@@ -606,8 +667,9 @@ export default {
         news_conflict_screening_enabled: true,
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
-        web_search_enabled: false,
-        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-error-root-cause-diagnostics","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
+        web_search_enabled: true,
+        news_verification_engine:{enabled:true,name:"Dollar Evidence-Aware News Verifier",version:"1.0.0",provider:"GDELT DOC 2.0",verdicts:["corroborated_by_independent_headlines","contradicted_by_independent_headlines","mixed_evidence","insufficient_independent_evidence","not_checkable_from_headline"],full_text_verification:false},
+        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-error-root-cause-diagnostics","forecast-drift-monitoring","forecast-performance-api","free-news-rss","gdelt-web-search","evidence-aware-news-verification","cross-source-contradiction-screening","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
