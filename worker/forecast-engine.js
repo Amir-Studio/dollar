@@ -628,7 +628,7 @@ async function runContinuousLearning(env, evaluatedNow) {
           });
         }
       }
-      if(metrics.interval_coverage_pct!==null && sample.length>=30 && metrics.interval_coverage_pct<70) actions.push({asset,horizon_days:Number(horizonText),action:"uncertainty_undercoverage_warning",reason:"actual outcomes fall inside the published interval too infrequently",interval_coverage_pct:metrics.interval_coverage_pct});
+      if(adaptiveMetrics.interval_coverage_pct!==null && adaptiveSample.length>=30 && adaptiveMetrics.interval_coverage_pct<70) actions.push({asset,horizon_days:Number(horizonText),action:"uncertainty_undercoverage_warning",reason:"actual outcomes fall inside the published interval too infrequently",interval_coverage_pct:adaptiveMetrics.interval_coverage_pct});
     }
 
     // Persist one immutable diagnosis per newly matured forecast. A failed
