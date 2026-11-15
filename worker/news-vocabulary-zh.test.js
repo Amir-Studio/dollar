@@ -6,16 +6,16 @@ import {
   runChineseNewsVocabularySelfTest
 } from "./news-vocabulary-zh.js";
 
-test("Chinese news vocabulary has 400 unique specialist entries", () => {
-  assert.equal(CHINESE_NEWS_VOCABULARY.length, 400);
-  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 400);
-  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 400);
+test("Chinese news vocabulary has 600 unique specialist entries", () => {
+  assert.equal(CHINESE_NEWS_VOCABULARY.length, 600);
+  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 600);
+  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 600);
 });
 
 test("all vocabulary entries have Chinese, pinyin, English and Persian fields", () => {
   for (const row of CHINESE_NEWS_VOCABULARY) {
     assert.equal(row.length, 6);
-    assert.match(row[3], /[\u3400-\u9fff]/);
+    assert.match(row[3], /[\u3600-\u9fff]/);
     assert.ok(row[4].length > 0);
     assert.ok(row[5].length > 0);
   }
@@ -36,7 +36,7 @@ test("category and query filters return relevant vocabulary", () => {
 
 test("self-test reports structural quality without claiming translation certification", () => {
   const result = runChineseNewsVocabularySelfTest();
-  assert.equal(result.total, 400);
+  assert.equal(result.total, 600);
   assert.equal(result.passed, true);
   assert.match(result.scope, /native-speaker review/);
 });
@@ -66,4 +66,13 @@ test("fourth Chinese vocabulary batch passes structural checks", async () => {
   assert.equal(result.passed, true);
   assert.equal(result.unique_ids, 80);
   assert.equal(result.unique_chinese_terms, 80);
+});
+
+test("fifth Chinese vocabulary batch passes structural checks", async () => {
+ const { runChineseVocabularyBatch5SelfTest } = await import("./news-vocabulary-zh-batch-5.js");
+ const r=runChineseVocabularyBatch5SelfTest(); assert.equal(r.total,100); assert.equal(r.passed,true);
+});
+test("sixth Chinese vocabulary batch passes structural checks", async () => {
+ const { runChineseVocabularyBatch6SelfTest } = await import("./news-vocabulary-zh-batch-6.js");
+ const r=runChineseVocabularyBatch6SelfTest(); assert.equal(r.total,100); assert.equal(r.passed,true);
 });
