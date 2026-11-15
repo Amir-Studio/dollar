@@ -7,7 +7,7 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-3.0-neural-mlp";
+const MODEL_VERSION = "iran-ensemble-wf-3.1-regime-directional-gate";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -211,6 +211,22 @@ function candidates(points,h) {
     const avg=sample.reduce((s,r)=>s+r.value,0)/Math.max(1,sample.length);
     raw["momentum_"+window]=clamp(avg*h,cap);
   }
+  // A regime-aware expert shrinks short-term momentum when realized volatility
+  // expands sharply versus the longer baseline. It is only selected if walk-forward
+  // outcomes prove it beats the no-change benchmark.
+  const longReturns=returns.slice(-80).map(r=>r.value);
+  const longMean=longReturns.reduce((sum,value)=>sum+value,0)/Math.max(1,longReturns.length);
+  const longVol=Math.sqrt(longReturns.reduce((sum,value)=>sum+(value-longMean)**2,0)/Math.max(1,longReturns.length-1));
+  const recentVol=Math.sqrt(recent.reduce((sum,r)=>sum+(r.value-recentMean)**2,0)/Math.max(1,recent.length-1));
+  const volatilityRatio=longVol>1e-9?recentVol/longVol:1;
+  const regimeShrink=clamp(1/(1+Math.max(0,volatilityRatio-1)*0.65),0.35,1.1);
+  const regimeSample=returns.slice(-60);
+  let regimeTotal=0,regimeWeighted=0;
+  for(let i=0;i<regimeSample.length;i++){
+    const weight=Math.pow(0.5,(regimeSample.length-1-i)/5);
+    regimeWeighted+=regimeSample[i].value*weight;regimeTotal+=weight;
+  }
+  raw.regime_ewma_5=clamp((regimeTotal?regimeWeighted/regimeTotal:0)*h*regimeShrink,cap);
   const neural=trainNeuralReturnModel(p,h);
   if(neural.available) raw.neural_mlp=neural.predicted_log_return;
   return {raw,dailyVol,neural};
@@ -336,7 +352,11 @@ function backtest(points,h) {
   const maturedAll=records.filter(r=>r.actualTime<=latestTime);
   const liveWeights=selectWeights(maturedAll,keys);
   const effectiveHorizons=records.map(r=>r.effectiveHorizonDays);
-  const eligible=n>=30&&skill>=2;
+  const directionalAccuracy=directionalN?hits/directionalN*100:null;
+  // Do not issue directional forecasts when a sufficiently large directional
+  // holdout has failed to beat a coin-flip threshold.
+  const directionalGatePassed=directionalN<20||directionalAccuracy>=50;
+  const eligible=n>=30&&skill>=2&&directionalGatePassed;
   const selected=Object.entries(liveWeights).filter(([k,v])=>k!=="no_change"&&v>0).map(([model,weight])=>({model,weight:Number(weight.toFixed(3))}));
   return {
     eligible,samples:n,mae_pct:Number(mae.toFixed(4)),naive_mae_pct:Number(naiveMae.toFixed(4)),
@@ -346,7 +366,7 @@ function backtest(points,h) {
     effective_horizon_days:{min:Number(Math.min(...effectiveHorizons).toFixed(3)),max:Number(Math.max(...effectiveHorizons).toFixed(3)),mean:Number((effectiveHorizons.reduce((a,b)=>a+b,0)/n).toFixed(3))},
     overlapping_test_windows:false,
     skill_vs_no_change_pct:Number(skill.toFixed(2)),
-    directional_accuracy_pct:directionalN?Number((hits/directionalN*100).toFixed(1)):null,
+    directional_accuracy_pct:directionalAccuracy===null?null:Number(directionalAccuracy.toFixed(1)),\n    directional_gate_min_accuracy_pct:50,directional_gate_min_samples:20,directional_gate_passed:directionalGatePassed,
     directional_samples:directionalN,
     directional_coverage_pct:Number((directionalN/n*100).toFixed(1)),
     within_1pct_pct:Number((within1/n*100).toFixed(1)),
@@ -356,7 +376,7 @@ function backtest(points,h) {
     range_error_p80_pct:Number((quantile(ensembleErrors,0.8)??0).toFixed(4)),
     candidate_mae_pct:Object.fromEntries(Object.entries(candidateMae).map(([k,v])=>[k,Number(v.toFixed(4))])),
     selected_models:selected,weights:liveWeights,
-    reason:eligible?null:"هیچ ترکیب/مدل منتخب در آزمون walk-forward دست‌کم ۲٪ بهتر از پیش‌بینی بدون تغییر نشده؛ خروجی جهت‌دار منتشر نمی‌شود."
+    reason:eligible?null:!directionalGatePassed?"دقت جهت در نمونه‌های کافی به حداقل ۵۰٪ نرسیده؛ پیش‌بینی جهت‌دار متوقف شد.":"هیچ ترکیب/مدل منتخب در آزمون walk-forward دست‌کم ۲٪ بهتر از پیش‌بینی بدون تغییر نشده؛ خروجی جهت‌دار منتشر نمی‌شود."
   };
 }
 
