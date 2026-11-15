@@ -32,10 +32,10 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_5 = [
 ["zh429","banking","bank stress test","银行压力测试","yínháng yālì cèshì","آزمون تنش بانکی"],
 ["zh430","banking","credit risk assessment","信用风险评估","xìnyòng fēngxiǎn pínggū","ارزیابی ریسک اعتباری"],
 ["zh431","banking","wholesale banking","批发银行业务","pīfā yínháng yèwù","بانکداری عمده‌فروشی"],
-["zh432","banking","wholesale banking","批发银行业务","pīfā yínháng yèwù","بانکداری عمده"],
+["zh432","banking","correspondent banking","代理银行业务","dàilǐ yínháng yèwù","بانکداری کارگزاری"],
 ["zh433","banking","interbank lending","银行间拆借","yínhángjiān chāijiè","وام‌دهی بین‌بانکی"],
 ["zh434","banking","credit crunch","信贷紧缩","xìndài jǐnsuō","انقباض اعتباری"],
-["zh435","banking","credit contraction","信贷收缩","xìndài shōusuō","انقباض اعتباری"],
+["zh435","banking","credit rationing","信贷配给","xìndài pèijǐ","سهمیه‌بندی اعتبارات"],
 ["zh436","banking","mortgage-backed security","抵押贷款支持证券","dǐyā dàikuǎn zhīchí zhèngquàn","اوراق بهادار با پشتوانه وام مسکن"],
 ["zh437","banking","collateral requirement","抵押品要求","dǐyāpǐn yāoqiú","الزام وثیقه"],
 ["zh438","banking","loan-to-value ratio","贷款价值比","dàikuǎn jiàzhí bǐ","نسبت وام به ارزش وثیقه"],
@@ -74,9 +74,9 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_5 = [
 ["zh471","public_finance","windfall tax","暴利税","bàolìshuì","مالیات بر سود بادآورده"],
 ["zh472","public_finance","tax evasion","逃税","táoshuì","فرار مالیاتی"],
 ["zh473","public_finance","tax avoidance","避税","bìshuì","اجتناب مالیاتی"],
-["zh474","public_finance","fiscal consolidation","财政整顿","cáizhèng zhěngdùn","تثبیت و انضباط مالی"],
+["zh474","public_finance","fiscal adjustment","财政调整","cáizhèng tiáozhěng","تعدیل مالی دولت"],
 ["zh475","public_finance","austerity measures","紧缩措施","jǐnsuō cuòshī","اقدامات ریاضتی"],
-["zh476","public_finance","government procurement","政府采购","zhèngfǔ cǎigòu","تدارکات و خریدهای دولتی"],
+["zh476","public_finance","public-private partnership","政府和社会资本合作","zhèngfǔ hé shèhuì zīběn hézuò","مشارکت عمومی-خصوصی"],
 ["zh477","public_finance","current expenditure","经常性支出","jīngchángxìng zhīchū","هزینه‌های جاری"],
 ["zh478","public_finance","social spending","社会支出","shèhuì zhīchū","هزینه‌های اجتماعی"],
 ["zh479","public_finance","subsidy reform","补贴改革","bǔtiē gǎigé","اصلاح یارانه‌ها"],
@@ -99,7 +99,7 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_5 = [
  ["zh496","banking","bank recapitalization","银行资本重组","yínháng zīběn chóngzǔ","افزایش و بازسازی سرمایه بانک"],
 ["zh497","capital_markets","market overvaluation","市场估值过高","shìchǎng gūzhí guògāo","بیش‌ارزش‌گذاری بازار"],
 ["zh498","capital_markets","market breadth","市场宽度","shìchǎng kuāndù","وسعت مشارکت در بازار"],
-["zh499","capital_markets","market sentiment","市场情绪","shìchǎng qíngxù","احساسات بازار"],
+["zh499","capital_markets","market sentiment index","市场情绪指数","shìchǎng qíngxù zhǐshù","شاخص احساسات بازار"],
  ["zh500","public_finance","government spending multiplier","政府支出乘数","zhèngfǔ zhīchū chéngshù","ضریب فزاینده مخارج دولت"]
 ];
 
