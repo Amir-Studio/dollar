@@ -1,7 +1,8 @@
 // Arabic academic-depth analysis layer for Dollar Market Intelligence.
+import { analyzeFormalArabicGrammar, ARABIC_FORMAL_GRAMMAR_VERSION, ARABIC_FORMAL_CURRICULUM, runArabicFormalGrammarBenchmark } from "./arabic-formal-grammar.js";
 // Deterministic morphology/syntax/discourse heuristics. This is NOT a trained LLM,
 // a complete Arabic parser, a translation system, or a substitute for expert review.
-export const ARABIC_ENGINE_VERSION = "arabic-academic-layer-1.0.0";
+export const ARABIC_ENGINE_VERSION = "arabic-academic-layer-1.1.0";
 
 const DIACRITICS = /[\u064b-\u065f\u0670\u06d6-\u06ed]/g;
 const TATWEEL = /\u0640/g;
@@ -284,6 +285,9 @@ export function analyzeArabicText(input = "", options = {}) {
     clitic_analysis:clitics.slice(0,120),
     root_and_semantic_families:rootFamilies,
     syntax_and_discourse:{clauses,features,grammar:analyzeGrammar(text,tokens)},
+    formal_grammar:analyzeFormalArabicGrammar(original),
+    formal_grammar_curriculum_version:ARABIC_FORMAL_GRAMMAR_VERSION,
+    formal_grammar_curriculum:ARABIC_FORMAL_CURRICULUM,
     finance_domain:{concepts:financeConcepts,concept_count:new Set(financeConcepts.map(x=>x.concept)).size},
     quantities:numbers,
     speech_acts:features.speech_acts,
@@ -297,6 +301,7 @@ export function analyzeArabicText(input = "", options = {}) {
         "This is a transparent rule-based linguistic layer, not a university graduate, native speaker, or neural language model.",
         "Clitic segmentation, roots, patterns, dialect labels and grammatical scope are candidate analyses, not guaranteed parses.",
         "No full syntactic dependency tree, diacritization, named-entity disambiguation, idiom coverage or reliable sarcasm understanding is claimed.",
+        "Formal grammar rules are stored as a structured curriculum and diagnostic candidates; this is not yet a complete context-aware i\u2019rab or morphology parser.",
         "Financial terms can be ambiguous across countries; currency identity must be resolved from source and context."
       ]
     }
@@ -342,6 +347,7 @@ export function runArabicAcademicBenchmark() {
     total:results.length,passed:results.filter(x=>x.passed).length,failed:results.filter(x=>!x.passed).length,
     score_pct:Number((results.filter(x=>x.passed).length/Math.max(1,results.length)*100).toFixed(1)),
     failures:results.filter(x=>!x.passed),
+    formal_grammar_benchmark:runArabicFormalGrammarBenchmark(),
     scope:"Small curated regression suite; not an independent academic proficiency score or real-world accuracy estimate."
   };
 }
