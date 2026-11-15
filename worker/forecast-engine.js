@@ -63,7 +63,7 @@ export function directionMatches(actualChange,direction) {
 }
 export function buildForecastErrorDiagnostic(forecast) {
   const actual=Number(forecast?.actual_price), predicted=Number(forecast?.predicted_price), reference=Number(forecast?.reference_price);
-  if(!(actual>0&&predicted>0&&reference>0)) return null;
+  if(!forecast?.id||!forecast?.asset||![1,3,7].includes(Number(forecast.horizon_days))||!forecast?.model_version||!(actual>0&&predicted>0&&reference>0)) return null;
   const validation=forecast?.validation&&typeof forecast.validation==="object"?forecast.validation:{};
   const context=validation.news_context&&typeof validation.news_context==="object"?validation.news_context:{};
   const quote=validation.quote_quality&&typeof validation.quote_quality==="object"?validation.quote_quality:{};
