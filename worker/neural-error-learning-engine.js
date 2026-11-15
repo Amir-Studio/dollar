@@ -54,7 +54,7 @@ function fingerprint(items) {
   return items.map(x => x.feedback_id + ":" + x.id + ":" + x.category + ":" + JSON.stringify(x.expected) + ":" + x.input.slice(0, 160)).sort().join("|").slice(0, 12000);
 }
 async function supabaseRequest(env, path, options = {}) {
-  const base = String(env?.SUPABASE_URL || "").replace(/\\/+$/, "");
+  const base = String(env?.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env?.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) throw new Error("Neural error memory storage is not configured");
   const response = await fetch(base + "/rest/v1/" + path, {
