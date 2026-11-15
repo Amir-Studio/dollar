@@ -429,6 +429,9 @@ final=validatePass(await infer(env,SYSTEM_FINAL,{initial_analysis:first,articles
   }
 const finalCatalog=evidenceCatalog(articles,history,searched);
 const evidenceAudit=auditEvidenceReferences(final,finalCatalog);
+  let entailmentAudit={status:"not_needed",items:[]};
+  try { entailmentAudit=await verifyEvidenceEntailment(env,final,finalCatalog,evidenceAudit); }
+  catch(error) { entailmentAudit={status:"failed",error:clean(error?.message,180),items:[]}; }
   const modelConfidence=clamp(final.confidence);
   const evidenceStrength=calculateEvidenceStrength(evidenceAudit,finalCatalog);
   const confidence=Math.min(modelConfidence,evidenceStrength.score);
