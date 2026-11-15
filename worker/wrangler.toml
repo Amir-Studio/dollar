@@ -7,4 +7,4 @@ workers_dev = true
 enabled = true
 
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/5 * * * *", "* * * * *"]
