@@ -92,9 +92,15 @@ Deno.serve(async (request: Request) => {
       ...(Array.isArray(progress.learning) ? progress.learning : []),
       ...(Array.isArray(progress.due) ? progress.due.map((item: any) => item?.id) : []),
     ];
-    if (ids.length > 1000 || ids.some((id) => typeof id !== "string" || !/^de\\d{3}$/.test(id))) {
+    if (ids.length > 1000 || ids.some((id) => typeof id !== "string" || !/^de\d{3}$/.test(id))) {
       return json({ error: "Progress contains invalid vocabulary identifiers" }, 400);
     }
+    if (new TextEncoder().encode(JSON.stringify(progress)).length > 65536) return json({ error: "Progress payload too large" }, 413);
+    const existingQuery = new URLSearchParams({ select: "token_sha256", learner_id: "eq." + learnerId, limit: "1" });
+    const existingResponse = await fetch(tableUrl + "?" + existingQuery.toString(), { headers, signal: AbortSignal.timeout(8000) });
+    if (!existingResponse.ok) return json({ error: "Progress ownership check failed" }, 502);
+    const existingRows = await existingResponse.json();
+    if (existingRows.length && existingRows[0].token_sha256 !== tokenHash) return json({ error: "Learner credential mismatch" }, 403);
     const body = { learner_id: learnerId, token_sha256: tokenHash, progress, updated_at: new Date().toISOString() };
     const response = await fetch(tableUrl + "?on_conflict=learner_id", {
       method: "POST", headers: { ...headers, prefer: "resolution=merge-duplicates,return=minimal" },
