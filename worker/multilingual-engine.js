@@ -230,7 +230,7 @@ const LANGS = {
   tr: {
     name:"Turkish",script:/[A-Za-zÇĞİÖŞÜçğıöşü]/g,
     cues:["ekonomi","merkez bankası","hükümet","fiyatlar","petrol","altın","dolar","yükseldi","düştü","beklenti","olabilir","ancak","göre","değil","faiz"],
-    modality:/(?:olabilir|bekleniyor|muhtemelen|öngörülüyor|ihtimali)/i,
+    modality:/(?:olabilir|bekleniyor|muhtemelen|öngörülüyor|ihtimali|düşebilir|artabilir)/i,
     conditional:/(?:\beğer\b|\bise\b|şartıyla|durumunda|olmadıkça)/i,
     negation:/(?:değil|yok|hayır|reddetti|doğrulamadı|onaylamadı)/i,
     attribution:/(?:açıklamasına göre|açıkladı|dedi|belirtti|duyurdu|uyardı|raporuna göre)/i,
