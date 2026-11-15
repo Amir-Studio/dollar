@@ -2,7 +2,7 @@
 // Each row: [id, category, English concept, Simplified Chinese, pinyin, Persian meaning].
 // Entries are specialist news terms, not everyday vocabulary.
 export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.2.0";
-export const CHINESE_NEWS_VOCABULARY = [
+const CHINESE_NEWS_VOCABULARY_BATCH_1 = [
 ["zh001","macroeconomics","consumer price index","居民消费价格指数","jūmín xiāofèi jiàgé zhǐshù","شاخص قیمت مصرف‌کننده"],
 ["zh002","macroeconomics","producer price index","工业生产者出厂价格指数","gōngyè shēngchǎnzhě chūchǎng jiàgé zhǐshù","شاخص قیمت تولیدکننده"],
 ["zh003","macroeconomics","core inflation","核心通货膨胀","héxīn tōnghuò péngzhàng","تورم هسته"],
@@ -125,6 +125,8 @@ export const CHINESE_NEWS_VOCABULARY = [
 ["zh120","conflict_security","arms control","军备控制","jūnbèi kòngzhì","کنترل تسلیحات"]
 ];
 
+export const CHINESE_NEWS_VOCABULARY = [...CHINESE_NEWS_VOCABULARY_BATCH_1, ...CHINESE_NEWS_VOCABULARY_BATCH_2];
+
 const ids = new Set();
 const terms = new Set();
 for (const row of CHINESE_NEWS_VOCABULARY) {
@@ -144,10 +146,10 @@ export function getChineseNewsVocabulary({category=null, query=null, limit=1000}
     version:CHINESE_NEWS_VOCABULARY_VERSION,
     language:"zh",
     script:"Simplified Chinese",
-    batch:1,
-    batch_size:120,
+    batch:2,
+    batch_size:100,
     target_total:1000,
-    previously_covered_concepts:0,
+    previously_covered_concepts:120,
     current_batch_new:CHINESE_NEWS_VOCABULARY.length,
     current_total:CHINESE_NEWS_VOCABULARY.length,
     coverage_pct:CHINESE_NEWS_VOCABULARY.length/10,
@@ -164,6 +166,7 @@ export function runChineseNewsVocabularySelfTest() {
     total:CHINESE_NEWS_VOCABULARY.length,
     passed:invalid.length===0&&ids.size===CHINESE_NEWS_VOCABULARY.length&&terms.size===CHINESE_NEWS_VOCABULARY.length&&categories.size>=8,
     unique_ids:ids.size,unique_chinese_terms:terms.size,category_count:categories.size,
+    batch_2:runChineseVocabularyBatch2SelfTest(),
     scope:"Structural and deduplication checks only; translations and pinyin require native-speaker review before high-stakes use."
   };
 }
