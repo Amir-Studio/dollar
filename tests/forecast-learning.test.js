@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   runCalibrationSelfTest,
   buildForecastErrorDiagnostic,
-  directionMatches
+  directionMatches,
+  summarizeLearningEvidence
 } from "../worker/forecast-engine.js";
 
 test("robust calibration passes its holdout and minimum-sample regression checks", () => {
@@ -45,4 +46,29 @@ test("forecast diagnostics compare against the same-row no-change baseline", () 
 
 test("invalid or incomplete forecasts are not diagnosed", () => {
   assert.equal(buildForecastErrorDiagnostic({ id: "bad", asset: "USD_IRR_FREE" }), null);
+});
+
+test("learning evidence never mixes different model versions", () => {
+  const rows = Array.from({length:3},(_,i)=>({
+    asset:"USD_IRR_FREE",horizon_days:1,model_version:"legacy-v2.4",
+    predicted_price:100,reference_price:100,actual_price:101+i,direction_correct:true
+  }));
+  const result = summarizeLearningEvidence(rows,[]);
+  const legacy = result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"];
+  const active = result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.7-maturity-safe-walkforward"];
+  assert.equal(legacy.samples,3);
+  assert.equal(active.samples,0);
+  assert.ok(result.learning_actions.some(x=>x.model_version==="legacy-v2.4"&&x.samples===3));
+  assert.ok(result.learning_actions.some(x=>x.model_version==="iran-ensemble-wf-2.7-maturity-safe-walkforward"&&x.samples===0));
+});
+
+test("diagnostic patterns are attributed only to the matching model version", () => {
+  const rows = [{asset:"USD_IRR_FREE",horizon_days:1,model_version:"legacy-v2.4",
+    predicted_price:100,reference_price:100,actual_price:101,direction_correct:true}];
+  const diagnostics = Array.from({length:3},()=>({asset:"USD_IRR_FREE",horizon_days:1,
+    model_version:"legacy-v2.4",root_cause_candidates:[{code:"quote_age_elevated"}]}));
+  const result = summarizeLearningEvidence(rows,diagnostics);
+  assert.equal(result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"].diagnostic_sample_count,3);
+  assert.equal(result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"].recurring_error_patterns[0].code,"quote_age_elevated");
+  assert.equal(result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.7-maturity-safe-walkforward"].diagnostic_sample_count,0);
 });
