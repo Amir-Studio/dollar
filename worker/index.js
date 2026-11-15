@@ -378,7 +378,7 @@ function cleanNewsItems(items) {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).sort((a,b) => Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,30);
+  }).sort((a,b) => Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,100);
 }
 
 
@@ -552,7 +552,7 @@ async function readNewsFromSupabase(env) {
     select: "title,url,domain,published_at,source_id,language_code,original_title,original_text,translated_text_fa,summary_fa,article_status",
     published_at: "gte." + new Date(Date.now()-72*60*60*1000).toISOString(),
     order: "published_at.desc",
-    limit: "30"
+    limit: "100"
   });
   const response = await fetch(base + "/rest/v1/market_news_items?" + params.toString(), {
     headers: { apikey:key, authorization:"Bearer "+key, accept:"application/json" },
@@ -590,8 +590,9 @@ async function syncNewsToSupabase(env) {
       published_at:item.published_at, fetched_at:fetchedAt,
       source_id:item.source_id || null, language_code:item.language_code || null,
       original_title:item.original_title || item.title,
-      original_text:String(item.original_text || "").slice(0,3000) || null,
-      article_status:item.original_text ? "extracted" : "headline_only"
+      original_text:String(item.original_text || "").slice(0,15000) || null,
+      article_status:item.article_status || (item.original_text ? "rss_excerpt_only" : "headline_only"),
+      extraction_method:item.article_status?.includes("article_extracted") ? "publisher_html_article_paragraphs" : (item.original_text ? "rss_content" : "headline_only")
     }));
     const response = await fetch(base + "/rest/v1/market_news_items?on_conflict=url", {
       method:"POST",
