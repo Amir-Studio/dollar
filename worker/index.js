@@ -1005,7 +1005,7 @@ export async function runNewsLearningCycle(env) {
 
 
 async function refreshNewsTriageModel(env) {
-  const savedRows=await learningRest(env,"market_news_triage_models?select=model,trained_at,trained_samples& id=eq.1&limit=1");
+  const savedRows=await learningRest(env,"market_news_triage_models?select=model,trained_at,trained_samples&id=eq.1&limit=1");
   let model=savedRows?.[0]?.model||null;
   const latest=await learningRest(env,"market_news_triage_feedback?select=created_at&order=created_at.desc&limit=1");
   const latestAt=Date.parse(latest?.[0]?.created_at||"");
@@ -1078,11 +1078,28 @@ export async function runNewsTriageCycle(env,limit=10) {
   const queue=await learningRest(env,"market_news_items?select=id,url,title,domain,published_at,source_id,language_code,original_title,original_text,translated_text_fa,summary_fa,article_status,extraction_method,content_hash,duplicate_of,triage_status&triage_status=eq.pending&order=published_at.desc&limit="+Math.max(1,Math.min(20,Number(limit)||10)));
   const counts={keep:0,summarize:0,quarantine:0,discard:0,failed:0};
   const seenHashes=new Map();
-  for(const item of queue||[]){
+  const queueItems=Array.isArray(queue)?queue:[];
+  const articleText=item=>[item.title,item.original_title,item.original_text,item.translated_text_fa].filter(Boolean).join("\n").slice(0,6000);
+  let neuralBatch=null;
+  if(queueItems.length){
     try{
-      const body=[item.title,item.original_title,item.original_text,item.translated_text_fa].filter(Boolean).join("\n").slice(0,12000);
-      const neural=await analyzeEnglishNewsNeurally(body,env,{limit:8,minimumScore:0.20,extractUnknown:false});
-      const semanticMatches=Array.isArray(neural.matches)?neural.matches:[];
+      neuralBatch=await analyzeEnglishNewsNeurally(articleText(queueItems[0]),env,{
+        limit:8,minimumScore:0.20,extractUnknown:false,
+        additionalQueries:queueItems.slice(1).map(item=>({
+          language:String(item.language_code||"und"),article_count:1,text:articleText(item)
+        }))
+      });
+    }catch(error){
+      console.error("Batched BGE-M3 news triage embedding failed:",String(error?.message||error).slice(0,160));
+    }
+  }
+  const semanticGroups=[
+    Array.isArray(neuralBatch?.matches)?neuralBatch.matches:[],
+    ...(Array.isArray(neuralBatch?.cross_language_analyses)?neuralBatch.cross_language_analyses.map(x=>Array.isArray(x.matches)?x.matches:[]):[])
+  ];
+  for(const [itemIndex,item] of queueItems.entries()){
+    try{
+      const semanticMatches=semanticGroups[itemIndex]||[];
       const semanticScore=Number(semanticMatches[0]?.semantic_score)||0;
       const languageResult=analyzeMarketLanguage([{
         title:item.title,original_title:item.original_title||item.title,original_text:item.original_text||"",
