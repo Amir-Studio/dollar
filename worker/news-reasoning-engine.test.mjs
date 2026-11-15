@@ -5,11 +5,15 @@ import { analyzeNewsWithReasoning, retrieveHistoryContext, runReasoningSelfTest,
 const json = value => new Response(JSON.stringify(value),{status:200,headers:{"content-type":"application/json"}});
 const rss = `<?xml version="1.0"?><rss><channel><item><title>Central bank releases new inflation data</title><link>https://example.org/report</link><pubDate>Sun, 15 Nov 2026 10:00:00 GMT</pubDate><description>Central bank reports latest inflation and policy data.</description></item></channel></rss>`;
 const historyIndex = {updated_at:"2026-11-13",items:[{id:"history-of-us-dollar",title:"تاریخچه دلار آمریکا",description:"نهادهای پولی و نظام ارزی",keywords:["دلار","ارز","نرخ بهره"],json_url:"https://amir-studio.github.io/History/data/articles/history-of-us-dollar.json"}]};
+const historyArchiveIndex = {items:[{id:"news-central-bank-1",headline:"بانک مرکزی و نرخ بهره",summary:"گزارش تاریخی درباره سیاست پولی",category:"اقتصاد",json_url:"https://amir-studio.github.io/History/data/pending-review/news/news-central-bank-1.json"}]};
+const historyArchiveRecord = {id:"news-central-bank-1",headline:"بانک مرکزی و نرخ بهره",status:"pending_review",published_at:"2026-11-15T10:00:00Z",summary:"گزارش ثبت‌شده برای بازبینی.",source_url:"https://example.org/archive",dollar_triage:{status:"summarize"}};
 const historyDoc = {id:"history-of-us-dollar",title:"تاریخچه دلار آمریکا",status:"draft",lastVerified:"2026-11-13",summary:"زمینه تاریخی نظام پولی دلار.",sections:[{heading:"نقاط عطف",paragraphs:["تغییرات نظام پولی باید در زمینه نهادی بررسی شوند."]}],sources:[{title:"Federal Reserve History",publisher:"Federal Reserve",url:"https://example.org/history"}]};
 const mockFetch = async url => {
   const value=String(url);
   if(value.includes("data/index.json")) return json(historyIndex);
   if(value.includes("history-of-us-dollar.json")) return json(historyDoc);
+  if(value.includes("news-index.json")) return json(historyArchiveIndex);
+  if(value.includes("news-central-bank-1.json")) return json(historyArchiveRecord);
   if(value.includes("news.google.com")) return new Response(rss,{status:200,headers:{"content-type":"application/xml"}});
   throw new Error("unexpected URL "+value);
 };
@@ -25,6 +29,8 @@ test("History retrieval preserves draft status and returns relevant source conte
   assert.equal(result.status,"retrieved");
   assert.equal(result.documents[0].status,"draft");
   assert.equal(result.documents[0].sources[0].publisher,"Federal Reserve");
+  assert.equal(result.news_archive[0].status,"pending_review");
+  assert.equal(result.news_archive[0].triage.status,"summarize");
 });
 
 test("reasoner searches when first pass identifies an evidence gap and then revises",async()=>{
