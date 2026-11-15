@@ -1,6 +1,7 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest, runCalibrationSelfTest, runComponentCalibrationSelfTest } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { runNeuralForecastSelfTest, NEURAL_MODEL_VERSION } from "./neural-forecast-engine.js";
+import { NEURAL_ERROR_MEMORY_VERSION, refreshNeuralErrorMemory, retrieveNeuralErrorGuidance } from "./neural-error-learning-engine.js";
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { analyzeChineseNewsNeurally, CHINESE_NEURAL_VERSION } from "./chinese-neural-semantic-engine.js";
@@ -526,7 +527,15 @@ async function makeFreeAnalysis(env, asset) {
     status: env.AI?.run ? "no_chinese_articles_in_current_news_window" : "neural_binding_not_configured",
     model:"@cf/baai/bge-m3"
   };
-  const enrichedLanguageAnalysis = {...languageAnalysis,multilingual_news:multilingualNewsAnalysis};
+  let neuralErrorMemory = {status:"neural_error_memory_unavailable",matches:[],version:NEURAL_ERROR_MEMORY_VERSION};
+  try {
+    const memoryQuery = news.slice(0,8).map(x => [x.title,x.original_title,x.original_text,x.translated_text_fa].filter(Boolean).join(" ")).join("\n").slice(0,10000);
+    neuralErrorMemory = await retrieveNeuralErrorGuidance(memoryQuery,env,{limit:3});
+  } catch(error) {
+    neuralErrorMemory = {status:"neural_error_memory_failed",matches:[],version:NEURAL_ERROR_MEMORY_VERSION,detail:String(error?.message||error).slice(0,120)};
+  }
+  multilingualNewsAnalysis.verified_error_memory = neuralErrorMemory;
+  const enrichedLanguageAnalysis = {...languageAnalysis,multilingual_news:multilingualNewsAnalysis,verified_error_memory:neuralErrorMemory};
   const topics = languageAnalysis.themes;
   const decisionBrief = buildDecisionBrief({
     asset,
@@ -810,7 +819,7 @@ async function newsLearningReport(env) {
   const contradictionBenchmark=runNewsContradictionBenchmark();
   const learningEvaluationBenchmark=runNewsLearningEvaluationSelfTest();
   const verifiedFeedbackIds=new Set(feedback.filter(x=>x.status==="verified").map(x=>x.id));
-  const evaluated=cases.filter(item=>verifiedFeedbackIds.has(item.feedback_id)).map(evaluateNewsLearningCase);
+  const evaluated=cases.filter(item=>verifiedFeedbackIds.has(item.feedback_id)).map(item=>({...evaluateNewsLearningCase(item),input_text:item.input_text,expected_output:item.expected_output,validation_status:item.validation_status}));
   const checks=evaluated.flatMap(x=>x.results);
   return {
     ok:true,engine:"persistent-news-feedback-loop",
@@ -848,6 +857,10 @@ export async function runNewsLearningCycle(env) {
     const report=await newsLearningReport(env);
     const s=report.summary;
     const actions=[];
+    let neuralMemoryRefresh={refreshed:false,reason:"not_attempted",indexed:0};
+    try { neuralMemoryRefresh=await refreshNeuralErrorMemory(report.real_case_results,env); }
+    catch(error) { neuralMemoryRefresh={refreshed:false,reason:"refresh_failed",indexed:0,error:String(error?.message||error).slice(0,120)}; }
+    if(neuralMemoryRefresh.indexed>0) actions.push({action:"neural_verified_error_memory_refreshed",indexed:neuralMemoryRefresh.indexed,cache_hit:neuralMemoryRefresh.cache_hit===true});
     if(s.feedback_submitted>0) actions.push({action:"human_review_required",count:s.feedback_submitted});
     if(s.real_case_assertions_failed>0) actions.push({action:"review_failed_cases_before_rule_change",failed_assertions:s.real_case_assertions_failed});
     if(s.cases_unscorable>0) actions.push({action:"add_explicit_test_assertions",unscorable_cases:s.cases_unscorable});
@@ -868,9 +881,9 @@ export async function runNewsLearningCycle(env) {
       body:{analyzer_version:NEWS_READING_VERSION,feedback_seen:s.feedback_total,verified_cases:s.verified_cases,
         pending_cases:s.cases_pending_validation,rejected_cases:s.feedback_rejected,
         benchmark_before:report.summary.benchmark,benchmark_after:report.summary.benchmark,
-        actions,notes:"This cycle evaluates human-verified corrections against the current deterministic parser. It records learning evidence; it does not rewrite parser rules or train model weights automatically."}
+        actions,notes:"This cycle evaluates human-verified corrections, refreshes a BGE-M3 semantic error-memory index, and records evidence. Retrieved corrections guide review; they do not automatically override analysis or fine-tune pretrained model weights."}
     });
-    return {ran:true,cycle_id:saved?.[0]?.id??null,summary:s,actions};
+    return {ran:true,cycle_id:saved?.[0]?.id??null,summary:s,actions,neural_error_memory:neuralMemoryRefresh};
   } catch(error) {
     console.error("News learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};
@@ -1565,6 +1578,8 @@ export default {
         ["market_news_sync_state", "id"],
         ["market_news_sources", "source_id"],
         ["market_learning_cycles", "id"],
+        ["market_news_feedback", "id"],
+        ["market_news_learning_cases", "id"],
         ["market_vocabulary_memory", "id"]
       ].map(async ([table, column]) => {
         try {
@@ -1594,6 +1609,16 @@ export default {
         llm_configured: false,
         translation_pipeline:{enabled:false,reason:"No translation-provider secret is configured; English source text is analyzed directly without fabricating a Persian translation."},
         model: null,
+        neural_error_learning: {
+          enabled: Boolean(env.AI?.run && env.MARKET_CACHE),
+          version: NEURAL_ERROR_MEMORY_VERSION,
+          model: "@cf/baai/bge-m3",
+          mode: "pretrained_neural_semantic_retrieval_over_human_verified_corrections",
+          learns_from: "verified_news_feedback_and_evaluated_learning_cases",
+          automatic_override: false,
+          fine_tuning: false,
+          note_fa: "اصلاحات تأییدشده با embedding عصبی بازیابی می‌شوند و به تحلیل بعدی زمینه می‌دهند؛ وزن مدل پایه خودکار تغییر نمی‌کند."
+        },
         neural_forecast_model: {
           enabled: true,
           version: NEURAL_MODEL_VERSION,
