@@ -13,7 +13,7 @@
 ## Learning from mistakes
 
 - Human corrections are stored in `market_news_triage_feedback` with the feature vector and explicit decision.
-- After at least 24 reviewed examples across at least three classes, a small 8-12-4 MLP is trained and cached in Cloudflare KV.
+- After at least 24 reviewed examples across at least three classes, a small 8-12-4 MLP is trained and persisted in the private Supabase table `market_news_triage_models`; Cloudflare KV is an optional cache.
 - The MLP is not trained on its own predictions. Without sufficient human labels, the system uses BGE-M3 plus transparent fallback scoring and reports that the feedback-trained classifier is not ready.
 - Use the authenticated `POST /news/triage/review` endpoint with an item ID, decision, and optional note to add a human label. It requires the existing worker cron secret.
 - Model training accuracy is a development diagnostic, not a real-world accuracy claim. Keep a separate held-out reviewed set before trusting the classifier.
@@ -29,6 +29,6 @@
 ## Operational requirements
 
 - Cloudflare Worker must have its Workers AI binding `AI`, Supabase service-role secret, and `MARKET_CACHE` KV binding.
-- The Supabase migration is `20261115221117_market_news_triage_learning`.
+- The Supabase migrations are `20261115221117_market_news_triage_learning` and `20261115221300_market_news_triage_model_store`.
 - Run tests with:
   `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs`.
