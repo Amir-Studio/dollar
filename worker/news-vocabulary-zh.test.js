@@ -9,7 +9,7 @@ import {
 test("Chinese news vocabulary has 220 unique specialist entries", () => {
   assert.equal(CHINESE_NEWS_VOCABULARY.length, 220);
   assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 220);
-  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 120);
+  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 220);
 });
 
 test("all vocabulary entries have Chinese, pinyin, English and Persian fields", () => {
@@ -23,7 +23,7 @@ test("all vocabulary entries have Chinese, pinyin, English and Persian fields", 
 
 test("category and query filters return relevant vocabulary", () => {
   const economics = getChineseNewsVocabulary({ category: "macroeconomics" });
-  assert.equal(economics.items.length, 20);
+  assert.equal(economics.items.length, 30);
   assert.ok(economics.items.every(x => x.category === "macroeconomics"));
   const search = getChineseNewsVocabulary({ query: "sanctions" });
   assert.ok(search.items.length === 8); // sanctions terms are in the second tranche
