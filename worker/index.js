@@ -469,18 +469,14 @@ async function learningRest(env, path, options = {}) {
   if (!response.ok) throw Error("Learning storage HTTP " + response.status + ": " + raw.slice(0,180));
   return raw ? JSON.parse(raw) : [];
 }
-async function verifyWorkerCronSecret(request,env) {
+async function verifyWorkerCronSecret(request) {
   const supplied=request.headers.get("x-cron-secret")||"";
   if(!supplied) return false;
-  const rows=await learningRest(env,"market_refresh_gate?select=secret_sha256&id=eq.1&limit=1");
-  const expected=String(rows?.[0]?.secret_sha256||"");
-  if(!expected) return false;
-  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(supplied));
-  const actual=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
-  if(actual.length!==expected.length) return false;
-  let mismatch=0;
-  for(let i=0;i<actual.length;i++) mismatch|=actual.charCodeAt(i)^expected.charCodeAt(i);
-  return mismatch===0;
+  const response=await fetch("https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api/news/global-test/verify",{
+    method:"POST",headers:{"x-cron-secret":supplied,"content-type":"application/json"},
+    body:"{}",signal:AbortSignal.timeout(8000)
+  });
+  return response.ok;
 }
 function safeJsonSize(value) { try { return new TextEncoder().encode(JSON.stringify(value)).length; } catch { return Infinity; } }
 async function fingerprintLearningCase(title, excerpt, expected) {
@@ -783,7 +779,23 @@ async function fetchGoogleNewsCountryArticle(country) {
   }
   return null;
 }
-async function fetchCountryNewsArticle(country) {
+async function fetchCountryNewsArticle(country, proxySecret=null) {
+  if(proxySecret) {
+    try {
+      const proxyUrl="https://dollar-market-intelligence.kabiri1489.workers.dev/news/global-test/fetch?country="+encodeURIComponent(country.code);
+      const proxyResponse=await fetch(proxyUrl,{
+        method:"POST",headers:{"x-cron-secret":proxySecret,"content-type":"application/json"},
+        body:"{}",signal:AbortSignal.timeout(45000)
+      });
+      if(proxyResponse.ok) {
+        const proxied=await proxyResponse.json();
+        if(proxied?.country_code===country.code && proxied?.extraction_status) return proxied;
+      }
+      console.warn("Cloudflare country article proxy returned:",country.code,proxyResponse.status);
+    } catch(error) {
+      console.warn("Cloudflare country article proxy failed:",country.code,String(error?.message||error).slice(0,140));
+    }
+  }
   try {
     const googleResult=await fetchGoogleNewsCountryArticle(country);
     if(googleResult) return googleResult;
@@ -854,7 +866,7 @@ export async function reanalyzeCountryTestBatch(env, limit=10) {
   return {updated,scanned:(rows||[]).length,analysis_mode:"full_article",max_article_chars:15000};
 }
 
-export async function collectGlobalCountryTestBatch(env) {
+export async function collectGlobalCountryTestBatch(env,proxySecret=null) {
   const attemptAt = new Date().toISOString();
   try {
     await learningRest(env,"market_news_country_test_state?id=eq.1",{
@@ -865,7 +877,7 @@ export async function collectGlobalCountryTestBatch(env) {
     const start=Math.max(0,Number(state?.[0]?.next_index)||0);
     if(start>=GLOBAL_TEST_COUNTRIES.length) return {ran:false,complete:true,next_index:start};
     const batch=GLOBAL_TEST_COUNTRIES.slice(start,start+1);
-    const results=await Promise.allSettled(batch.map(fetchCountryNewsArticle));
+    const results=await Promise.allSettled(batch.map(country=>fetchCountryNewsArticle(country,proxySecret)));
     const rows=results.map((result,index)=>{
       if(result.status==="fulfilled") return result.value;
       const country=batch[index];
@@ -943,17 +955,18 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
-    if (url.pathname === "/news/global-test/refresh" || url.pathname === "/news/global-test/reanalyze") {
+    if (url.pathname === "/news/global-test/fetch") {
       if (request.method !== "POST") return reply({error:"Method not allowed"},405);
       try {
-        if (!(await verifyWorkerCronSecret(request,env))) return reply({error:"Unauthorized"},401);
-        const result=url.pathname.endsWith("/reanalyze")
-          ? await reanalyzeCountryTestBatch(env,10)
-          : await collectGlobalCountryTestBatch(env);
-        return reply({ok:true,service:"global-country-news-test",...result},200,{"cache-control":"no-store"});
+        if (!(await verifyWorkerCronSecret(request))) return reply({error:"Unauthorized"},401);
+        const code=String(url.searchParams.get("country")||"").toUpperCase();
+        const country=GLOBAL_TEST_COUNTRIES.find(item=>item.code===code);
+        if(!country) return reply({error:"Unknown country code"},400);
+        const result=await fetchCountryNewsArticle(country);
+        return reply(result,200,{"cache-control":"no-store"});
       } catch(error) {
-        console.error("Global country test endpoint failed:",error?.message||error);
-        return reply({ok:false,error:"Global country test endpoint failed",detail:String(error?.message||error).slice(0,220)},502);
+        console.error("Country article proxy failed:",error?.message||error);
+        return reply({error:"Country article fetch failed",detail:String(error?.message||error).slice(0,220)},502);
       }
     }
     if (url.pathname === "/news/global-test/status") {
