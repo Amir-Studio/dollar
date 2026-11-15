@@ -18,9 +18,9 @@ fa:["نرخ بهره","نرخ سود"],ar:["سعر الفائدة","سعر ال�
 C("policy_rate","policy interest rate","The benchmark rate set by a central bank to influence financial conditions.",{
 fa:["نرخ سیاستی","نرخ بهره سیاستی"],ar:["سعر الفائدة الأساسي","سعر السياسة النقدية"],de:["Leitzins"],fr:["taux directeur"],ru:["ключевая ставка"],zh:["政策利率"],ja:["政策金利"],ko:["기준금리"],hi:["नीतिगत ब्याज दर"],es:["tipo de interés oficial","tasa de política monetaria"],it:["tasso ufficiale"],pt:["taxa básica de juros"],tr:["politika faizi"],nl:["beleidsrente"],pl:["stopa referencyjna"]}),
 C("rate_hike","interest rate hike","A decision to increase a benchmark or other interest rate.",{
-fa:["افزایش نرخ بهره","افزایش نرخ سود"],ar:["رفع سعر الفائدة","زيادة سعر الفائدة"],de:["Zinserhöhung"],fr:["hausse des taux d’intérêt"],ru:["повышение процентной ставки"],zh:["加息"],ja:["利上げ"],ko:["금리 인상"],hi:["ब्याज दर में वृद्धि"],es:["subida de los tipos de interés"],it:["aumento dei tassi d’interesse"],pt:["alta da taxa de juros"],tr:["faiz artırımı"],nl:["renteverhoging"],pl:["podwyżka stóp procentowych"]}),
+fa:["افزایش نرخ بهره","افزایش نرخ سود"],ar:["رفع سعر الفائدة","زيادة سعر الفائدة"],de:["Zinserhöhung"],fr:["hausse des taux d’intérêt"],ru:["повышение процентной ставки","повысил процентную ставку","повысила процентную ставку"],zh:["加息"],ja:["利上げ"],ko:["금리 인상"],hi:["ब्याज दर में वृद्धि"],es:["subida de los tipos de interés"],it:["aumento dei tassi d’interesse"],pt:["alta da taxa de juros"],tr:["faiz artırımı","faiz oranını artırdı","faiz oranını artırmak"],nl:["renteverhoging"],pl:["podwyżka stóp procentowych"]}),
 C("rate_cut","interest rate cut","A decision to reduce a benchmark or other interest rate.",{
-fa:["کاهش نرخ بهره","کاهش نرخ سود"],ar:["خفض سعر الفائدة"],de:["Zinssenkung"],fr:["baisse des taux d’intérêt"],ru:["снижение процентной ставки"],zh:["降息"],ja:["利下げ"],ko:["금리 인하"],hi:["ब्याज दर में कटौती"],es:["bajada de los tipos de interés"],it:["riduzione dei tassi d’interesse"],pt:["corte da taxa de juros"],tr:["faiz indirimi"],nl:["renteverlaging"],pl:["obniżka stóp procentowych"]}),
+fa:["کاهش نرخ بهره","کاهش نرخ سود"],ar:["خفض سعر الفائدة"],de:["Zinssenkung"],fr:["baisse des taux d’intérêt"],ru:["снижение процентной ставки"],zh:["降息"],ja:["利下げ"],ko:["금리 인하"],hi:["ब्याज दर में कटौती"],es:["bajada de los tipos de interés"],it:["riduzione dei tassi d’interesse"],pt:["corte da taxa de juros"],tr:["faiz indirimi","faiz oranını düşürdü","faiz oranını düşürmek"],nl:["renteverlaging"],pl:["obniżka stóp procentowych"]}),
 C("exchange_rate","exchange rate","The price of one currency expressed in units of another currency.",{
 fa:["نرخ ارز","نرخ تبدیل ارز"],ar:["سعر الصرف"],de:["Wechselkurs"],fr:["taux de change"],ru:["обменный курс"],zh:["汇率"],ja:["為替レート"],ko:["환율"],hi:["विनिमय दर"],es:["tipo de cambio"],it:["tasso di cambio"],pt:["taxa de câmbio"],tr:["döviz kuru"],nl:["wisselkoers"],pl:["kurs walutowy"]}),
 C("currency_depreciation","currency depreciation","A market-driven fall in a currency's value relative to another currency.",{
@@ -124,8 +124,9 @@ export function analyzeMarketLexicon(text,language) {
   const normalized=normalizeLexicalText(text,lang);
   const matches=[];
   for(const [term,ids] of TERM_INDEX.get(lang)||[]) {
-    const pattern=new RegExp("(^|[^\\p{L}])"+escapeRe(term)+"(?=$|[^\\p{L}])","gu");
-    if(pattern.test(normalized)) for(const id of ids) {
+    const pattern=(lang==="zh"||lang==="ja"||lang==="ko"||lang==="hi")?null:new RegExp("(^|[^\\p{L}])"+escapeRe(term)+"(?=$|[^\\p{L}])","gu");
+    const found=pattern?pattern.test(normalized):normalized.includes(term);
+    if(found) for(const id of ids) {
       const concept=CONCEPT_MAP.get(id);
       matches.push({concept_id:id,pivot_term:concept.pivot.term,matched_term:term,language:lang,relation:"contextual_equivalent",definition:concept.pivot.definition,register:"standard_financial",notes:concept.note||null,near_miss:concept.near_miss||null});
     }
