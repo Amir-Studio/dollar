@@ -63,6 +63,40 @@ test("forecast diagnostics compare against the same-row no-change baseline", () 
   assert.ok(result.root_cause_candidates.every(x => x.causal === false));
 });
 
+test("forecast diagnostics distinguish systematic overprediction and underprediction", () => {
+  const over = buildForecastErrorDiagnostic({
+    id:"over",asset:"USD_IRR_FREE",horizon_days:1,model_version:"test-model",
+    actual_price:100,predicted_price:102,reference_price:100,
+    validation:{forecast_mode:"adaptive_directional",selected_models:["trend_15"]}
+  });
+  const under = buildForecastErrorDiagnostic({
+    id:"under",asset:"USD_IRR_FREE",horizon_days:1,model_version:"test-model",
+    actual_price:102,predicted_price:100,reference_price:100,
+    validation:{forecast_mode:"adaptive_directional",selected_models:["trend_15"]}
+  });
+  assert.equal(over.error_metrics.error_direction,"overprediction");
+  assert.ok(over.root_cause_candidates.some(x=>x.code==="systematic_overprediction_candidate"));
+  assert.equal(under.error_metrics.error_direction,"underprediction");
+  assert.ok(under.root_cause_candidates.some(x=>x.code==="systematic_underprediction_candidate"));
+  assert.ok(over.root_cause_candidates.every(x=>x.causal===false));
+});
+
+test("learning summary exposes signed bias, baseline wins and tail error", () => {
+  const rows=Array.from({length:30},(_,i)=>({
+    asset:"USD_IRR_FREE",horizon_days:1,model_version:"bias-test-v1",
+    reference_price:100,predicted_price:105,actual_price:100,direction_correct:false,
+    actual_at:new Date(Date.UTC(2026,10,15)-i*86400000).toISOString()
+  }));
+  const result=summarizeLearningEvidence(rows,[]);
+  const metrics=result.asset_metrics["USD_IRR_FREE:1:bias-test-v1"];
+  assert.equal(metrics.bias_state,"overpredicting");
+  assert.ok(metrics.signed_bias_median_pct>0);
+  assert.equal(metrics.overprediction_rate_pct,100);
+  assert.equal(metrics.underprediction_rate_pct,0);
+  assert.equal(metrics.baseline_win_rate_pct,0);
+  assert.ok(metrics.p90_absolute_error_pct>0);
+});
+
 test("invalid or incomplete forecasts are not diagnosed", () => {
   assert.equal(buildForecastErrorDiagnostic({ id: "bad", asset: "USD_IRR_FREE" }), null);
 });
