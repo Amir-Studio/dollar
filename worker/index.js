@@ -1440,7 +1440,7 @@ export default {
         web_search_enabled: false,
          market_news_search_enabled: true,
          market_news_search_provider: "Google News RSS plus local archive; market-topic-only",
-        capabilities: ["market-news-live-search","multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","cross-source-contradiction-screening","verified-news-learning-evaluation","decision-quality-gates","database-schema-diagnostics","no-external-language-model"
+        capabilities: ["market-news-live-search","multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","cross-source-contradiction-screening","verified-news-learning-evaluation","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
