@@ -259,6 +259,11 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  const conflicts=Array.isArray(languageAnalysis?.possible_conflicts)?languageAnalysis.possible_conflicts:[];
  const errorMemory=languageAnalysis?.verified_error_memory||{};
  const memoryMatches=Array.isArray(errorMemory.matches)?errorMemory.matches:[];
+ const neuralPivot=languageAnalysis?.multilingual_news?.english_neural_pivot_analysis||{};
+ const neuralLanguageGroups=Array.isArray(neuralPivot.cross_language_analyses)?neuralPivot.cross_language_analyses:[];
+ const neuralSemanticLanguages=[...new Set(neuralLanguageGroups.map(x=>String(x.language||"und")))].slice(0,12);
+ const neuralSemanticMatchCount=neuralLanguageGroups.reduce((n,x)=>n+(Array.isArray(x.matches)?x.matches.length:0),0);
+ const neuralSemanticConcepts=[...new Set(neuralLanguageGroups.flatMap(x=>(Array.isArray(x.matches)?x.matches:[]).slice(0,3).map(m=>String(m.term||m.id||"")).filter(Boolean)))].slice(0,12);
   const deepAnalysis=buildDeepAnalysis({news,languageAnalysis,priceSignal:h.signal,now});
  const quoteFresh=quoteAge!==null&&quoteAge<=6;
  const historyFresh=h.last_observation_age_hours===null||h.last_observation_age_hours<=72;
@@ -305,7 +310,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  if(n.risk_signal==="insufficient")explanation.push("برای جمع‌بندی خبری، رویدادهای طبقه‌بندی‌شده کافی نیستند.");
  if(!enoughNews)explanation.push("تأیید مستقل چندمنبعی کافی نیست.");
  if(memoryMatches.length)explanation.push("شبکهٔ معنایی نمونه‌های اصلاح‌شدهٔ مشابه را بازیابی کرده است؛ ادعای فعلی باید با آن‌ها مقایسه شود، نه اینکه خودکار جایگزین تحلیل شود.");
- const learningContext={neural_error_memory_status:errorMemory.status||"unavailable",verified_correction_matches:memoryMatches.length,top_similarity:memoryMatches.length?(Number(memoryMatches[0].similarity)||null):null,categories:[...new Set(memoryMatches.map(x=>String(x.category||"other")))].slice(0,5),automatic_override:false};
+ const learningContext={neural_error_memory_status:errorMemory.status||"unavailable",verified_correction_matches:memoryMatches.length,top_similarity:memoryMatches.length?(Number(memoryMatches[0].similarity)||null):null,categories:[...new Set(memoryMatches.map(x=>String(x.category||"other")))].slice(0,5),neural_semantic_language_groups:neuralSemanticLanguages,neural_semantic_match_count:neuralSemanticMatchCount,neural_semantic_concepts:neuralSemanticConcepts,neural_semantic_fact_checked:false,automatic_override:false};
  const quality={quote_fresh:quoteFresh,history_sufficient:enoughHistory,history_fresh:historyFresh,
   news_sufficient:enoughNews,source_diversity_sufficient:sourceDiversity,syndication_risk:n.likely_syndication_ratio>=0.35,
   excerpt_coverage_pct:n.excerpt_coverage_pct,issues};
