@@ -114,8 +114,6 @@ const LANGS = {
       ["oil", /(?:pétrole|pétrolier|brut|brent)/i],
     ],
     actors: [["central_bank", /(?:banque centrale|banque centrale européenne|bce)/i],["government", /(?:gouvernement|ministère|ministre)/i],["opec", /\bopep\b|\bopec\b/i],["imf", /(?:fonds monétaire international|fmi)/i],["us", /(?:états-unis|états unis|réserve fédérale)/i],["france", /(?:france|français)/i]]
-  }
-
   },
   ru: {
     name:"Russian",script:/[А-Яа-яЁё]/g,
