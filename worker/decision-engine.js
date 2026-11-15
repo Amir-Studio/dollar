@@ -134,8 +134,16 @@ function newsMetrics(news,analyses,now){
   const uncertaintyFactor=a.uncertain?0.45:1;
   const assertion=a.english_semantics?.assertion||"";
   const assertionFactor=["conditional","forecast_or_possibility","negated_or_denied"].includes(assertion)?0.45:assertion==="attributed_report"?0.72:1;
+  const reading=a.reading_analysis||{};
+  const claimCount=Math.max(0,Number(reading.claim_count)||0);
+  const completeCount=Math.max(0,Number(reading.complete_claim_count)||0);
+  const conditionalCount=Math.max(0,Number(reading.conditional_count)||0);
+  const negatedCount=Math.max(0,Number(reading.negated_count)||0);
+  const readingCoverage=claimCount?Math.min(1,completeCount/claimCount):null;
+  const uncertaintyRatio=claimCount?Math.min(1,(conditionalCount+negatedCount)/claimCount):0;
+  const readingFactor=readingCoverage===null?1:Math.max(0.25,0.65+0.35*readingCoverage-0.25*uncertaintyRatio);
   const lexicalMatchScore=clamp(num(a.confidence)??0.35,0.2,0.92);
-  const weight=fresh*textFactor*uncertaintyFactor*assertionFactor*(0.55+0.45*lexicalMatchScore);
+  const weight=fresh*textFactor*uncertaintyFactor*assertionFactor*readingFactor*(0.55+0.45*lexicalMatchScore);
   const domain=hostOf(a.source);
   for(const event of events){
    const id=event.id;
@@ -143,7 +151,7 @@ function newsMetrics(news,analyses,now){
    const risk=event.market_effect==="risk_up"?"up":event.market_effect==="risk_down"?"down":"mixed";
    evidence.push({event_id:id,label_fa:EVENT_LABELS[id],risk_direction:risk,title:a.title||"",source:domain,
     published_at:a.published_at||null,age_hours:ageHours===null?null:Number(ageHours.toFixed(1)),
-    content_type:textFactor===1?"rss_excerpt":"headline_only",assertion,uncertain:!!a.uncertain,
+    content_type:textFactor===1?"rss_excerpt":"headline_only",assertion,uncertain:!!a.uncertain,reading_coverage:readingCoverage,reading_uncertainty_ratio:uncertaintyRatio,reading_factor:Number(readingFactor.toFixed(3)),
     lexicon_match_score_not_calibrated:lexicalMatchScore,weight:Number(weight.toFixed(3))});
   }
  }
@@ -162,6 +170,8 @@ function newsMetrics(news,analyses,now){
   excerpt_coverage_pct:rows.length?Math.round(excerptCount/rows.length*100):0,
   event_mentions:evidence.length,risk_up_weight:Number(riskUp.toFixed(2)),risk_down_weight:Number(riskDown.toFixed(2)),
   risk_mixed_event_count:riskMixed,risk_signal:riskSignal,risk_balance_not_probability:Number(riskBalance.toFixed(2)),
+  linguistically_reviewed_articles:rows.filter(x=>Number(x.reading_analysis?.claim_count)>0).length,
+  reading_uncertainty_articles:rows.filter(x=>Number(x.reading_analysis?.conditional_count)>0||Number(x.reading_analysis?.negated_count)>0).length,
   event_evidence:evidence.sort((a,b)=>b.weight-a.weight).slice(0,12),
   note_fa:"فشار ریسک خبری با جهت قیمت دارایی یکسان نیست. خبرهای شرطی، احتمالی، تکذیب‌شده یا صرفاً تیتر وزن کمتری می‌گیرند؛ وزن‌ها احتمال آماری نیستند."};
 }
@@ -348,6 +358,7 @@ export function runDecisionEngineSelfTest(){
   {name:"empty_news_does_not_create_news_signal",input:common,check:x=>x.news_context.risk_signal==="insufficient"&&x.synthesis.state==="price_trend_only"},
   {name:"verified_neural_error_memory_is_review_only",input:{...common,languageAnalysis:{per_news:[],possible_conflicts:[],verified_error_memory:{status:"verified_error_memory_matches_found",matches:[{category:"wrong_action",similarity:0.91,verified_correction:{action:"increase"}}]}}},check:x=>x.learning_context.verified_correction_matches===1&&x.learning_context.automatic_override===false&&x.evidence_quality.issues.some(v=>v.includes("اصلاحات انسانی"))},
   {name:"headline_only_has_lower_weight_than_excerpt",input:{...common,news:[{title:"New sanctions announced",domain:"one.example",published_at:new Date(now).toISOString()}],languageAnalysis:{per_news:[{title:"New sanctions announced",source:"one.example",published_at:new Date(now).toISOString(),input_mode:"headline_only",events:[{id:"sanction_new",market_effect:"risk_up"}],confidence:0.7}],possible_conflicts:[]}},check:x=>x.news_context.event_evidence[0]?.content_type==="headline_only"&&x.news_context.event_evidence[0]?.weight<0.7},
+  {name:"structured_reading_discounts_incomplete_or_uncertain_claims",input:{...common,news:[{title:"Rates may rise",domain:"a.example",published_at:new Date(now).toISOString()}],languageAnalysis:{per_news:[{title:"Rates may rise",source:"a.example",published_at:new Date(now).toISOString(),input_mode:"headline_plus_rss_excerpt",content_chars:240,events:[{id:"rate_hike",market_effect:"risk_up"}],confidence:0.8,reading_analysis:{claim_count:2,complete_claim_count:0,conditional_count:1,negated_count:0}}],possible_conflicts:[]}},check:x=>x.news_context.event_evidence[0]?.reading_factor<0.8},
   {name:"conditional_claim_is_discounted",input:{...common,news:[{title:"Sanctions may be imposed",domain:"one.example",published_at:new Date(now).toISOString()}],languageAnalysis:{per_news:[{title:"Sanctions may be imposed",source:"one.example",published_at:new Date(now).toISOString(),input_mode:"headline_only",uncertain:true,english_semantics:{assertion:"forecast_or_possibility"},events:[{id:"sanction_new",market_effect:"risk_up"}],confidence:0.6}],possible_conflicts:[]}},check:x=>x.news_context.event_evidence[0]?.weight<0.3},
   {name:"duplicate_headlines_do_not_count_as_independent_stories",input:{...common,news:[{title:"Central bank announces new rate policy",domain:"a.example",published_at:new Date(now).toISOString()},{title:"Central bank announces new rate policy",domain:"b.example",published_at:new Date(now).toISOString()}]},check:x=>x.news_context.unique_story_clusters===1&&x.news_context.likely_syndication_ratio===0.5},
   {name:"risk_pressure_is_not_price_direction",input:{...common,news:[{title:"Conflict escalates",domain:"a.example",published_at:new Date(now).toISOString()},{title:"Military strike reported",domain:"b.example",published_at:new Date(now).toISOString()}],languageAnalysis:{per_news:[{title:"Conflict escalates",source:"a.example",published_at:new Date(now).toISOString(),input_mode:"headline_plus_rss_excerpt",content_chars:200,events:[{id:"conflict",market_effect:"risk_up"}],confidence:0.8},{title:"Military strike reported",source:"b.example",published_at:new Date(now).toISOString(),input_mode:"headline_plus_rss_excerpt",content_chars:200,events:[{id:"conflict",market_effect:"risk_up"}],confidence:0.8}],possible_conflicts:[]}},check:x=>x.news_context.risk_signal==="higher_risk_pressure"&&!String(x.synthesis.state).includes("upward")},
