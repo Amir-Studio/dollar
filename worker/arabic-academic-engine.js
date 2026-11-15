@@ -53,7 +53,7 @@ const ROOT_FAMILIES = [
   {root:"خ ف ض", forms:["خفض","يخفض","خفضت","انخفض","انخفضت","ينخفض","انخفاض","تخفيض"], lemma:"خفض", meaning:"lower_or_decrease"},
   {root:"ز ي د", forms:["زاد","زادت","يزيد","تزايد","زيادة","مزيد"], lemma:"زاد", meaning:"increase"},
   {root:"ن ق ص", forms:["نقص","نقصت","ينقص","تناقص","انخفاض","تراجع"], lemma:"نقص", meaning:"decrease_or_reduction"},
-  {root:"ث ب ت", forms:["ثبت","تثبت","يثبت","تثبيت","استقر","استقرت","استقرار"], lemma:"ثبت", meaning:"stability_or_hold"},
+  {root:"ث ب ت", forms:["ثبت","تثبت","يثبت","تثبيت","استقر","استقرت","استقرار","أبقى","أبقت","يبقي","الإبقاء"], lemma:"ثبت", meaning:"stability_or_hold"},
   {root:"و ف ق", forms:["وافق","وافقت","يوافق","موافقة","اتفاق","توافق"], lemma:"وافق", meaning:"agreement_or_approval"},
   {root:"ر ف ض", forms:["رفض","رفضت","يرفض","رفضوا","رفض","مرفوض"], lemma:"رفض", meaning:"rejection"},
   {root:"ن ف ي", forms:["نفى","نفت","ينفي","تنفي","نفي","منفي"], lemma:"نفى", meaning:"denial"},
@@ -81,7 +81,7 @@ const PARTICLES = {
 const DIALECT_WORDS = new Set(Object.values(DIALECT_MARKERS).flat());
 
 function occurrences(text, words) {
-  return words.filter(word => text.includes(word));
+  return words.filter(word => text.includes(normalizeArabic(word)));
 }
 
 function detectDialect(text) {
@@ -149,7 +149,7 @@ function detectMorphology(text, tokens) {
 
 function findRootFamilies(text) {
   return ROOT_FAMILIES.flatMap(f => {
-    const found = f.forms.filter(form => text.includes(form));
+    const found = f.forms.filter(form => text.includes(normalizeArabic(form)));
     return found.length ? [{root_consonants:f.root,lemma_candidate:f.lemma,semantic_family:f.meaning,matched_forms:[...new Set(found)]}] : [];
   });
 }
@@ -212,8 +212,8 @@ function analyzeClauses(text) {
 
 function identifySpeechActs(text) {
   const patterns = [
-    ["official_announcement",/(?:أعلن|أعلنت|إعلان|بيان رسمي)/],
-    ["denial",/(?:نفى|نفت|ينفي|تنفي|نفي|تكذيب)/],
+    ["official_announcement",/(?:أعلن|اعلن|أعلنت|اعلنت|إعلان|اعلان|بيان رسمي)/],
+    ["denial",/(?:نفى|نفي|نفت|ينفي|تنفي|تكذيب)/],
     ["warning",/(?:حذر|حذرت|تحذير|يحذر)/],
     ["expectation_or_forecast",/(?:يتوقع|تتوقع|توقعات|من المتوقع|يرجح|قد يرتفع|قد ينخفض)/],
     ["commitment_or_intention",/(?:سوف|سيتم|تعتزم|يعتزم|تخطط|يخطط|تقرر|قررت)/],
