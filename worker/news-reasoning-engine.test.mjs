@@ -22,7 +22,7 @@ const mockFetch = async url => {
 test("reasoning self-test is internally consistent",()=>{
   const result=runReasoningSelfTest();
   assert.equal(result.version,REASONING_VERSION);
-  assert.equal(result.failed,0);
+  assert.equal(result.failed.length,0);
 });
 
 test("History retrieval preserves draft status and returns relevant source context",async()=>{
