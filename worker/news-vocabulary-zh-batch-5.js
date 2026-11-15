@@ -107,6 +107,20 @@ export function runChineseVocabularyBatch5SelfTest() {
  const ids = new Set(CHINESE_NEWS_VOCABULARY_BATCH_5.map(row => row[0]));
  const terms = new Set(CHINESE_NEWS_VOCABULARY_BATCH_5.map(row => row[3]));
  const categories = new Set(CHINESE_NEWS_VOCABULARY_BATCH_5.map(row => row[1]));
- const valid = CHINESE_NEWS_VOCABULARY_BATCH_5.every(row => row.length === 6 && /^zh\d{3}$/.test(row[0]) && row[2] && /[\u3400-\u9fff]/.test(row[3]) && row[4] && row[5]);
- return {total:CHINESE_NEWS_VOCABULARY_BATCH_5.length,unique_ids:ids.size,unique_chinese_terms:terms.size,category_count:categories.size,passed:valid && ids.size===100 && terms.size===100 && categories.size>=4};
+ const valid = CHINESE_NEWS_VOCABULARY_BATCH_5.every(row =>
+   Array.isArray(row) && row.length === 6 &&
+   typeof row[0] === "string" && row[0].startsWith("zh") && row[0].length === 5 &&
+   [...row[0].slice(2)].every(ch => ch >= "0" && ch <= "9") &&
+   Boolean(row[2]) && typeof row[3] === "string" &&
+   [...row[3]].some(ch => ch.codePointAt(0) >= 0x3400 && ch.codePointAt(0) <= 0x9fff) &&
+   Boolean(row[4]) && Boolean(row[5])
+ );
+ return {
+   total:CHINESE_NEWS_VOCABULARY_BATCH_5.length,
+   unique_ids:ids.size,
+   unique_chinese_terms:terms.size,
+   category_count:categories.size,
+   invalid_rows:CHINESE_NEWS_VOCABULARY_BATCH_5.filter(row => !Array.isArray(row) || row.length !== 6 || !row[2] || !row[3] || !row[4] || !row[5]).map(row => row?.[0] || null),
+   passed:valid && ids.size === 100 && terms.size === 100 && categories.size >= 4
+ };
 }
