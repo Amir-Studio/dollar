@@ -12,6 +12,7 @@ import { COUNTRY_NEWS_SOURCES as CURATED_NEWS_SOURCES, validateCountryNewsSource
 import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
 import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.js";
 import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_CONTRADICTION_VERSION } from "./news-contradiction-engine.js";
+import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -1337,6 +1338,13 @@ export default {
       const limit=Number(url.searchParams.get("limit")||100);
       return reply(getMarketLexicon({language,query,limit}),200,{"cache-control":"public, max-age=3600"});
     }
+    if (url.pathname === "/language/news-vocabulary/zh") {
+      if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+      const category=url.searchParams.get("category")||null;
+      const query=url.searchParams.get("q")||null;
+      const limit=Number(url.searchParams.get("limit")||1000);
+      return reply(getChineseNewsVocabulary({category,query,limit}),200,{"cache-control":"public, max-age=3600"});
+    }
     if (url.pathname === "/language/arabic/curriculum") {
       if (request.method !== "GET") return reply({error:"Method not allowed"},405);
       return reply({version:ARABIC_FORMAL_GRAMMAR_VERSION,language:"العربية الفصحى المعاصرة",levels:4,rule_count:ARABIC_FORMAL_CURRICULUM.length,lessons:ARABIC_FORMAL_CURRICULUM},200,{"cache-control":"public, max-age=3600"});
@@ -1398,6 +1406,7 @@ export default {
           uses_news_and_price_history: true,
           self_test: runDecisionEngineSelfTest()
         },
+        chinese_news_vocabulary:{version:CHINESE_NEWS_VOCABULARY_VERSION,...runChineseNewsVocabularySelfTest()},
         language_engine: {
           enabled: true,
           name: "Dollar Domain NLP",
