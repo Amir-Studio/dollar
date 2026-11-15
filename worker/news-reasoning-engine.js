@@ -211,7 +211,10 @@ function validatePass(value,phase) {
 function evidenceCatalog(articles,history,searched=[]) {
   const rows=[];
   for(const a of articles) rows.push({id:"news:"+a.id,type:"news",title:a.title,publisher:a.source||"",url:a.url||"",published_at:a.published_at||null,status:"source_article"});
-  for(const d of history.documents||[]) rows.push({id:"history:"+d.id,type:"history_dossier",title:d.title,publisher:"History",url:"",status:d.status||"unknown"});
+  for(const d of history.documents||[]) {
+    rows.push({id:"history:"+d.id,type:"history_dossier",title:d.title,publisher:"History",url:"",status:d.status||"unknown"});
+    for(let i=0;i<(d.sources||[]).length;i++) { const source=d.sources[i]; rows.push({id:"history-source:"+d.id+":"+(i+1),type:"history_source",title:source.title||d.title,publisher:source.publisher||"unknown",url:source.url||"",status:d.status||"unknown"}); }
+  }
   for(const d of history.news_archive||[]) rows.push({id:"history-news:"+d.id,type:"history_archive",title:d.headline,publisher:"History archive",url:d.source_url||"",status:d.status||"unknown"});
   for(let i=0;i<searched.length;i++) {
     const x=searched[i];
@@ -323,11 +326,22 @@ confidence,abstained,
     safeguards:["تحلیل مدل به‌تنهایی تأیید واقعیت نیست.","فرضیهٔ علّی با رابطهٔ علّی اثبات‌شده یکسان نیست.","اسناد History با وضعیت draft یا pending همچنان تأییدنشده‌اند.","نتایج جست‌وجو سرنخ پژوهش‌اند؛ استقلال و متن اصلی باید بررسی شود."]};
 }
 export function runReasoningSelfTest() {
+  const validPass={facts:[],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],
+    history_usage:[],evidence_gaps:[],search_queries:[],confidence:0.5,abstain:true};
+  let validSchema=false,invalidSchemaRejected=false;
+  try { validatePass(validPass,"initial"); validSchema=true; } catch {}
+  try { validatePass({facts:[],confidence:0.5,abstain:false},"initial"); } catch { invalidSchemaRejected=true; }
+  const draftCatalog=evidenceCatalog([],{documents:[{id:"draft-1",title:"Draft",status:"draft"}]});
+  const duplicateCheck=sourceIndependence([
+    {id:"news:1",type:"news",title:"Central bank announces new interest rate policy",url:"https://a.example.org/a"},
+    {id:"web:1",type:"search_result",title:"Central bank announces new interest rate policy",url:"https://b.example.org/b"}
+  ]);
   const tests=[
-    {name:"history_context_does_not_promote_drafts",passed:true},
-    {name:"search_is_bounded_to_three_queries",passed:true},
-    {name:"reasoner_requires_ai_binding",passed:!({AI:null})?.AI},
+    {name:"history_draft_status_is_preserved",passed:draftCatalog[0]?.status==="draft"},
+    {name:"strict_schema_accepts_valid_pass",passed:validSchema},
+    {name:"strict_schema_rejects_incomplete_pass",passed:invalidSchemaRejected},
+    {name:"similar_headlines_are_not_counted_as_independent_confirmation",passed:duplicateCheck.likely_syndication_clusters.length===1&&duplicateCheck.likely_syndication_clusters[0].independent_confirmation===false},
     {name:"confidence_is_clamped",passed:clamp(1.7)===1&&clamp(-.4)===0}
   ];
-  return {version:REASONING_VERSION,total:tests.length,passed:tests.filter(x=>x.passed).length,failed:tests.filter(x=>!x.passed)};
+  return {version:REASONING_VERSION,total:tests.length,passed:tests.filter(x=>x.passed).length,failed:tests.filter(x=>!x.passed).length,tests};
 }
