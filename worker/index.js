@@ -14,6 +14,7 @@ import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
 import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.js";
 import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_CONTRADICTION_VERSION } from "./news-contradiction-engine.js";
 import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
+import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -616,6 +617,61 @@ async function learningRest(env, path, options = {}) {
   if (!response.ok) throw Error("Learning storage HTTP " + response.status + ": " + raw.slice(0,180));
   return raw ? JSON.parse(raw) : [];
 }
+async function runVocabularyLearningCycle(env) {
+  try {
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return {ran:false,reason:"database_not_configured"};
+    const since=new Date(Date.now()-48*60*60*1000).toISOString();
+    const articles=await learningRest(env,"market_news_items?select=title,url,language_code,original_title,original_text,published_at&published_at=gte."+encodeURIComponent(since)+"&order=published_at.desc&limit=60");
+    const grouped=new Map();
+    for(const article of articles||[]) {
+      const language=String(article.language_code||"").toLowerCase();
+      const body=String(article.original_text||"");
+      if(!language||body.length<100) continue;
+      const text=(String(article.original_title||article.title||"")+" "+body).slice(0,12000);
+      for(const candidate of extractUnknownVocabularyCandidates(text,language,{limit:8})) {
+        const key=language+"::"+candidate.normalized_term;
+        if(!grouped.has(key)) grouped.set(key,{...candidate,language,source_urls:new Set(),contexts:[]});
+        const item=grouped.get(key);
+        if(article.url) item.source_urls.add(String(article.url).slice(0,1000));
+        if(item.contexts.length<4) item.contexts.push(text.slice(0,420));
+      }
+    }
+    const candidates=[...grouped.values()].filter(x=>x.source_urls.size>=2)
+      .sort((a,b)=>b.source_urls.size-a.source_urls.size||b.occurrences-a.occurrences).slice(0,5);
+    const saved=[];
+    for(const candidate of candidates) {
+      const termQuery="market_vocabulary_memory?select=language_code,normalized_term,status,evidence_count,source_urls,contexts,last_seen_at&language_code=eq."+encodeURIComponent(candidate.language)+"&normalized_term=eq."+encodeURIComponent(candidate.normalized_term)+"&limit=1";
+      const existing=(await learningRest(env,termQuery))[0]||null;
+      if(existing?.status==="verified"||existing?.status==="rejected") continue;
+      const incoming=[...candidate.source_urls];
+      const previous=Array.isArray(existing?.source_urls)?existing.source_urls:[];
+      const newSources=incoming.filter(x=>!previous.includes(x));
+      if(existing && newSources.length===0) continue;
+      const meaning=await lookupVocabularyMeaning(candidate.term,candidate.language);
+      if(!meaning.ok) continue;
+      const now=new Date().toISOString();
+      const sourceUrls=[...new Set([...previous,...incoming])].slice(-30);
+      const contexts=[...new Set([...(Array.isArray(existing?.contexts)?existing.contexts:[]),...candidate.contexts])].slice(-8);
+      const row={
+        language_code:candidate.language,term:candidate.term,normalized_term:candidate.normalized_term,
+        definition_en:meaning.definition_en,part_of_speech:meaning.part_of_speech,
+        source_provider:meaning.source_provider,source_url:meaning.source_url,
+        confidence:meaning.confidence,status:"candidate_review",concept_id:meaning.concept_id||null,
+        evidence_count:Number(existing?.evidence_count||0)+Math.max(1,newSources.length),
+        source_urls:sourceUrls,contexts,first_seen_at:existing?.first_seen_at||now,last_seen_at:now,updated_at:now
+      };
+      await learningRest(env,"market_vocabulary_memory?on_conflict=language_code,normalized_term",{
+        method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},body:row
+      });
+      saved.push({language:candidate.language,term:candidate.term,source_provider:meaning.source_provider,evidence_count:row.evidence_count,status:row.status});
+    }
+    return {ran:true,articles_scanned:(articles||[]).length,candidates_considered:candidates.length,saved};
+  } catch(error) {
+    console.error("Vocabulary learning cycle failed:",error?.message||error);
+    return {ran:false,error:String(error?.message||error).slice(0,180)};
+  }
+}
+
 async function verifyWorkerCronSecret(request) {
   const supplied=request.headers.get("x-cron-secret")||"";
   if(!supplied) return false;
@@ -1124,6 +1180,7 @@ export default {
     ctx.waitUntil(refreshBackground(env).then(async market => {
       await runForecastCycle(env,market);
       await runNewsLearningCycle(env);
+      await runVocabularyLearningCycle(env);
     }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
     ctx.waitUntil(collectGlobalCountryTestBatch(env).then(result => {
       console.log("Global country test collector:", JSON.stringify(result));
@@ -1414,7 +1471,8 @@ export default {
         ["market_news_items", "id"],
         ["market_news_sync_state", "id"],
         ["market_news_sources", "source_id"],
-        ["market_learning_cycles", "id"]
+        ["market_learning_cycles", "id"],
+        ["market_vocabulary_memory", "id"]
       ].map(async ([table, column]) => {
         try {
           const base = String(env.SUPABASE_URL).replace(/\/+$/, "");
@@ -1446,7 +1504,8 @@ export default {
         neural_forecast_model: {
           enabled: true,
           version: NEURAL_MODEL_VERSION,
-          architecture: "9-6-1",
+          architecture: "9-8-1",
+          ensemble_size: 5,
           task: "supervised_market_price_return_forecasting_only",
           training_method: "walk_forward_matured_historical_price_windows",
           self_test: runNeuralForecastSelfTest(),
@@ -1477,7 +1536,8 @@ export default {
           enabled: true,
           name: "Dollar Domain NLP",
           version: LANGUAGE_ENGINE_VERSION,
-          mode: "deterministic_domain_nlp_not_llm",
+          mode: "deterministic_domain_nlp_with_retrieval_vocabulary_learning_not_llm",
+          vocabulary_learner: {version:LANGUAGE_LEARNER_VERSION,enabled:true,autonomous_scheduled_cycle:true,dictionary_source:"Wiktionary plus internal cross-language market ontology",memory_table_ready:has("market_vocabulary_memory"),self_test:runLanguageLearnerSelfTest(),candidate_status_requires_human_verification:true},
           languages: ["fa", "en", "ar", "zh", "de", "fr", "ru", "ja", "ko", "hi", "es", "it", "pt", "tr", "nl", "pl"],
           multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})(),arabic_academic_layer:{version:ARABIC_ENGINE_VERSION,mode:"rule_based_candidate_analysis_not_human_or_neural_level",benchmark:runArabicAcademicBenchmark(),formal_grammar:{version:ARABIC_FORMAL_GRAMMAR_VERSION,benchmark:runArabicFormalGrammarBenchmark()}}},
           news_input: "rss_excerpt_or_headline",
@@ -1490,6 +1550,7 @@ export default {
           }
         },
         history_vocabulary_intake_configured:Boolean(env.HISTORY_GITHUB_TOKEN&&env.HISTORY_VOCABULARY_SECRET),
+        vocabulary_memory_ready:databaseConfigured && has("market_vocabulary_memory"),
         unknown_vocabulary_endpoint:"POST /vocabulary/unknown (authenticated; queues a History repository dispatch)",
         free_mode: true,
         free_forecast_enabled: true,
