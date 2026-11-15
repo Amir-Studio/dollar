@@ -14,7 +14,7 @@ fa:["تورم منفی","کاهش سطح عمومی قیمت‌ها"],ar:["ال�
 C("disinflation","disinflation","A slowing rate of inflation; prices may still be rising, but more slowly.",{
 fa:["کاهش نرخ تورم"],ar:["تباطؤ التضخم"],de:["Disinflation","nachlassende Inflation"],fr:["désinflation"],ru:["дезинфляция"],zh:["通胀放缓"],ja:["ディスインフレーション","インフレ鈍化"],ko:["디스인플레이션","물가 상승률 둔화"],hi:["मुद्रास्फीति में कमी"],es:["desinflación"],it:["disinflazione"],pt:["desinflação"],tr:[" dezenflasyon","enflasyonun yavaşlaması"],nl:["desinflatie"],pl:["dezinflacja"]},{near_miss:{en:["deflation"]},note:"Disinflation is not deflation."}),
 C("interest_rate","interest rate","The price paid for borrowing money or the return received for lending or depositing it.",{
-fa:["نرخ بهره","نرخ سود"],ar:["سعر الفائدة","سعر العائد"],de:["Zinssatz","Zins"],fr:["taux d’intérêt"],ru:["процентная ставка"],zh:["利率"],ja:["金利"],ko:["금리"],hi:["ब्याज दर"],es:["tipo de interés","tasa de interés"],it:["tasso d’interesse"],pt:["taxa de juros"],tr:["faiz oranı"],nl:["rente","rentetarief"],pl:["stopa procentowa"]}),
+fa:["نرخ بهره","نرخ سود"],ar:["سعر الفائدة","سعر العائد"],de:["Zinssatz","Zins"],fr:["taux d’intérêt"],ru:["процентная ставка","процентную ставку"],zh:["利率"],ja:["金利"],ko:["금리"],hi:["ब्याज दर"],es:["tipo de interés","tipos de interés","tasa de interés"],it:["tasso d’interesse"],pt:["taxa de juros"],tr:["faiz oranı","faiz oranını"],nl:["rente","rentetarief"],pl:["stopa procentowa"]}),
 C("policy_rate","policy interest rate","The benchmark rate set by a central bank to influence financial conditions.",{
 fa:["نرخ سیاستی","نرخ بهره سیاستی"],ar:["سعر الفائدة الأساسي","سعر السياسة النقدية"],de:["Leitzins"],fr:["taux directeur"],ru:["ключевая ставка"],zh:["政策利率"],ja:["政策金利"],ko:["기준금리"],hi:["नीतिगत ब्याज दर"],es:["tipo de interés oficial","tasa de política monetaria"],it:["tasso ufficiale"],pt:["taxa básica de juros"],tr:["politika faizi"],nl:["beleidsrente"],pl:["stopa referencyjna"]}),
 C("rate_hike","interest rate hike","A decision to increase a benchmark or other interest rate.",{
@@ -30,7 +30,7 @@ fa:["کاهش رسمی ارزش پول","تعدیل رسمی نرخ ارز"],ar:
 C("currency_appreciation","currency appreciation","A market-driven rise in a currency's value relative to another currency.",{
 fa:["تقویت ارزش پول"],ar:["ارتفاع قيمة العملة"],de:["Aufwertung einer Währung"],fr:["appréciation de la monnaie"],ru:["укрепление валюты"],zh:["货币升值"],ja:["通貨高"],ko:["통화 가치 상승"],hi:["मुद्रा का मूल्यवृद्धि"],es:["apreciación de la moneda"],it:["apprezzamento della valuta"],pt:["valorização da moeda"],tr:["para biriminin değer kazanması"],nl:["waardestijging van een valuta"],pl:["aprecjacja waluty"]}),
 C("central_bank","central bank","A public institution responsible for monetary policy and core monetary functions.",{
-fa:["بانک مرکزی"],ar:["البنك المركزي","المصرف المركزي"],de:["Zentralbank"],fr:["banque centrale"],ru:["центральный банк"],zh:["中央银行"],ja:["中央銀行"],ko:["중앙은행"],hi:["केंद्रीय बैंक"],es:["banco central"],it:["banca centrale"],pt:["banco central"],tr:["merkez bankası"],nl:["centrale bank"],pl:["bank centralny"]}),
+fa:["بانک مرکزی"],ar:["البنك المركزي","المصرف المركزي"],de:["Zentralbank"],fr:["banque centrale"],ru:["центральный банк"],zh:["中央银行","央行"],ja:["中央銀行"],ko:["중앙은행"],hi:["केंद्रीय बैंक"],es:["banco central"],it:["banca centrale"],pt:["banco central"],tr:["merkez bankası"],nl:["centrale bank"],pl:["bank centralny"]}),
 C("monetary_policy","monetary policy","Central-bank actions affecting money, credit and interest rates.",{
 fa:["سیاست پولی"],ar:["السياسة النقدية"],de:["Geldpolitik"],fr:["politique monétaire"],ru:["денежно-кредитная политика"],zh:["货币政策"],ja:["金融政策"],ko:["통화 정책"],hi:["मौद्रिक नीति"],es:["política monetaria"],it:["politica monetaria"],pt:["política monetária"],tr:["para politikası"],nl:["monetair beleid"],pl:["polityka pieniężna"]}),
 C("fiscal_policy","fiscal policy","Government decisions on taxation, public spending and borrowing.",{
@@ -75,7 +75,7 @@ C("safe_haven","safe-haven asset","An asset investors may favor during periods o
 fa:["دارایی امن","پناهگاه امن سرمایه"],ar:["أصل ملاذ آمن"],de:["sicherer Hafen"],fr:["valeur refuge"],ru:["защитный актив","актив-убежище"],zh:["避险资产"],ja:["安全資産"],ko:["안전자산"],hi:["सुरक्षित निवेश परिसंपत्ति"],es:["activo refugio"],it:["bene rifugio"],pt:["ativo de refúgio"],tr:["güvenli liman varlığı"],nl:["veilige haven"],pl:["bezpieczna przystań"]})
 ];
 
-const ENGLISH_FORMS = [
+const ENGLISH_FORMS = [\n["interest_rate",["interest rates","rate of interest"]],
 ["inflation",["inflationary","inflation-adjusted"]],
 ["interest_rate",["interest rates","rate of interest"]],
 ["policy_rate",["benchmark rate","key rate","official rate"]],
