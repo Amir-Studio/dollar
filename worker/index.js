@@ -1183,6 +1183,9 @@ export async function runNewsTriageCycle(env,limit=10) {
 export async function runNewsReasoningCycle(env) {
   if(!env?.AI?.run) return {ran:false,reason:"workers_ai_binding_missing",version:REASONING_VERSION};
   if(!env.MARKET_CACHE) return {ran:false,reason:"market_cache_binding_missing",version:REASONING_VERSION};
+  const recent=await env.MARKET_CACHE.get("news:reasoning:latest","json").catch(()=>null);
+  if(recent?.fetched_at && Date.now()-Date.parse(recent.fetched_at)<15*60*1000)
+    return {ran:false,reason:"reasoning_cooldown",last_run:recent.fetched_at,version:REASONING_VERSION};
   try {
     const news=(await readNewsFromSupabase(env)).slice(0,12);
     if(!news.length) return {ran:false,reason:"no_recent_news",version:REASONING_VERSION};
