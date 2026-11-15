@@ -56,7 +56,7 @@ function parseRss(xml, query) {
   return [...String(xml||"").matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].slice(0,8).map(m=>{
     const block=m[1], get=tag=>decode(block.match(new RegExp("<"+tag+"(?:\\s[^>]*)?>([\\s\\S]*?)</"+tag+">","i"))?.[1]||"");
     const title=get("title"), url=get("link"), date=Date.parse(get("pubDate"));
-    return {title:clean(title,260),url:clean(url,700),published_at:Number.isFinite(date)?new Date(date).toISOString():null,
+    return {title:clean(title,260),url:clean(url,700),snippet:clean(get("description")||get("content:encoded"),900),published_at:Number.isFinite(date)?new Date(date).toISOString():null,
       publisher:(()=>{try{return new URL(url).hostname.replace(/^www\./,"")}catch{return ""}})(),search_query:query};
   }).filter(x=>x.title&&/^https?:\/\//i.test(x.url));
 }
@@ -67,7 +67,7 @@ async function fetchArticleExcerpt(url,fetchImpl=fetch) {
     const response=await fetchImpl(parsed.href,{headers:{accept:"text/html,application/xhtml+xml","user-agent":"DollarReasoningReader/1.0"},signal:AbortSignal.timeout(5000)});
     if(!response.ok||!String(response.headers.get("content-type")||"").includes("text/html")) return "";
     const html=(await response.text()).slice(0,180000);
-    const paragraphs=[...html.replace(/<(script|style|noscript|svg)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi," ").matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)]
+    const paragraphs=[...html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ").matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
       .map(x=>decode(x[1])).filter(x=>x.length>=70);
     return clean(paragraphs.slice(0,8).join(" "),2200);
   } catch { return ""; }
@@ -84,7 +84,9 @@ async function searchEvidence(queries, fetchImpl=fetch) {
     } catch { return []; }
   }));
   const seen=new Set();
-  const unique=batches.flat().filter(x=>{if(seen.has(x.url))return false;seen.add(x.url);return true;}).slice(0,12);\n  return Promise.all(unique.slice(0,4).map(async item=>({...item,article_excerpt:await fetchArticleExcerpt(item.url,fetchImpl)}))).then(enriched=>[...enriched,...unique.slice(4)]);
+  const unique=batches.flat().filter(x=>{if(seen.has(x.url))return false;seen.add(x.url);return true;}).slice(0,12);
+  const enriched=await Promise.all(unique.slice(0,4).map(async item=>({...item,article_excerpt:await fetchArticleExcerpt(item.url,fetchImpl)})));
+  return [...enriched,...unique.slice(4)];
 }
 function normalizeNews(news) {
   return (Array.isArray(news)?news:[]).slice(0,16).map((x,i)=>({
