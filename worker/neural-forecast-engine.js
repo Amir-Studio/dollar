@@ -3,11 +3,11 @@
 // This is a price-series model, not a language model or a trading instruction.
 export const NEURAL_MODEL_VERSION = "dollar-price-mlp-2.0.0";
 const INPUTS = 9;
-const HIDDEN = 8;
-const MAX_TRAINING_ROWS = 240;
-const MIN_TRAINING_ROWS = 70;
-const MAX_EPOCHS = 40;
-const PATIENCE = 6;
+const HIDDEN = 6;
+const MAX_TRAINING_ROWS = 120;
+const MIN_TRAINING_ROWS = 60;
+const MAX_EPOCHS = 12;
+const PATIENCE = 3;
 const LEARNING_RATE = 0.018;
 const WEIGHT_DECAY = 0.001;
 const GRADIENT_LIMIT = 2.5;
@@ -88,33 +88,35 @@ function huber(error) {
   const a=Math.abs(error);
   return a<=1?0.5*error*error:a-0.5;
 }
+function trainOneEpoch(net,x,labels) {
+  const gw1=net.w1.map(row=>row.map(()=>0)),gb1=Array(HIDDEN).fill(0);
+  const gw2=Array(HIDDEN).fill(0);let gb2=0,loss=0;
+  for(let i=0;i<x.length;i++) {
+    const {hidden,output}=forward(net,x[i]),error=output-labels[i];
+    loss+=huber(error);
+    const huberGrad=clamp(error,-1,1),delta2=huberGrad*(1-output*output);
+    gb2+=delta2;
+    for(let h=0;h<HIDDEN;h++) {
+      gw2[h]+=delta2*hidden[h];
+      const delta1=delta2*net.w2[h]*(1-hidden[h]*hidden[h]);
+      gb1[h]+=delta1;
+      for(let j=0;j<INPUTS;j++) gw1[h][j]+=delta1*x[i][j];
+    }
+  }
+  const rate=LEARNING_RATE/x.length;
+  for(let h=0;h<HIDDEN;h++) {
+    net.w2[h]-=rate*clamp(gw2[h]+WEIGHT_DECAY*net.w2[h],-GRADIENT_LIMIT,GRADIENT_LIMIT);
+    net.b1[h]-=rate*clamp(gb1[h],-GRADIENT_LIMIT,GRADIENT_LIMIT);
+    for(let j=0;j<INPUTS;j++) net.w1[h][j]-=rate*clamp(gw1[h][j]+WEIGHT_DECAY*net.w1[h][j],-GRADIENT_LIMIT,GRADIENT_LIMIT);
+  }
+  net.b2-=rate*clamp(gb2,-GRADIENT_LIMIT,GRADIENT_LIMIT);
+  return loss/Math.max(1,x.length);
+}
 function fitCore(rows,labels,epochs) {
   const scaler=fitScaler(rows),x=rows.map(scaler.apply),net=makeNetwork();
   let loss=0;
-  for(let epoch=0;epoch<epochs;epoch++) {
-    const gw1=net.w1.map(row=>row.map(()=>0)),gb1=Array(HIDDEN).fill(0);
-    const gw2=Array(HIDDEN).fill(0);let gb2=0;loss=0;
-    for(let i=0;i<x.length;i++) {
-      const {hidden,output}=forward(net,x[i]),error=output-labels[i];
-      loss+=huber(error);
-      const huberGrad=clamp(error,-1,1),delta2=huberGrad*(1-output*output);
-      gb2+=delta2;
-      for(let h=0;h<HIDDEN;h++) {
-        gw2[h]+=delta2*hidden[h];
-        const delta1=delta2*net.w2[h]*(1-hidden[h]*hidden[h]);
-        gb1[h]+=delta1;
-        for(let j=0;j<INPUTS;j++) gw1[h][j]+=delta1*x[i][j];
-      }
-    }
-    const rate=LEARNING_RATE/x.length;
-    for(let h=0;h<HIDDEN;h++) {
-      net.w2[h]-=rate*clamp(gw2[h]+WEIGHT_DECAY*net.w2[h],-GRADIENT_LIMIT,GRADIENT_LIMIT);
-      net.b1[h]-=rate*clamp(gb1[h],-GRADIENT_LIMIT,GRADIENT_LIMIT);
-      for(let j=0;j<INPUTS;j++) net.w1[h][j]-=rate*clamp(gw1[h][j]+WEIGHT_DECAY*net.w1[h][j],-GRADIENT_LIMIT,GRADIENT_LIMIT);
-    }
-    net.b2-=rate*clamp(gb2,-GRADIENT_LIMIT,GRADIENT_LIMIT);
-  }
-  return {net,scaler,loss:loss/Math.max(1,x.length)};
+  for(let epoch=0;epoch<epochs;epoch++) loss=trainOneEpoch(net,x,labels);
+  return {net,scaler,loss};
 }
 function validationLoss(net,scaler,rows,labels) {
   let total=0;
@@ -126,10 +128,11 @@ function chooseEpochs(rows,labels) {
   const trainRows=rows.slice(0,split),trainLabels=labels.slice(0,split);
   const validRows=rows.slice(split),validLabels=labels.slice(split);
   if(trainRows.length<45||validRows.length<12) return {epochs:MAX_EPOCHS,validation_loss:null};
+  const scaler=fitScaler(trainRows),x=trainRows.map(scaler.apply),net=makeNetwork();
   let best=Infinity,bestEpoch=1,stale=0;
   for(let epoch=1;epoch<=MAX_EPOCHS;epoch++) {
-    const fitted=fitCore(trainRows,trainLabels,epoch);
-    const score=validationLoss(fitted.net,fitted.scaler,validRows,validLabels);
+    trainOneEpoch(net,x,trainLabels);
+    const score=validationLoss(net,scaler,validRows,validLabels);
     if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;} else stale++;
     if(stale>=PATIENCE) break;
   }
