@@ -1,6 +1,7 @@
 // Curated Chinese-language news vocabulary, batches 1-2 (220 of 1,000 target concepts).
 // Each row: [id, category, English concept, Simplified Chinese, pinyin, Persian meaning].
 // Entries are specialist news terms, not everyday vocabulary.
+import { CHINESE_NEWS_VOCABULARY_BATCH_2, runChineseVocabularyBatch2SelfTest } from "./news-vocabulary-zh-batch-2.js";
 export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.3.0";
 const CHINESE_NEWS_VOCABULARY_BATCH_1 = [
 ["zh001","macroeconomics","consumer price index","居民消费价格指数","jūmín xiāofèi jiàgé zhǐshù","شاخص قیمت مصرف‌کننده"],
