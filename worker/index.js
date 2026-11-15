@@ -790,7 +790,7 @@ async function fetchCountryNewsArticle(country) {
   } catch(error) {
     console.warn("Google News country fallback failed:",country.code,String(error?.message||error).slice(0,120));
   }
-  const query=\`(economy OR business OR trade OR inflation OR technology OR education OR health OR climate OR policy) sourcecountry:\${country.gdelt}\`;
+  const query="(economy OR business OR trade OR inflation OR technology OR education OR health OR climate OR policy) sourcecountry:"+country.gdelt;
   const api=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
   api.searchParams.set("query",query);
   api.searchParams.set("mode","ArtList");
