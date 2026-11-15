@@ -26,7 +26,7 @@ test("category and query filters return relevant vocabulary", () => {
   assert.equal(economics.items.length, 30);
   assert.ok(economics.items.every(x => x.category === "macroeconomics"));
   const search = getChineseNewsVocabulary({ query: "sanctions" });
-  assert.ok(search.items.length === 8); // sanctions terms are in the second tranche
+  assert.ok(search.items.length === 18); // sanctions terms are in the second tranche
   const politics = getChineseNewsVocabulary({ category: "politics" });
   assert.equal(politics.items.length, 10);
   const fx = getChineseNewsVocabulary({ category: "foreign_exchange" });
