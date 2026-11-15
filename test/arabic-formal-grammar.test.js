@@ -159,7 +159,7 @@ test("previously defined English market synonyms map to canonical action concept
 
 test("lexicon output distinguishes English synonyms from cross-language equivalents", () => {
   const english=analyzeMarketLexicon("The market surged.","en").matches.find(x=>x.concept_id==="market_rise");
-  const persian=analyzeMarketLexicon("قیمت‌ها افزایش یافت.","fa").matches.find(x=>x.concept_id==="market_rise");
+  const persian=analyzeMarketLexicon("قیمت نفت افزایش یافت.","fa").matches.find(x=>x.concept_id==="market_rise");
   assert.equal(english.relation,"english_synonym_or_inflection");
   assert.equal(persian.relation,"contextual_equivalent");
 });
