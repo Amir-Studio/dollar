@@ -99,7 +99,27 @@ function safePublisherUrl(value) {
     return parsed;
   } catch { return null; }
 }
-export async function fetchArticleExcerpt(url,fetchImpl=fetch) {
+export async function readLimitedBody(response,maxBytes=180000) {
+  if(!response?.body?.getReader) return String(await response.text()).slice(0,maxBytes);
+  const reader=response.body.getReader(),chunks=[];
+  let total=0;
+  try {
+    while(total<maxBytes) {
+      const {done,value}=await reader.read();
+      if(done) break;
+      const remaining=maxBytes-total;
+      const chunk=value.byteLength>remaining?value.slice(0,remaining):value;
+      chunks.push(chunk);total+=chunk.byteLength;
+      if(value.byteLength>remaining) break;
+    }
+  } finally {
+    try { await reader.cancel(); } catch {}
+  }
+  const merged=new Uint8Array(total);let offset=0;
+  for(const chunk of chunks){merged.set(chunk,offset);offset+=chunk.byteLength;}
+  return new TextDecoder().decode(merged);
+}
+async function fetchArticleExcerpt(url,fetchImpl=fetch) {
   try {
     let current=safePublisherUrl(url),response=null;
     if(!current) return "";
@@ -112,7 +132,7 @@ export async function fetchArticleExcerpt(url,fetchImpl=fetch) {
       if(!current) return "";
     }
     if(!response?.ok||!String(response.headers.get("content-type")||"").includes("text/html")) return "";
-    const html=(await response.text()).slice(0,180000);
+    const html=await readLimitedBody(response,180000);
     const paragraphs=[...html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ").matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
       .map(x=>decode(x[1])).filter(x=>x.length>=70);
     return clean(paragraphs.slice(0,8).join(" "),2200);
@@ -172,7 +192,7 @@ function compactPayload(payload) {
     }:null,
     reviewed_lessons:(payload.reviewed_lessons||[]).slice(-8).map(x=>({...x,correction:clean(x.correction,450)})),
     search_results:(payload.search_results||[]).slice(0,6).map(x=>({...x,snippet:clean(x.snippet,350),article_excerpt:clean(x.article_excerpt,1000)})),
-    evidence_catalog:(payload.evidence_catalog||[]).slice(0,40),
+    evidence_catalog:(payload.evidence_catalog||[]).slice(0,64),
     source_independence:payload.source_independence||null
   };
   let encoded=JSON.stringify(compact);
@@ -212,15 +232,15 @@ function validatePass(value,phase) {
 }
 function evidenceCatalog(articles,history,searched=[]) {
   const rows=[];
-  for(const a of articles) rows.push({id:"news:"+a.id,type:"news",title:a.title,publisher:a.source||"",url:a.url||"",published_at:a.published_at||null,status:"source_article"});
+  for(const a of articles) rows.push({id:"news:"+a.id,type:"news",title:a.title,publisher:a.source||"",url:a.url||"",published_at:a.published_at||null,status:"source_article",excerpt:clean(a.text,900)});
   for(const d of history.documents||[]) {
-    rows.push({id:"history:"+d.id,type:"history_dossier",title:d.title,publisher:"History",url:"",status:d.status||"unknown"});
+    rows.push({id:"history:"+d.id,type:"history_dossier",title:d.title,publisher:"History",url:"",status:d.status||"unknown",excerpt:clean(d.summary||d.context,900)});
     for(let i=0;i<(d.sources||[]).length;i++) { const source=d.sources[i]; rows.push({id:"history-source:"+d.id+":"+(i+1),type:"history_source",title:source.title||d.title,publisher:source.publisher||"unknown",url:source.url||"",status:d.status||"unknown"}); }
   }
-  for(const d of history.news_archive||[]) rows.push({id:"history-news:"+d.id,type:"history_archive",title:d.headline,publisher:"History archive",url:d.source_url||"",status:d.status||"unknown"});
+  for(const d of history.news_archive||[]) rows.push({id:"history-news:"+d.id,type:"history_archive",title:d.headline,publisher:"History archive",url:d.source_url||"",status:d.status||"unknown",excerpt:clean(d.summary,700)});
   for(let i=0;i<searched.length;i++) {
     const x=searched[i];
-    rows.push({id:"web:"+(i+1),type:"search_result",title:x.title,publisher:x.publisher||"",url:x.url||"",published_at:x.published_at||null});
+    rows.push({id:"web:"+(i+1),type:"search_result",title:x.title,publisher:x.publisher||"",url:x.url||"",published_at:x.published_at||null,excerpt:clean(x.article_excerpt||x.snippet,900)});
   }
   return rows;
 }
