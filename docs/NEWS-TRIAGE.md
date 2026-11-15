@@ -47,3 +47,14 @@
 - Authenticated `POST /news/reason/feedback` accepts a correction only with a valid evidence URL and an allowed error category. It stores up to 80 human-reviewed examples in `MARKET_CACHE`; the next reasoning cycle can retrieve the latest 15 as contextual lessons. This is retrieval-based memory, not fine-tuning. The route uses the existing Worker cron-secret verification.
 
 - Reasoning hardening release `dollar-evidence-reasoner-1.1.0` adds strict structured-output validation, evidence-ID audits, probable-syndication detection, History archive retrieval tests, payload-budget tests, and redirect/SSRF regression tests. GitHub Actions runs these tests on relevant pushes; a passing run and a live Cloudflare deployment must still be checked separately.
+
+
+### Evidence reasoning hardening 1.2.0
+
+- A source ID alone is not accepted as evidence. Each factual statement, attributed claim, causal hypothesis and alternative must carry a source ID plus an exact quote copied from the supplied source excerpt.
+- Quote matching is deterministic after Unicode normalization. It proves only that the quote occurs in the supplied excerpt; it does not prove that the quote entails the claim.
+- A separate skeptical entailment pass classifies each claim/source pair as supports, contradicts, context-only or unclear. Missing or malformed verifier output fails closed.
+- The evidence report distinguishes reference coverage, exact-quote coverage and semantic support coverage. A claim with a matching quote but no entailment support does not raise the evidence strength.
+- The model's self-reported confidence is capped by a conservative evidence-strength heuristic. This is explicitly not a statistically calibrated probability.
+- Draft and pending-review History material remains context-only unless actual source content is separately retrieved and quoted. Source metadata alone cannot substantiate a claim.
+- Regression tests cover fabricated quotes, unknown source IDs, reference-only claims and directly contradictory quotations.
