@@ -28,6 +28,10 @@ test("trained model exposes auditable holdout and training metadata", () => {
   assert.ok(Number.isFinite(result.predicted_log_return));
   assert.ok(Number.isFinite(result.final_training_huber_loss));
   assert.ok(Number.isFinite(result.validation_huber_loss));
+  assert.ok(Number.isFinite(result.validation_baseline_huber_loss));
+  assert.ok(Number.isFinite(result.validation_skill));
+  assert.ok(result.purged_training_samples >= 35);
+  assert.ok(result.validation_samples >= 12);
   assert.ok(result.epochs >= 1 && result.epochs <= 12);
   assert.ok(result.volatility_cap > 0 && result.volatility_cap <= 0.30);
 });
