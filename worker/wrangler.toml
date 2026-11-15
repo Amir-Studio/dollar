@@ -3,6 +3,10 @@ main = "index.js"
 compatibility_date = "2026-10-28"
 workers_dev = true
 
+[vars]
+SUPABASE_URL = "https://oolfbjxclhzlbwjmzxxx.supabase.co"
+BACKGROUND_REFRESH_ENABLED = "true"
+
 [observability]
 enabled = true
 
