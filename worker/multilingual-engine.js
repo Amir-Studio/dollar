@@ -1,7 +1,7 @@
 // Dollar multilingual market-news comprehension engine.
 // Deterministic, auditable linguistic feature extraction; not a generative model or a translation engine.
 import { analyzeArabicText, ARABIC_ENGINE_VERSION } from "./arabic-academic-engine.js";
-export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.3.0";
+export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.4.0";
 
 const LANGS = {
   ar: {
@@ -19,7 +19,7 @@ const LANGS = {
     past: /(?:امس|الاسبوع الماضي|الشهر الماضي|العام الماضي|ارتفع|ارتفعت|انخفض|انخفضت|اعلن|اعلنت|فرض|فرضت|وافق|وافقت|توافق|تراجعت|تراجع)/,
     future: /(?:غدا|الاسبوع المقبل|الشهر المقبل|العام المقبل|المقبل|سوف|سي(?:رتفع|نخفض|علن|فرض|كون)|من المتوقع ان)/,
     actions: [
-      ["increase", /(?:ارتفع|ارتفعت|يرتفع|ترتفع|زيادة|يزيد|زادت|صعد|صعدت|نمو)/],
+      ["increase", /(?:ارتفع|ارتفعت|يرتفع|ترتفع|رفع|رفعت|يرفع|ترفع|زيادة|يزيد|زادت|صعد|صعدت|نمو)/],
       ["decrease", /(?:انخفض|انخفضت|ينخفض|تراجع|تراجعت|هبط|هبطت|خفض|خفضت|تراجع)/],
       ["hold", /(?:ابقي|ابقت|ثبت|استقر|استقرت|دون تغيير|بدون تغيير)/],
       ["deny", /(?:نفي|نفت|ينفي|تنفي|كذب|كذبت|رفض|رفضت)/],
