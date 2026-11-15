@@ -4,6 +4,7 @@
 export const REASONING_VERSION = "dollar-evidence-reasoner-1.0.0";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const HISTORY_INDEX = "https://raw.githubusercontent.com/Amir-Studio/History/main/data/index.json";
+const HISTORY_NEWS_INDEX = "https://raw.githubusercontent.com/Amir-Studio/History/main/data/pending-review/news-index.json";
 const HISTORY_BASE = "https://raw.githubusercontent.com/Amir-Studio/History/main/";
 const clamp = (v, lo=0, hi=1) => Math.max(lo, Math.min(hi, Number(v) || 0));
 const clean = (v, max=1200) => String(v ?? "").replace(/\u0000/g, "").trim().slice(0,max);
@@ -46,8 +47,25 @@ export async function retrieveHistoryContext(news, fetchImpl=fetch) {
           sources:(doc.sources||[]).slice(0,8).map(s=>({title:clean(s.title,180),publisher:clean(s.publisher,120),url:clean(s.url,500),note:clean(s.note,350)}))};
       } catch { return null; }
     }));
-    return {status:"retrieved",index_updated_at:index.updated_at||null,documents:documents.filter(Boolean),
-      warning:"History drafts are research context, not verified facts. Preserve each document's status and source limitations."};
+    let newsArchive=[];
+    try {
+      const archiveIndex=await fetchJson(HISTORY_NEWS_INDEX,fetchImpl);
+      const archiveItems=Array.isArray(archiveIndex?.items)?archiveIndex.items:[];
+      const matches=archiveItems.map(item=>({...item,match:overlap(query,[item.headline,item.summary,item.category].join(" "))}))
+        .filter(x=>x.json_url&&x.match>=0.06).sort((a,b)=>b.match-a.match).slice(0,4);
+      newsArchive=(await Promise.all(matches.map(async item=>{
+        try {
+          const url=item.json_url.replace("https://amir-studio.github.io/History/","https://raw.githubusercontent.com/Amir-Studio/History/main/");
+          const record=await fetchJson(url,fetchImpl);
+          return {id:record.id,headline:clean(record.headline,260),status:record.status||"pending_review",
+            published_at:record.published_at||null,summary:clean(record.summary,1000),source_url:clean(record.source_url,700),
+            relevance:Number(item.match.toFixed(3)),triage:record.dollar_triage||null,
+            claim_status:(record.claims||[]).map(x=>x.evidence_grade||"unverified")};
+        } catch { return null; }
+      }))).filter(Boolean);
+    } catch {}
+    return {status:"retrieved",index_updated_at:index.updated_at||null,documents:documents.filter(Boolean),news_archive:newsArchive,
+      warning:"History dossiers may be drafts and archived news may be pending_review. They are context, not verified facts; preserve status and source limitations."};
   } catch(error) {
     return {status:"unavailable",documents:[],error:clean(error?.message,180)};
   }
