@@ -108,12 +108,39 @@ Rules:
 - All prose values must be Persian. JSON keys remain English.`;
 const SYSTEM_FINAL = `You are Dollar's skeptical evidence synthesizer. Return ONLY valid JSON with keys: comprehension, facts, claims, causal_hypotheses, alternatives, counter_evidence_needed, history_usage, source_assessment, unresolved_questions, conclusion, confidence, abstain, next_research.
 Reconcile the original reports, History context and newly searched results. Do not count syndicated copies as independent confirmation. A domain difference does not prove editorial independence. Distinguish source quality from claim truth. Explain mechanisms and rival causes, identify what changed versus historical precedent, preserve conflicting evidence, and cite only URLs present in the supplied evidence. If evidence is insufficient, say so and abstain. Persian prose only; JSON keys English.`;
+const REASONING_FEEDBACK_KEY = "news:reasoning:reviewed-feedback:v1";
+async function loadReviewedLessons(env) {
+  try {
+    const rows=await env.MARKET_CACHE?.get(REASONING_FEEDBACK_KEY,"json");
+    return (Array.isArray(rows)?rows:[]).slice(-15).map(x=>({
+      issue_category:clean(x.issue_category,80),correction:clean(x.correction,700),
+      evidence_url:clean(x.evidence_url,500),created_at:x.created_at||null
+    }));
+  } catch { return []; }
+}
+export async function saveReasoningFeedback(env,input={}) {
+  if(!env?.MARKET_CACHE) return {ok:false,reason:"market_cache_binding_missing"};
+  const title=clean(input.article_title,300), correction=clean(input.correction,1200);
+  const evidenceUrl=clean(input.evidence_url,700);
+  const allowed=new Set(["causal_inference","missing_context","wrong_actor","wrong_action","time_scope","numeric_value","source_independence","claim_status","alternative_explanation","other"]);
+  const category=String(input.issue_category||"other");
+  if(!title||correction.length<12||!/^https?:\/\//i.test(evidenceUrl)||!allowed.has(category))
+    return {ok:false,reason:"title_correction_evidence_url_and_valid_category_required"};
+  const previous=await loadReviewedLessons(env);
+  const record={id:crypto.randomUUID(),created_at:new Date().toISOString(),article_title:title,
+    issue_category:category,correction,evidence_url:evidenceUrl,reviewer_note:clean(input.reviewer_note,500)};
+  const next=[...previous,record].slice(-80);
+  await env.MARKET_CACHE.put(REASONING_FEEDBACK_KEY,JSON.stringify(next),{expirationTtl:60*60*24*365});
+  return {ok:true,id:record.id,stored:next.length,policy:"human_reviewed_retrieval_memory_not_model_weight_training"};
+}
+
 export async function analyzeNewsWithReasoning({news,languageAnalysis=null,contradictions=null,env,fetchImpl=fetch}={}) {
   const articles=normalizeNews(news);
   if(!articles.length) return {ok:false,status:"no_news",version:REASONING_VERSION};
   if(!env?.AI?.run) return {ok:false,status:"workers_ai_unavailable",version:REASONING_VERSION};
   const history=await retrieveHistoryContext(news||[],fetchImpl);
-  const firstPayload={articles,language_analysis:languageAnalysis,contradiction_screen:contradictions,history};
+  const reviewedLessons=await loadReviewedLessons(env);
+  const firstPayload={articles,language_analysis:languageAnalysis,contradiction_screen:contradictions,history,reviewed_lessons:reviewedLessons};
   let first;
   try { first=await infer(env,SYSTEM_FIRST,firstPayload,1450); }
   catch(error) { return {ok:false,status:"initial_reasoning_failed",version:REASONING_VERSION,error:clean(error?.message,180),history_status:history.status}; }
@@ -129,6 +156,7 @@ export async function analyzeNewsWithReasoning({news,languageAnalysis=null,contr
   const confidence=clamp(final.confidence);
   return {ok:true,status:"analyzed",version:REASONING_VERSION,model:MODEL,
     created_at:new Date().toISOString(),history_status:history.status,history_documents:(history.documents||[]).map(x=>({id:x.id,title:x.title,status:x.status,relevance:x.relevance})),
+    learning:{reviewed_lessons_considered:reviewedLessons.length,mode:"human_reviewed_retrieval_memory_not_online_weight_updates"},
     search:{attempted:queries.length>0,queries:queries.slice(0,3),results:searched,second_pass:secondPass},
     analysis:final,confidence,abstained:final.abstain===true,
     safeguards:["تحلیل مدل به‌تنهایی تأیید واقعیت نیست.","فرضیهٔ علّی با رابطهٔ علّی اثبات‌شده یکسان نیست.","اسناد History با وضعیت draft یا pending همچنان تأییدنشده‌اند.","نتایج جست‌وجو سرنخ پژوهش‌اند؛ استقلال و متن اصلی باید بررسی شود."]};
