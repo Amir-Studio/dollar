@@ -82,3 +82,10 @@ test("Arabic article analysis exposes grammar candidates but never claims final 
   assert.ok(result.formal_grammar.detected_rules.some(x=>x.rule==="inna_sisters"));
   assert.match(result.formal_grammar.confidence_policy,/لا تُصدر إعرابا نهائيا/);
 });
+
+test("formal Arabic register is separated from colloquial dialect", () => {
+  const formal=analyzeFormalArabicGrammar("أعلن البنك المركزي قراره في ضوء بيانات التضخم.");
+  const colloquial=analyzeFormalArabicGrammar("الجنيه مش مستقر والأسعار بتزيد دلوقتي.");
+  assert.equal(formal.register,"formal_official_arabic_candidate");
+  assert.equal(colloquial.register,"colloquial_or_mixed_candidate");
+});
