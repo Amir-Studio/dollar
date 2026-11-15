@@ -1131,6 +1131,56 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
+    if (url.pathname === "/vocabulary/unknown") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      const expectedSecret=String(env.HISTORY_VOCABULARY_SECRET||"");
+      const suppliedSecret=String(request.headers.get("x-vocabulary-secret")||"");
+      let secretMatches=expectedSecret.length>0&&suppliedSecret.length===expectedSecret.length;
+      if(secretMatches){let diff=0;for(let i=0;i<expectedSecret.length;i++)diff|=expectedSecret.charCodeAt(i)^suppliedSecret.charCodeAt(i);secretMatches=diff===0;}
+      if(!secretMatches) return reply({error:"Unauthorized"},401);
+      const githubToken=String(env.HISTORY_GITHUB_TOKEN||"");
+      if(!githubToken) return reply({error:"History vocabulary integration is not configured"},503);
+      const declaredLength=Number(request.headers.get("content-length")||0);
+      if(declaredLength>10000) return reply({error:"Payload too large"},413);
+      let payload;
+      try{payload=await request.json();}catch{return reply({error:"Invalid JSON"},400);}
+      const term=String(payload?.term||"").trim().normalize("NFKC");
+      const language=String(payload?.language||"").trim().toLowerCase();
+      const context=String(payload?.context||"").trim();
+      const capturedAt=payload?.captured_at?new Date(payload.captured_at):new Date();
+      if(!term||term.length>180||!language||language.length>35||context.length>1200||!Number.isFinite(capturedAt.getTime()))
+        return reply({error:"term, language, valid captured_at, and a context of at most 1200 characters are required"},400);
+      let sourceUrl=null;
+      if(payload?.source_url){
+        try{const parsed=new URL(String(payload.source_url));if(!["http:","https:"].includes(parsed.protocol))throw Error("scheme");sourceUrl=parsed.href;}
+        catch{return reply({error:"Invalid source_url"},400);}
+      }
+      const record={
+        term,language,context:context||term,captured_at:capturedAt.toISOString(),
+        source_url:sourceUrl,
+        source_title:String(payload?.source_title||"").slice(0,300),
+        candidate_meaning:payload?.candidate_meaning?String(payload.candidate_meaning).slice(0,1200):null,
+        part_of_speech:payload?.part_of_speech?String(payload.part_of_speech).slice(0,80):null,
+        domain:Array.isArray(payload?.domain)?[...new Set(payload.domain.map(x=>String(x).slice(0,80)))].slice(0,12):[]
+      };
+      try{
+        const response=await fetch("https://api.github.com/repos/Amir-Studio/History/dispatches",{
+          method:"POST",
+          headers:{authorization:"Bearer "+githubToken,accept:"application/vnd.github+json","content-type":"application/json","x-github-api-version":"2022-11-28","user-agent":"Dollar-History-Vocabulary-Bridge"},
+          body:JSON.stringify({event_type:"unknown-vocabulary",client_payload:{record}}),
+          signal:AbortSignal.timeout(10000)
+        });
+        if(!response.ok){
+          const detail=(await response.text()).slice(0,180);
+          console.error("History vocabulary dispatch failed:",response.status,detail);
+          return reply({error:"History intake could not be queued"},502);
+        }
+        return reply({ok:true,status:"queued",term,history_page:"https://amir-studio.github.io/History/vocabulary.html",note_fa:"واژه برای ثبت در دفتر History ارسال شد؛ پس از اجرای گردش‌کار در فهرست ظاهر می‌شود."},202,{"cache-control":"no-store"});
+      }catch(error){
+        console.error("History vocabulary dispatch error:",String(error?.message||error).slice(0,160));
+        return reply({error:"History intake temporarily unavailable"},503);
+      }
+    }
     if (url.pathname === "/news/global-test/fetch") {
       if (request.method !== "POST") return reply({error:"Method not allowed"},405);
       try {
@@ -1423,6 +1473,8 @@ export default {
             capabilities: ["idioms","metaphors","irony_candidates","sarcasm_candidates","indirect_requests","taarof","politeness","rhetorical_questions","conversational_implicature","hedging","contextual_ambiguity"]
           }
         },
+        history_vocabulary_intake_configured:Boolean(env.HISTORY_GITHUB_TOKEN&&env.HISTORY_VOCABULARY_SECRET),
+        unknown_vocabulary_endpoint:"POST /vocabulary/unknown (authenticated; queues a History repository dispatch)",
         free_mode: true,
         free_forecast_enabled: true,
         database_configured: databaseConfigured,
