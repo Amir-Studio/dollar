@@ -3,14 +3,15 @@
 // This is a price-series model, not a language model or a trading instruction.
 export const NEURAL_MODEL_VERSION = "dollar-price-mlp-3.0.0-temporal-multifold";
 const INPUTS = 15;
-const HIDDEN = 16;
+const HIDDEN = 24;
+const HIDDEN2 = 12;
 const ENSEMBLE_SIZE = 9;
 const MAX_TRAINING_ROWS = 300;
 const MIN_TRAINING_ROWS = 90;
 const MAX_EPOCHS = 40;
 const PATIENCE = 6;
-const LEARNING_RATE = 0.012;
-const WEIGHT_DECAY = 0.0008;
+const LEARNING_RATE = 0.003;
+const WEIGHT_DECAY = 0.0003;
 const GRADIENT_LIMIT = 2.5;
 const DAY = 86400000;
 
@@ -87,46 +88,91 @@ function fitScaler(rows) {
 function makeNetwork(initialSeed=0x6d2b79f5) {
   let seed=initialSeed>>>0;
   const random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
-  const limit=Math.sqrt(6/(INPUTS+HIDDEN));
+  const matrix=(rows,cols)=>Array.from({length:rows},()=>Array.from({length:cols},()=>((random()*2)-1)*Math.sqrt(6/(rows+cols))));
   return {
-    w1:Array.from({length:HIDDEN},()=>Array.from({length:INPUTS},()=>((random()*2)-1)*limit)),
-    b1:Array(HIDDEN).fill(0),
-    w2:Array.from({length:HIDDEN},()=>((random()*2)-1)*Math.sqrt(6/(HIDDEN+1))),
-    b2:0
+    w1:matrix(HIDDEN,INPUTS),b1:Array(HIDDEN).fill(0),
+    w2:matrix(HIDDEN2,HIDDEN),b2:Array(HIDDEN2).fill(0),
+    w3:Array.from({length:HIDDEN2},()=>((random()*2)-1)*Math.sqrt(6/(HIDDEN2+1))),b3:0
   };
 }
 function forward(net,x) {
-  const hidden=net.w1.map((weights,i)=>Math.tanh(weights.reduce((s,w,j)=>s+w*x[j],net.b1[i])));
-  const output=Math.tanh(hidden.reduce((s,h,i)=>s+h*net.w2[i],net.b2));
-  return {hidden,output};
+  const hidden1=net.w1.map((weights,i)=>Math.tanh(weights.reduce((sum,w,j)=>sum+w*x[j],net.b1[i])));
+  const hidden2=net.w2.map((weights,i)=>Math.tanh(weights.reduce((sum,w,j)=>sum+w*hidden1[j],net.b2[i])));
+  const output=Math.tanh(hidden2.reduce((sum,h,i)=>sum+h*net.w3[i],net.b3));
+  return {hidden1,hidden2,output};
 }
+function zerosLike(value) {
+  return Array.isArray(value)?value.map(zerosLike):0;
+}
+function adamUpdate(parameter,gradient,state,step,decay=false) {
+  if(Array.isArray(parameter)) {
+    for(let i=0;i<parameter.length;i++) adamUpdate(parameter[i],gradient[i],state[i],step,decay);
+    return;
+  }
+  const g=clamp(gradient+(decay?WEIGHT_DECAY*parameter:0),-GRADIENT_LIMIT,GRADIENT_LIMIT);
+  state.m=0.9*state.m+0.1*g;
+  state.v=0.999*state.v+0.001*g*g;
+  const mHat=state.m/(1-Math.pow(0.9,step));
+  const vHat=state.v/(1-Math.pow(0.999,step));
+  return;
+}
+function applyAdam(parameter,gradient,state,step,decay=false) {
+  if(Array.isArray(parameter)) {
+    for(let i=0;i<parameter.length;i++) {
+      if(Array.isArray(parameter[i])) applyAdam(parameter[i],gradient[i],state[i],step,decay);
+      else parameter[i]=applyAdam(parameter[i],gradient[i],state[i],step,decay);
+    }
+    return parameter;
+  }
+  const g=clamp(gradient+(decay?WEIGHT_DECAY*parameter:0),-GRADIENT_LIMIT,GRADIENT_LIMIT);
+  state.m=0.9*state.m+0.1*g;
+  state.v=0.999*state.v+0.001*g*g;
+  const mHat=state.m/(1-Math.pow(0.9,step));
+  const vHat=state.v/(1-Math.pow(0.999,step));
+  return parameter-LEARNING_RATE*mHat/(Math.sqrt(vHat)+1e-8);
+}
+
 function huber(error) {
   const a=Math.abs(error);
   return a<=1?0.5*error*error:a-0.5;
 }
-function trainOneEpoch(net,x,labels) {
-  const gw1=net.w1.map(row=>row.map(()=>0)),gb1=Array(HIDDEN).fill(0);
-  const gw2=Array(HIDDEN).fill(0);let gb2=0,loss=0;
+function trainOneEpoch(net,x,labels,optimizer,step) {
+  const g={w1:zerosLike(net.w1),b1:zerosLike(net.b1),w2:zerosLike(net.w2),b2:zerosLike(net.b2),
+    w3:zerosLike(net.w3),b3:0};
+  let loss=0;
   for(let i=0;i<x.length;i++) {
-    const {hidden,output}=forward(net,x[i]),error=output-labels[i];
+    const {hidden1,hidden2,output}=forward(net,x[i]),error=output-labels[i];
     loss+=huber(error);
-    const huberGrad=clamp(error,-1,1),delta2=huberGrad*(1-output*output);
-    gb2+=delta2;
-    for(let h=0;h<HIDDEN;h++) {
-      gw2[h]+=delta2*hidden[h];
-      const delta1=delta2*net.w2[h]*(1-hidden[h]*hidden[h]);
-      gb1[h]+=delta1;
-      for(let j=0;j<INPUTS;j++) gw1[h][j]+=delta1*x[i][j];
+    const delta3=clamp(error,-1,1)*(1-output*output);
+    g.b3+=delta3;
+    for(let k=0;k<HIDDEN2;k++) {
+      g.w3[k]+=delta3*hidden2[k];
+      const delta2=delta3*net.w3[k]*(1-hidden2[k]*hidden2[k]);
+      g.b2[k]+=delta2;
+      for(let h=0;h<HIDDEN;h++) {
+        g.w2[k][h]+=delta2*hidden1[h];
+        const delta1=delta2*net.w2[k][h]*(1-hidden1[h]*hidden1[h]);
+        g.b1[h]+=delta1;
+        for(let j=0;j<INPUTS;j++) g.w1[h][j]+=delta1*x[i][j];
+      }
     }
   }
-  const rate=LEARNING_RATE/x.length;
-  for(let h=0;h<HIDDEN;h++) {
-    net.w2[h]-=rate*clamp(gw2[h]+WEIGHT_DECAY*net.w2[h],-GRADIENT_LIMIT,GRADIENT_LIMIT);
-    net.b1[h]-=rate*clamp(gb1[h],-GRADIENT_LIMIT,GRADIENT_LIMIT);
-    for(let j=0;j<INPUTS;j++) net.w1[h][j]-=rate*clamp(gw1[h][j]+WEIGHT_DECAY*net.w1[h][j],-GRADIENT_LIMIT,GRADIENT_LIMIT);
+  const inv=1/Math.max(1,x.length);
+  for(const key of ["w1","b1","w2","b2","w3","b3"]) {
+    const scaleGradient=value=>Array.isArray(value)?value.map(scaleGradient):value*inv;
+    g[key]=scaleGradient(g[key]);
   }
-  net.b2-=rate*clamp(gb2,-GRADIENT_LIMIT,GRADIENT_LIMIT);
+  net.w1=applyAdam(net.w1,g.w1,optimizer.w1,step,true);
+  net.b1=applyAdam(net.b1,g.b1,optimizer.b1,step);
+  net.w2=applyAdam(net.w2,g.w2,optimizer.w2,step,true);
+  net.b2=applyAdam(net.b2,g.b2,optimizer.b2,step);
+  net.w3=applyAdam(net.w3,g.w3,optimizer.w3,step,true);
+  net.b3=applyAdam(net.b3,g.b3,optimizer.b3,step);
   return loss/Math.max(1,x.length);
+}
+function makeOptimizer(net) {
+  return {w1:zerosLike(net.w1),b1:zerosLike(net.b1),w2:zerosLike(net.w2),b2:zerosLike(net.b2),
+    w3:zerosLike(net.w3),b3:{m:0,v:0}};
 }
 function fitCore(rows,labels,epochs,seed=0x6d2b79f5) {
   const scaler=fitScaler(rows),x=rows.map(scaler.apply),net=makeNetwork(seed);
@@ -233,7 +279,7 @@ export function trainNeuralReturnModel(points,horizonDays) {
   const volatilityCap=clamp(3.5*vol*Math.sqrt(horizon),0.01,0.30);
   return {
     available:true,predicted_log_return:clamp(prediction,-volatilityCap,volatilityCap),
-    training_samples:examples.length,architecture:`${INPUTS}-${HIDDEN}-1`,ensemble_size:ENSEMBLE_SIZE,
+    training_samples:examples.length,architecture:`${INPUTS}-${HIDDEN}-${HIDDEN2}-1`,ensemble_size:ENSEMBLE_SIZE,
     epochs:selection.epochs,validation_huber_loss:selection.validation_loss,
     validation_baseline_huber_loss:selection.baseline_loss,validation_skill:selection.validation_skill,
     ensemble_prediction_std:Number(ensembleStd.toFixed(8)),validation_skill_gate:Number(skillGate.toFixed(4)),
@@ -241,7 +287,7 @@ export function trainNeuralReturnModel(points,horizonDays) {
     validation_folds:selection.validation_folds,
     final_training_huber_loss:Number(fitted.loss.toFixed(8)),target_scale:Number(scale.toFixed(6)),
     volatility_cap:Number(volatilityCap.toFixed(6)),horizon_days:horizon,
-    version:NEURAL_MODEL_VERSION,training_method:"purged_chronological_holdout_early_stopping_huber_backprop_walk_forward"
+    version:NEURAL_MODEL_VERSION,training_method:"deep_15_24_12_1_adam_huber_purged_expanding_walk_forward"
   };
 }
 export function runNeuralForecastSelfTest() {
