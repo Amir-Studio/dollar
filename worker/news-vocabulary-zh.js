@@ -1,7 +1,7 @@
-// Curated Chinese-language news vocabulary, batch 1/10.
+// Curated Chinese-language news vocabulary, batch 1/9 (120 of 1,000 target concepts).
 // Each row: [id, category, English concept, Simplified Chinese, pinyin, Persian meaning].
 // Entries are specialist news terms, not everyday vocabulary.
-export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.1.0";
+export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.2.0";
 export const CHINESE_NEWS_VOCABULARY = [
 ["zh001","macroeconomics","consumer price index","居民消费价格指数","jūmín xiāofèi jiàgé zhǐshù","شاخص قیمت مصرف‌کننده"],
 ["zh002","macroeconomics","producer price index","工业生产者出厂价格指数","gōngyè shēngchǎnzhě chūchǎng jiàgé zhǐshù","شاخص قیمت تولیدکننده"],
@@ -102,7 +102,7 @@ export const CHINESE_NEWS_VOCABULARY = [
 ["zh097","diplomacy","strategic partnership","战略伙伴关系","zhànlüè huǒbàn guānxì","مشارکت راهبردی"],
 ["zh098","diplomacy","non-aggression pact","互不侵犯条约","hùbù qīnfàn tiáoyuē","پیمان عدم تجاوز"],
 ["zh099","diplomacy","diplomatic recognition","外交承认","wàijiāo chéngrèn","به‌رسمیت‌شناختن دیپلماتیک"],
-["zh100","diplomacy","consular relations","领事关系","lǐngshì guānxì","روابط کنسولی"]
+["zh100","diplomacy","consular relations","领事关系","lǐngshì guānxì","روابط کنسولی"],
 ["zh101","sanctions","secondary sanctions","次级制裁","cìjí zhìcái","تحریم‌های ثانویه"],
 ["zh102","sanctions","sanctions relief","制裁减免","zhìcái jiǎnmiǎn","کاهش یا لغو بخشی از تحریم‌ها"],
 ["zh103","sanctions","sanctions evasion","规避制裁","guībì zhìcái","دور زدن تحریم‌ها"],
@@ -144,13 +144,13 @@ export function getChineseNewsVocabulary({category=null, query=null, limit=1000}
     version:CHINESE_NEWS_VOCABULARY_VERSION,
     language:"zh",
     script:"Simplified Chinese",
-    batch:2,
+    batch:1,
     batch_size:120,
     target_total:1000,
-    previously_covered_concepts:78,
-    current_batch_new:CHINESE_NEWS_VOCABULARY.length-100,
-    current_total:78+CHINESE_NEWS_VOCABULARY.length,
-    coverage_pct:(78+CHINESE_NEWS_VOCABULARY.length)/10,
+    previously_covered_concepts:0,
+    current_batch_new:CHINESE_NEWS_VOCABULARY.length,
+    current_total:CHINESE_NEWS_VOCABULARY.length,
+    coverage_pct:CHINESE_NEWS_VOCABULARY.length/10,
     categories:[...new Set(CHINESE_NEWS_VOCABULARY.map(x=>x[1]))],
     items:items.map(([id,category,english,zh,pinyin,fa])=>({id,category,english,zh,pinyin,fa}))
   };
