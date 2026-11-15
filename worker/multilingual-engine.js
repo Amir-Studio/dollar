@@ -70,7 +70,7 @@ const LANGS = {
     causal: /(?:wegen|aufgrund|infolge|führte zu|führte dazu|deshalb|daher|dadurch)/i,
     contrast: /(?:jedoch|allerdings|obwohl|während|hingegen|dennoch|aber|im gegensatz dazu)/i,
     comparison: /(?:im vergleich zu|verglichen mit|höher als|niedriger als|mehr als|weniger als|gegenüber)/i,
-    forecast: /(?:prognose|prognostiziert|erwartet|rechnet mit|ausblick|voraussichtlich)/i,
+    forecast: /(?:prognose|prognostiziert|erwartet|rechnet mit|ausblick|voraussichtlich|dürfte|dürften)/i,
     past: /(?:gestern|vergangene woche|im vergangenen jahr|stieg|stiegen|sank|sanken|fiel|fielen|kündigte an|beschloss|genehmigte)/i,
     future: /(?:morgen|nächste woche|im kommenden jahr|wird|werden|soll|dürfte|voraussichtlich)/i,
     actions: [
