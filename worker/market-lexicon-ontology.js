@@ -267,7 +267,7 @@ export function analyzeMarketLexicon(text,language) {
     const found=pattern?pattern.test(normalized):normalized.includes(term);
     if(found) for(const id of ids) {
       const concept=CONCEPT_MAP.get(id);
-      matches.push({concept_id:id,pivot_term:concept.pivot.term,matched_term:term,language:lang,relation:lang==="en"?(term===concept.pivot.term?"pivot_term":"english_synonym_or_inflection"):"contextual_equivalent",definition:concept.pivot.definition,register:"standard_financial",notes:concept.note||null,near_miss:concept.near_miss||null});
+      matches.push({concept_id:id,pivot_term:concept.pivot.term,matched_term:term,language:lang,relation:lang==="en"?(term===concept.pivot.term?"pivot_term":"english_synonym_or_inflection"):"contextual_equivalent",definition:concept.pivot.definition,register:"standard_formal_news",notes:concept.note||null,near_miss:concept.near_miss||null});
     }
   }
   const unique=[...new Map(matches.map(x=>[x.concept_id+"|"+x.matched_term,x])).values()];
