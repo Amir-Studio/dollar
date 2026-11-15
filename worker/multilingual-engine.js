@@ -289,10 +289,10 @@ function detectMultilingualLanguage(text, hint) {
   const s=String(text ?? "");
   const ar=(s.match(/[\u0600-\u06ff]/g)||[]).length;
   const zh=(s.match(/[\u4e00-\u9fff]/g)||[]).length;
-  const ru=(s.match(/[\\u0400-\\u04ff]/g)||[]).length;
-  const ja=(s.match(/[\\u3040-\\u30ff]/g)||[]).length;
-  const ko=(s.match(/[\\uac00-\\ud7af]/g)||[]).length;
-  const hi=(s.match(/[\\u0900-\\u097f]/g)||[]).length;
+  const ru=(s.match(/[\u0400-\u04ff]/g)||[]).length;
+  const ja=(s.match(/[\u3040-\u30ff]/g)||[]).length;
+  const ko=(s.match(/[\uac00-\ud7af]/g)||[]).length;
+  const hi=(s.match(/[\u0900-\u097f]/g)||[]).length;
   if (hi>=2 && hi>s.length*0.04) return {language:"hi",confidence:Math.min(0.99,0.65+hi/Math.max(1,s.length)),method:"script_detection"};
   if (ko>=2 && ko>s.length*0.04) return {language:"ko",confidence:Math.min(0.99,0.65+ko/Math.max(1,s.length)),method:"script_detection"};
   if (ja>=2 && ja>s.length*0.04) return {language:"ja",confidence:Math.min(0.99,0.65+ja/Math.max(1,s.length)),method:"script_detection"};
