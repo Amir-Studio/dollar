@@ -78,8 +78,8 @@ export async function lookupVocabularyMeaning(term, language, fetchImpl=fetch) {
  }
 }
 export function runLanguageLearnerSelfTest() {
- const candidates=extractUnknownVocabularyCandidates("Zinserhöhung Zinserhöhung und Zinserhöhung wirken auf die Refinanzierung.", "de");
- const passes=candidates.some(x=>x.normalized_term==="zinserhöhung"&&x.occurrences>=2);
+ const candidates=extractUnknownVocabularyCandidates("Klimarisikoprämie Klimarisikoprämie und Klimarisikoprämie wirken auf die Refinanzierung.", "de");
+ const passes=candidates.some(x=>x.normalized_term==="klimarisikoprämie"&&x.occurrences>=2);
  const rejects=extractUnknownVocabularyCandidates("the and or but the and or but", "en").length===0;
  return {version:LANGUAGE_LEARNER_VERSION,passed:passes&&rejects,checks:{repeated_unknown_term:passes,stopword_filter:rejects},scope:"Deterministic candidate-discovery regression only; not a language-proficiency score."};
 }
