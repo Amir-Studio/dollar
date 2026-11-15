@@ -27,6 +27,9 @@ export const ARABIC_FORMAL_CURRICULUM = [
 
 const NORM = s => String(s ?? "").normalize("NFKC").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/[ًٌٍَُِّْٰـ]/g,"").replace(/[\u200c\u200f]/g," ").replace(/\s+/g," ").trim();
 const has = (s, terms) => terms.filter(t => s.includes(NORM(t)));
+const FORMAL_CUES = ["أعلن","أفاد","صرح","بحسب","وفقا","في ضوء","بناء على","وعليه","على صعيد","من المتوقع","تشير البيانات","سجل","المعدل السنوي","لجنة السياسة النقدية","البنك المركزي","سعر العائد","أسعار الفائدة","التضخم","السياسة النقدية","الميزان التجاري","نقطة أساس"];
+const COLLOQUIAL_CUES = ["مش","عايز","عاوز","إزاي","ازاي","دلوقتي","شو","بدي","هلأ","هسه","شنو","شلون","وش","ابغى","بزاف","دابا","ديال","بتاع"];
+
 export function analyzeFormalArabicGrammar(input = "") {
   const original=String(input ?? "").slice(0,12000), text=NORM(original);
   const tokens=text.match(/[\p{Script=Arabic}]+|\d+(?:[.,]\d+)?/gu)||[];
@@ -49,7 +52,8 @@ export function analyzeFormalArabicGrammar(input = "") {
   add("number_and_tamyiz",original.match(/\d+(?:[.,]\d+)?\s*(?:%|٪|بالمئة|في المئة|نقطة أساس|نقاط أساس|مليون|مليار|دولار|جنيه|ريال)/gu)||[],"تحليل العدد وتمييزه يحتاج إلى جنس المعدود وحالة العدد وسياق الوحدة.");
   return {
     version:ARABIC_FORMAL_GRAMMAR_VERSION,
-    register:"modern_standard_arabic_candidate",
+    register:colloquialCues.length?"colloquial_or_mixed_candidate":formalCues.length>=2?"formal_official_arabic_candidate":"modern_standard_arabic_candidate",
+    formal_register_profile:{classification:colloquialCues.length?"colloquial_or_mixed_candidate":formalCues.length>=2?"formal_official_arabic_candidate":"modern_standard_arabic_candidate",formal_markers:formalCues,colloquial_markers:colloquialCues,heuristic_only:true},
     curriculum:{levels:4,rule_count:ARABIC_FORMAL_CURRICULUM.length,domains:[...new Set(ARABIC_FORMAL_CURRICULUM.map(x=>x.title))]},
     detected_rules:evidence,
     grammar_topics_requiring_context:["الإعراب التفصيلي","تمييز اسم إن وخبرها واسم كان وخبرها","تعيين الفاعل ونائب الفاعل والمفعول به","الاشتقاق في الأفعال المعتلة والمهموزة","العدد والمعدود","البلاغة والمجاز والسياق"],
