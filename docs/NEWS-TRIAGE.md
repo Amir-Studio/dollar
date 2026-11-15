@@ -29,6 +29,6 @@
 ## Operational requirements
 
 - Cloudflare Worker must have its Workers AI binding `AI`, Supabase service-role secret, and `MARKET_CACHE` KV binding.
-- The Supabase migrations are `20261115221117_market_news_triage_learning` and `20261115221300_market_news_triage_model_store`.
+- The Supabase migrations are `20261115221117_market_news_triage_learning` and `20261115221348_market_news_triage_model_store`.
 - Run tests with:
   `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs`.
