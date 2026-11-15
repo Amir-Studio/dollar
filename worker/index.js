@@ -115,6 +115,38 @@ function rssTag(block, tag) {
   const match = block.match(new RegExp("<" + safe + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + safe + ">", "i"));
   return match ? xmlText(match[1]) : "";
 }
+async function fetchFullArticleText(url) {
+  try {
+    const response=await fetch(url,{
+      headers:{accept:"text/html,application/xhtml+xml","user-agent":"Mozilla/5.0 (compatible; DollarNewsReader/1.0)"},
+      signal:AbortSignal.timeout(9000)
+    });
+    if(!response.ok || !response.headers.get("content-type")?.includes("text/html")) return "";
+    const paragraphs=[],seen=new Set();
+    let current="";
+    const handler={
+      element(element){
+        current="";
+        element.onEndTag(()=>{
+          const paragraph=current.replace(/\\s+/g," ").trim();
+          if(paragraph.length>=35 && !seen.has(paragraph)){
+            seen.add(paragraph);paragraphs.push(paragraph);
+          }
+          current="";
+        });
+      },
+      text(chunk){current+=chunk.text;}
+    };
+    const transformed=new HTMLRewriter()
+      .on("article p, main p, [itemprop='articleBody'] p",handler)
+      .transform(response);
+    await transformed.text();
+    return paragraphs.join("\\n").slice(0,16000);
+  } catch(error) {
+    console.warn("Full article extraction failed:",new URL(url).hostname,String(error?.message||error).slice(0,100));
+    return "";
+  }
+}
 function rssLink(block, feedUrl) {
   const textLink = rssTag(block,"link");
   const atomLink = block.match(/<link\b[^>]*href=["']([^"']+)["'][^>]*\/?>/i)?.[1] || "";
@@ -147,6 +179,25 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
       source_id:feed.source_id,language_code:feed.language_code,original_title:title,
       original_text:articleText
     });
+  }
+  // Enrich the lead story from the publisher page, not just the RSS description.
+  // The full text is used for analysis; the persistent record remains compact.
+  if(items.length){
+    const lead=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at))[0];
+    if((lead.original_text||"").length<1200){
+      const fullText=await fetchFullArticleText(lead.url);
+      if(fullText.length>=(lead.original_text||"").length+250){
+        lead.original_text=fullText;
+        lead.article_status=fullText.length>=1000?"full_article_extracted":"partial_article_extracted";
+        lead.article_chars=fullText.length;
+      } else {
+        lead.article_status="rss_excerpt_only";
+        lead.article_chars=(lead.original_text||"").length;
+      }
+    } else {
+      lead.article_status="rss_content";
+      lead.article_chars=lead.original_text.length;
+    }
   }
   console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
