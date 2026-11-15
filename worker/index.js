@@ -651,8 +651,8 @@ async function runVocabularyLearningCycle(env) {
         if(item.contexts.length<4) item.contexts.push(text.slice(0,420));
       }
     }
-    const candidates=[...grouped.values()].filter(x=>x.source_urls.size>=2)
-      .sort((a,b)=>b.source_urls.size-a.source_urls.size||b.occurrences-a.occurrences).slice(0,5);
+    const candidates=[...grouped.values()].filter(x=>x.source_urls.size>=2 || x.confidence_hint>=0.82)
+      .sort((a,b)=>b.source_urls.size-a.source_urls.size||b.confidence_hint-a.confidence_hint||b.occurrences-a.occurrences).slice(0,8);
     const saved=[];
     for(const candidate of candidates) {
       const termQuery="market_vocabulary_memory?select=language_code,normalized_term,status,evidence_count,source_urls,contexts,last_seen_at&language_code=eq."+encodeURIComponent(candidate.language)+"&normalized_term=eq."+encodeURIComponent(candidate.normalized_term)+"&limit=1";
