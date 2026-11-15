@@ -129,6 +129,10 @@ test('health endpoint distinguishes missing credentials from working database st
   assert.equal(health.language_engine.enabled, true);
   assert.equal(health.language_engine.pragmatics.enabled, true);
   assert.equal(health.language_engine.pragmatics.curated_phrase_count, 100);
+  assert.equal(health.decision_engine.enabled, true);
+  assert.equal(health.decision_engine.version, '0.3.0-deep-evidence');
+  assert.equal(health.decision_engine.self_test.failed.length, 0, JSON.stringify(health.decision_engine.self_test.failed));
+  assert.equal(health.decision_engine.self_test.passed, health.decision_engine.self_test.total);
 });
 
 test('market data limitations and risk disclosure are visible', () => {
