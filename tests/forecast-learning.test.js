@@ -7,8 +7,15 @@ import {
   summarizeLearningEvidence,
   evaluateComponentWeightAdjustment,
   runComponentCalibrationSelfTest,
-  getMissingForecastHorizons
+  getMissingForecastHorizons,
+  hasRecentForecastForModel
 } from "../worker/forecast-engine.js";
+
+test("inner forecast duplicate guard does not let an older model block a new version", () => {
+  const recent = [{ id: "legacy-row", model_version: "iran-ensemble-wf-2.7-maturity-safe-walkforward" }];
+  assert.equal(hasRecentForecastForModel(recent, "iran-ensemble-wf-2.8-live-component-feedback"), false);
+  assert.equal(hasRecentForecastForModel(recent, "iran-ensemble-wf-2.7-maturity-safe-walkforward"), true);
+});
 
 test("forecast issuance deduplication is isolated by model version", () => {
   const missing = getMissingForecastHorizons([
