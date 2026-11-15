@@ -29,8 +29,8 @@ test("History retrieval preserves draft status and returns relevant source conte
 
 test("reasoner searches when first pass identifies an evidence gap and then revises",async()=>{
   const outputs=[
-    {comprehension:{event:"تصمیم بانک مرکزی"},facts:[],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:["داده رسمی کم است"],search_queries:["central bank inflation data policy"],provisional_conclusion:"نامشخص",confidence:.25,abstain:true},
-    {comprehension:{event:"گزارش داده تورم"},facts:["یک گزارش مرتبط پیدا شد"],claims:[],causal_hypotheses:[],alternatives:["عوامل دیگر"],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]}
+    {comprehension:{event:"تصمیم بانک مرکزی"},facts:[{statement:"دادهٔ رسمی تورم منتشر شده است.",source_ids:["news:1"]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:["داده رسمی کم است"],search_queries:["central bank inflation data policy"],provisional_conclusion:"نامشخص",confidence:.25,abstain:true},
+    {comprehension:{event:"گزارش داده تورم"},facts:[{statement:"یک گزارش مرتبط پیدا شد.",source_ids:["web:1"]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]}
   ];
   const env={AI:{run:async()=>({response:JSON.stringify(outputs.shift())})}};
   const result=await analyzeNewsWithReasoning({
@@ -44,6 +44,8 @@ test("reasoner searches when first pass identifies an evidence gap and then revi
   assert.equal(result.search.second_pass,"completed");
   assert.equal(result.abstained,true);
   assert.equal(result.analysis.conclusion,"هنوز برای نتیجه قطعی کافی نیست");
+  assert.equal(result.evidence_audit.with_valid_references,1);
+  assert.equal(result.evidence_sufficiency.source_reference_coverage_pct,100);
 });
 
 test("reasoner fails closed when AI binding is missing",async()=>{
@@ -70,4 +72,41 @@ test("only evidence-backed human corrections enter persistent reasoning memory",
     evidence_url:"not-a-url"
   });
   assert.equal(invalid.ok,false);
+});
+
+test("invalid reasoning structure fails closed instead of inventing an analysis",async()=>{
+  const env={AI:{run:async()=>({response:JSON.stringify({facts:[],claims:[],confidence:.9,abstain:false})})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"بانک مرکزی و تورم",original_text:"گزارش اقتصادی.",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.status,"initial_reasoning_failed");
+});
+
+test("unreferenced factual claims force abstention",async()=>{
+  const output={comprehension:{event:"خبر اقتصادی"},facts:[{statement:"ادعای بدون منبع",source_ids:[]}],
+    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.95,abstain:false};
+  const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"خبر اقتصادی",original_text:"متن خبر",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.abstained,true);
+  assert.equal(result.evidence_audit.without_valid_references,1);
+});
+
+test("bounded payload remains valid JSON and keeps its article structure",async()=>{
+  const large={...Array.from({length:10},(_,i)=>({id:String(i),title:"خبر اقتصادی "+i,text:"متن ".repeat(800)}))};
+  const output={comprehension:{event:"آزمون"},facts:[],claims:[],causal_hypotheses:[],alternatives:[],
+    counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.2,abstain:true};
+  let received="";
+  const env={AI:{run:async(_model,args)=>{received=args.messages[1].content;return {response:JSON.stringify(output)}}}};
+  const news=Array.from({length:10},(_,i)=>({id:String(i),title:"خبر اقتصادی "+i,original_text:"متن ".repeat(800),language_code:"fa",domain:"example.org"}));
+  const result=await analyzeNewsWithReasoning({news,env,fetchImpl:mockFetch});
+  assert.equal(result.ok,true);
+  assert.doesNotThrow(()=>JSON.parse(received));
+  assert.ok(received.length<=18000);
 });
