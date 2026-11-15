@@ -123,26 +123,41 @@ async function fetchFullArticleText(url) {
       signal:AbortSignal.timeout(9000)
     });
     if(!response.ok || !response.headers.get("content-type")?.includes("text/html")) return "";
-    const paragraphs=[],seen=new Set();
-    let current="";
-    const handler={
-      element(element){
-        current="";
-        element.onEndTag(()=>{
-          const paragraph=current.replaceAll("\\n"," ").replaceAll("\\r"," ").split(" ").filter(Boolean).join(" ").trim();
-          if(paragraph.length>=35 && !seen.has(paragraph)){
-            seen.add(paragraph);paragraphs.push(paragraph);
-          }
+    // Cloudflare Workers provide HTMLRewriter; Supabase Edge Runtime does not.
+    // Use the streaming parser where available and a bounded paragraph fallback elsewhere.
+    if (typeof HTMLRewriter !== "undefined") {
+      const paragraphs=[],seen=new Set();
+      let current="";
+      const handler={
+        element(element){
           current="";
-        });
-      },
-      text(chunk){current+=chunk.text;}
-    };
-    const transformed=new HTMLRewriter()
-      .on("article p, main p, [itemprop='articleBody'] p",handler)
-      .transform(response);
-    await transformed.text();
-    return paragraphs.join(String.fromCharCode(10)).slice(0,16000);
+          element.onEndTag(()=>{
+            const paragraph=current.replaceAll("\\n"," ").replaceAll("\\r"," ").split(" ").filter(Boolean).join(" ").trim();
+            if(paragraph.length>=35 && !seen.has(paragraph)){seen.add(paragraph);paragraphs.push(paragraph);}
+            current="";
+          });
+        },
+        text(chunk){current+=chunk.text;}
+      };
+      const transformed=new HTMLRewriter()
+        .on("article p, main p, [itemprop='articleBody'] p",handler)
+        .transform(response);
+      await transformed.text();
+      return paragraphs.join(String.fromCharCode(10)).slice(0,16000);
+    }
+    const html=await response.text();
+    const body=html.replace(/<(script|style|noscript|svg)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi," ");
+    const paragraphs=[...body.matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)].map(match=>
+      match[1]
+        .replace(/<[^>]+>/g," ")
+        .replace(/&nbsp;|&#160;/gi," ")
+        .replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'")
+        .replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
+        .replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(Number(n)))
+        .replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)))
+        .replace(/\\s+/g," ").trim()
+    ).filter(paragraph=>paragraph.length>=35);
+    return [...new Set(paragraphs)].join(String.fromCharCode(10)).slice(0,16000);
   } catch(error) {
     console.warn("Full article extraction failed:",new URL(url).hostname,String(error?.message||error).slice(0,100));
     return "";
@@ -671,7 +686,7 @@ async function fetchCountryNewsArticle(country) {
     collected_at:new Date().toISOString(),updated_at:new Date().toISOString()
   };
 }
-async function collectGlobalCountryTestBatch(env) {
+export async function collectGlobalCountryTestBatch(env) {
   const attemptAt = new Date().toISOString();
   try {
     await learningRest(env,"market_news_country_test_state?id=eq.1",{
@@ -681,7 +696,7 @@ async function collectGlobalCountryTestBatch(env) {
     const state=await learningRest(env,"market_news_country_test_state?select=next_index,total_countries,last_attempt_at,last_error&id=eq.1&limit=1");
     const start=Math.max(0,Number(state?.[0]?.next_index)||0);
     if(start>=GLOBAL_TEST_COUNTRIES.length) return {ran:false,complete:true,next_index:start};
-    const batch=GLOBAL_TEST_COUNTRIES.slice(start,start+3);
+    const batch=GLOBAL_TEST_COUNTRIES.slice(start,start+10);
     const results=await Promise.allSettled(batch.map(fetchCountryNewsArticle));
     const rows=results.map((result,index)=>{
       if(result.status==="fulfilled") return result.value;
@@ -752,18 +767,10 @@ export async function refreshBackground(env) {
 
 export default {
   async scheduled(controller, env, ctx) {
-    const cron = String(controller?.cron || "");
-    const runCountryCollector = () => collectGlobalCountryTestBatch(env).then(result => {
-      console.log("Global country test scheduled result:",JSON.stringify(result));
-    }).catch(error => console.error("Global country test scheduled task crashed:",error?.message||error));
-    // Run the corpus collector every minute, separately from the heavier
-    // market refresh/forecast cycle that remains on the five-minute trigger.
-    if (cron === "* * * * *") {
-      ctx.waitUntil(runCountryCollector());
-      return;
-    }
-    ctx.waitUntil(refreshBackground(env).then(async market => { await runForecastCycle(env,market); await runNewsLearningCycle(env); }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
-    if (!cron) ctx.waitUntil(runCountryCollector());
+    ctx.waitUntil(refreshBackground(env).then(async market => {
+      await runForecastCycle(env,market);
+      await runNewsLearningCycle(env);
+    }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
   },
   async fetch(request, env) {
     const url = new URL(request.url);
