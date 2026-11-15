@@ -81,8 +81,12 @@ function parseRss(xml, query) {
   return [...String(xml||"").matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].slice(0,8).map(m=>{
     const block=m[1], get=tag=>decode(block.match(new RegExp("<"+tag+"(?:\\s[^>]*)?>([\\s\\S]*?)</"+tag+">","i"))?.[1]||"");
     const title=get("title"), url=get("link"), date=Date.parse(get("pubDate"));
+    const sourceTag=block.match(/<source\b([^>]*)>([\s\S]*?)<\/source>/i);
+    const sourceUrl=sourceTag?.[1]?.match(/\burl=["']([^"']+)["']/i)?.[1]||"";
+    const sourceName=decode(sourceTag?.[2]||"");
+    const publisherDomain=(()=>{try{return new URL(sourceUrl||url).hostname.replace(/^www\./,"")}catch{return ""}})();
     return {title:clean(title,260),url:clean(url,700),snippet:clean(get("description")||get("content:encoded"),900),published_at:Number.isFinite(date)?new Date(date).toISOString():null,
-      publisher:(()=>{try{return new URL(url).hostname.replace(/^www\./,"")}catch{return ""}})(),search_query:query};
+      publisher:clean(sourceName||publisherDomain,160),publisher_domain:publisherDomain,search_query:query};
   }).filter(x=>x.title&&/^https?:\/\//i.test(x.url));
 }
 function safePublisherUrl(value) {
@@ -244,7 +248,7 @@ function evidenceCatalog(articles,history,searched=[]) {
   for(const d of history.news_archive||[]) rows.push({id:"history-news:"+d.id,type:"history_archive",title:d.headline,publisher:"History archive",url:d.source_url||"",status:d.status||"unknown",excerpt:clean(d.summary,700)});
   for(let i=0;i<searched.length;i++) {
     const x=searched[i];
-    rows.push({id:"web:"+(i+1),type:"search_result",title:x.title,publisher:x.publisher||"",url:x.url||"",published_at:x.published_at||null,excerpt:clean(x.article_excerpt||x.snippet,900)});
+    rows.push({id:"web:"+(i+1),type:"search_result",title:x.title,publisher:x.publisher||"",publisher_domain:x.publisher_domain||"",url:x.url||"",published_at:x.published_at||null,excerpt:clean(x.article_excerpt||x.snippet,900)});
   }
   return rows;
 }
@@ -255,10 +259,10 @@ function sourceIndependence(catalog) {
     let group=groups.find(g=>titleSimilarity(g.title,item.title)>=0.8);
     if(!group){group={title:item.title,source_ids:[],publishers:[]};groups.push(group);}
     group.source_ids.push(item.id);
-    const host=(()=>{try{return new URL(item.url).hostname.replace(/^www\./,"")}catch{return item.publisher||"unknown"}})();
+    const host=item.publisher_domain||(()=>{try{return new URL(item.url).hostname.replace(/^www\./,"")}catch{return item.publisher||"unknown"}})();
     if(host&&!group.publishers.includes(host)) group.publishers.push(host);
   }
-  return {unique_publisher_domains:[...new Set(items.map(x=>{try{return new URL(x.url).hostname.replace(/^www\./,"")}catch{return x.publisher||"unknown"}}))].length,
+  return {unique_publisher_domains:[...new Set(items.map(x=>x.publisher_domain||(()=>{try{return new URL(x.url).hostname.replace(/^www\./,"")}catch{return x.publisher||"unknown"}})()))].length,
     likely_syndication_clusters:groups.filter(x=>x.source_ids.length>1).map(x=>({...x,independent_confirmation:false,reason:"عنوان‌های بسیار مشابه ممکن است بازنشر یک گزارش باشند؛ استقلال تأیید نشده است."}))};
 }
 function auditEvidenceReferences(analysis,catalog) {
