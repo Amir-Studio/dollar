@@ -73,12 +73,14 @@ const GRAMMAR_CASES = [
   {id:"attribution_case",text:"أعلن البنك المركزي القرار.",rule:"attribution"},
   {id:"passive_case",text:"تم رفع سعر الفائدة.",rule:"passive"},
   {id:"idafa_case",text:"ارتفع سعر الصرف.",rule:"idafa"},
-  {id:"numbers_case",text:"ارتفع المعدل بمقدار 100 نقطة أساس.",rule:"number_and_tamyiz"}
+  {id:"numbers_case",text:"ارتفع المعدل بمقدار 100 نقطة أساس.",rule:"number_and_tamyiz"},
+  {id:"formal_register_case",text:"أعلن البنك المركزي قراره في ضوء بيانات التضخم.",register:"formal_official_arabic_candidate"},
+  {id:"colloquial_register_case",text:"الجنيه مش مستقر والأسعار بتزيد دلوقتي.",register:"colloquial_or_mixed_candidate"}
 ];
 export function runArabicFormalGrammarBenchmark() {
   const results=GRAMMAR_CASES.map(c=>{
     const a=analyzeFormalArabicGrammar(c.text);
-    const passed=a.detected_rules.some(x=>x.rule===c.rule);
+    const passed=c.register ? a.register===c.register : a.detected_rules.some(x=>x.rule===c.rule);
     return {id:c.id,rule:c.rule,passed};
   });
   const passed=results.filter(x=>x.passed).length;
