@@ -127,8 +127,10 @@ export function getChineseNewsVocabulary({category=null, query=null, limit=1000}
     batch:1,
     batch_size:100,
     target_total:1000,
-    current_total:CHINESE_NEWS_VOCABULARY.length,
-    coverage_pct:CHINESE_NEWS_VOCABULARY.length/10,
+    previously_covered_concepts:78,
+    current_batch_new:CHINESE_NEWS_VOCABULARY.length,
+    current_total:78+CHINESE_NEWS_VOCABULARY.length,
+    coverage_pct:(78+CHINESE_NEWS_VOCABULARY.length)/10,
     categories:[...new Set(CHINESE_NEWS_VOCABULARY.map(x=>x[1]))],
     items:items.map(([id,category,english,zh,pinyin,fa])=>({id,category,english,zh,pinyin,fa}))
   };
