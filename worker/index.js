@@ -3,6 +3,7 @@ import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./lan
 import { runNeuralForecastSelfTest, NEURAL_MODEL_VERSION } from "./neural-forecast-engine.js";
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
+import { analyzeChineseNewsNeurally, CHINESE_NEURAL_VERSION } from "./chinese-neural-semantic-engine.js";
 import { ARABIC_ENGINE_VERSION, runArabicAcademicBenchmark } from "./arabic-academic-engine.js";
 import { ARABIC_FORMAL_GRAMMAR_VERSION, ARABIC_FORMAL_CURRICULUM, runArabicFormalGrammarBenchmark } from "./arabic-formal-grammar.js";
 import { MARKET_LEXICON_VERSION, MARKET_CONCEPTS, SUPPORTED_LEXICON_LANGUAGES, getMarketLexicon, runMarketLexiconBenchmark } from "./market-lexicon-ontology.js";
@@ -1193,6 +1194,28 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
+    if (url.pathname === "/neural/chinese") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      if (!env.AI?.run) return reply({error:"Workers AI binding is not configured",model:"@cf/baai/bge-m3",version:CHINESE_NEURAL_VERSION},503);
+      const contentType=String(request.headers.get("content-type")||"").toLowerCase();
+      if(!contentType.includes("application/json")) return reply({error:"Content-Type must be application/json"},415);
+      const declaredLength=Number(request.headers.get("content-length")||0);
+      if(declaredLength>12000) return reply({error:"Payload too large"},413);
+      let payload;
+      try {
+        const raw=await request.text();
+        if(new TextEncoder().encode(raw).byteLength>12000) return reply({error:"Payload too large"},413);
+        payload=JSON.parse(raw);
+      } catch { return reply({error:"Invalid JSON"},400); }
+      if(!payload || typeof payload.text!=="string" || !payload.text.trim()) return reply({error:"A non-empty text field is required"},400);
+      try {
+        const result=await analyzeChineseNewsNeurally(payload.text,env,{limit:payload.limit,minimumScore:payload.minimumScore});
+        return reply(result,200,{"cache-control":"no-store"});
+      } catch(error) {
+        console.error("Chinese neural analysis failed:",error?.message||error);
+        return reply({error:"Neural semantic analysis failed",detail:String(error?.message||error).slice(0,180)},502);
+      }
+    }
     if (url.pathname === "/vocabulary/unknown") {
       if (request.method !== "POST") return reply({error:"Method not allowed"},405);
       const expectedSecret=String(env.HISTORY_VOCABULARY_SECRET||"");
