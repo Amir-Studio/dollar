@@ -699,7 +699,7 @@ async function runContinuousLearning(env, evaluatedNow) {
       const diagnostics=(evaluatedNow||[]).map(buildForecastErrorDiagnostic).filter(Boolean);
       if(diagnostics.length) {
         await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
-          method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(diagnostics)
+          method:"POST",headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(diagnostics)
         });
         diagnosticCount=diagnostics.length;
       }
