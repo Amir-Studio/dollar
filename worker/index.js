@@ -19,6 +19,7 @@ import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_C
 import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
 import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
 import { NEWS_TRIAGE_VERSION, buildNewsTriageFeatures, extractiveNewsSummary, trainNewsTriageModel, predictNewsTriageModel, fallbackNewsTriage, runNewsTriageSelfTest } from "./news-triage-engine.js";
+import { analyzeNewsWithReasoning, REASONING_VERSION } from "./news-reasoning-engine.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -1179,6 +1180,29 @@ export async function runNewsTriageCycle(env,limit=10) {
     model_trained:Boolean(modelState.model),feedback_samples:metrics.feedback_samples,counts,cleanup};
 }
 
+export async function runNewsReasoningCycle(env) {
+  if(!env?.AI?.run) return {ran:false,reason:"workers_ai_binding_missing",version:REASONING_VERSION};
+  if(!env.MARKET_CACHE) return {ran:false,reason:"market_cache_binding_missing",version:REASONING_VERSION};
+  try {
+    const news=(await readNewsFromSupabase(env)).slice(0,12);
+    if(!news.length) return {ran:false,reason:"no_recent_news",version:REASONING_VERSION};
+    const languageAnalysis=analyzeMarketLanguage(news,[]);
+    const contradictions=analyzeCrossSourceContradictions(news);
+    const result=await analyzeNewsWithReasoning({news,languageAnalysis,contradictions,env});
+    if(!result.ok) return {ran:false,reason:result.status,detail:result.error||null,version:REASONING_VERSION};
+    await env.MARKET_CACHE.put("news:reasoning:latest",JSON.stringify({
+      fetched_at:new Date().toISOString(),payload:result
+    }),{expirationTtl:60*60*2});
+    return {ran:true,version:REASONING_VERSION,articles:news.length,
+      history_status:result.history_status,history_documents:result.history_documents?.length||0,
+      searched:result.search?.attempted===true,search_results:result.search?.results?.length||0,
+      confidence:result.confidence,abstained:result.abstained};
+  } catch(error) {
+    console.error("Evidence reasoning cycle failed:",String(error?.message||error).slice(0,200));
+    return {ran:false,reason:"reasoning_cycle_failed",detail:String(error?.message||error).slice(0,160),version:REASONING_VERSION};
+  }
+}
+
 async function readNewsFromSupabase(env) {
   const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -1519,6 +1543,8 @@ export default {
       await runNewsLearningCycle(env);
       const triage = await runNewsTriageCycle(env);
       console.log("Autonomous news triage cycle:",JSON.stringify(triage));
+      const reasoning = await runNewsReasoningCycle(env);
+      console.log("Autonomous evidence reasoning cycle:",JSON.stringify(reasoning));
     }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
     // Vocabulary discovery is isolated from market refresh/forecast failures.
     ctx.waitUntil(runVocabularyLearningCycle(env).then(result => {
@@ -1870,6 +1896,7 @@ export default {
       const conflicts = headlineConflictCandidates(items);
       const crossSourceVerification = analyzeCrossSourceContradictions(items);
       const languageAnalysis = analyzeMarketLanguage(items, []);
+      const reasoningCache = await readFreshCache(env,"news:reasoning:latest",2*60*60*1000);
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
