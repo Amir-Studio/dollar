@@ -69,7 +69,7 @@ Deno.serve(async (request: Request) => {
       return json({ error: "Invalid learner credentials" }, 400);
     }
     const tokenHash = await sha256Hex(learnerToken);
-    const base = env.SUPABASE_URL.replace(/\\/+$/, "");
+    const base = env.SUPABASE_URL.replace(/\/+$/, "");
     const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (!base || !serviceKey) return json({ error: "Progress storage unavailable" }, 503);
     const tableUrl = base + "/rest/v1/german_news_vocabulary_progress";
