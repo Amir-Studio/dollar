@@ -779,6 +779,18 @@ async function fetchGoogleNewsCountryArticle(country) {
   }
   return null;
 }
+async function fetchGdeltWithRateLimitRetry(url) {
+  let lastResponse = null;
+  for (let attempt=0; attempt<3; attempt++) {
+    if (attempt>0) await new Promise(resolve=>setTimeout(resolve,5500));
+    lastResponse = await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
+    if (lastResponse.status!==429 && lastResponse.status<500) return lastResponse;
+    if (attempt===2) return lastResponse;
+    console.warn("GDELT rate/temporary limit; retrying after cooldown:",lastResponse.status,"attempt",attempt+1);
+  }
+  return lastResponse;
+}
+
 async function fetchCountryNewsArticle(country, proxySecret=null) {
   if(proxySecret) {
     try {
@@ -812,8 +824,8 @@ async function fetchCountryNewsArticle(country, proxySecret=null) {
   api.searchParams.set("maxrecords","5");
   api.searchParams.set("timespan","30d");
   api.searchParams.set("sort","DateDesc");
-  const response=await fetch(api.toString(),{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
-  if(!response.ok){const detail=(await response.text()).slice(0,180);throw Error("Google News had no full local article; GDELT HTTP "+response.status+": "+detail);}
+  const response=await fetchGdeltWithRateLimitRetry(api.toString());
+  if(!response.ok){const detail=(await response.text()).slice(0,180);throw Error("Google News had no full local article; GDELT HTTP "+response.status+" after rate-limit retries: "+detail);}
   const payload=await response.json();
   const articles=Array.isArray(payload?.articles)?payload.articles:[];
   for(const article of articles.slice(0,2)){
