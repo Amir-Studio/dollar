@@ -55,29 +55,81 @@ function getKnownTerms(lang) {
  return known;
 }
 const safeWord = value => String(value||"").trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu,"");
+const DOMAIN_CONTEXT = /(?:inflation|interest|rate|bond|yield|currency|monetary|fiscal|central bank|liquidity|sanction|tariff|trade|budget|debt|deficit|surplus|refinanc|credit|capital|market|exchange|forex|oil|energy|gold|تورم|بهره|نرخ|اوراق|بازده|ارز|پولی|مالی|بانک|نقدینگی|تحریم|تعرفه|تجارت|بودجه|بدهی|کسری|مازاد|اعتبار|سرمایه|بازار|نفت|انرژی|طلا|利率|通胀|货币|央行|债券|收益率|流动性|制裁|贸易|预算|债务|금리|물가|통화|중앙은행|채권|수익률|유동성|제재|무역|예산|부채)/i;
+const TECHNICAL_MORPHEMES = {
+ de: /(?:politik|wirtschaft|finanz|markt|steuer|verschuld|inflation|zinssatz|liquidität|risiko|prämie|ierung|isierung|ität|schaft|gesetz)$/i,
+ en: /(?:tion|sion|ment|ance|ence|ity|ization|isation|ability|ibility|omics| monetary|ization)$/i,
+ fr: /(?:tion|sion|ment|ance|ence|ité|isme|isation|eur|euse)$/i,
+ es: /(?:ción|sión|miento|dad|ismo|ización|ancia|encia)$/i,
+ it: /(?:zione|sione|mento|ità|ismo|anza|enza)$/i,
+ pt: /(?:ção|são|mento|dade|ismo|ância|ência)$/i,
+ ru: /(?:ция|ение|ость|изм|ирование|ность)$/i,
+ fa: /(?:سازی|گرایی|پذیری|مندی|شناسی|گذاری|محور)$/i,
+ ar: /(?:ية|يات|ات|ون|ين|ization)$/i,
+ tr: /(?:laşma|leşme|lık|lik|sizlik|cilik)$/i,
+ nl: /(?:heid|ing|iteit|isatie|isering)$/i,
+ pl: /(?:acja|enie|ość|izm|owość)$/i
+};
+const COMMON_SHORT = new Set(["bank","rate","gold","oil","bond","debt","loan","tax","war","law","fund","cash","risk","trade","price","news","data","market","money","stock","share","cost","gain","loss","rise","fall","high","low","year","month","week","day","said","also","more","less","very","good","well","new","old","first","last"]);
+function tokenLooksLikeName(token, index, lang) {
+ if(index===0 && /^[A-Z][a-z]{2,}$/.test(token) && lang!=="de") return true;
+ return false;
+}
+export function classifyVocabularyKnowledge(term, language, context="") {
+ const lang=String(language||"").toLowerCase(), clean=String(term||"").normalize("NFKC").trim().slice(0,100);
+ if(!clean || !LEARNER_LANGUAGES.includes(lang)) return {knowledge_state:"invalid",known:false,confidence:1,reason:"unsupported_or_empty_input"};
+ const key=norm(clean,lang);
+ if(STOP[lang]?.includes(key)) return {knowledge_state:"known_function_word",known:true,confidence:0.99,reason:"language_stopword"};
+ if(getKnownTerms(lang).has(key)) return {knowledge_state:"known_in_internal_lexicon",known:true,confidence:0.99,reason:"curated_lexicon_match"};
+ const lexical=analyzeMarketLexicon(clean,lang);
+ if(lexical.matches?.length) return {knowledge_state:"known_in_internal_lexicon",known:true,confidence:0.96,reason:"ontology_semantic_match",concept_id:lexical.matches[0].concept_id};
+ const signals=[];
+ if([...key].length>=9) signals.push("long_lexical_form");
+ if(TECHNICAL_MORPHEMES[lang]?.test(key)) signals.push("technical_morphology");
+ if(DOMAIN_CONTEXT.test(context)) signals.push("market_domain_context");
+ if(/[-_]/.test(key)||/\s/.test(key)) signals.push("compound_or_multiword_expression");
+ if(/[0-9]/.test(key)) signals.push("alphanumeric_term");
+ const score=Math.min(0.94,0.34+signals.reduce((sum,x)=>sum+({long_lexical_form:0.13,technical_morphology:0.23,market_domain_context:0.18,compound_or_multiword_expression:0.12,alphanumeric_term:0.08}[x]||0),0));
+ return {knowledge_state:score>=0.65?"likely_unknown":"uncertain",known:false,confidence:Number(score.toFixed(2)),reason:signals.length?"not_in_lexicon_with_heuristic_evidence":"not_in_lexicon_only",signals};
+}
 export function extractUnknownVocabularyCandidates(text, language, options={}) {
  const lang=String(language||"").toLowerCase();
  if(!LEARNER_LANGUAGES.includes(lang)) return [];
  const source=String(text||"").slice(0,12000);
- const known=getKnownTerms(lang);
- const counts=new Map();
- const add=raw=>{
+ const known=getKnownTerms(lang), counts=new Map();
+ const add=(raw,index=0)=>{
    const term=safeWord(raw), key=norm(term,lang);
-   if(!key || key.length<(CJK.has(lang)?2:4) || key.length>36 || STOP[lang]?.includes(key) || known.has(key) || /^\d+$/.test(key)) return;
-   counts.set(key,{term,count:(counts.get(key)?.count||0)+1});
+   if(!key || key.length<(CJK.has(lang)?2:4) || key.length>48 || STOP[lang]?.includes(key) || known.has(key) || /^\d+$/.test(key) || COMMON_SHORT.has(key)) return;
+   const prior=counts.get(key)||{term,count:0,positions:[]};
+   prior.count++; if(prior.positions.length<3) prior.positions.push(index); counts.set(key,prior);
  };
  if(CJK.has(lang)) {
-   const compact=source.replace(/\s+/g,"");
-   const chars=[...compact];
-   for(let n=2;n<=4;n++) for(let i=0;i+n<=chars.length;i++) add(chars.slice(i,i+n).join(""));
+   const chars=[...source.replace(/\s+/g,"")];
+   // Prefer meaningful 2-4 character spans; reject spans that are substrings of curated vocabulary.
+   for(let n=2;n<=4;n++) for(let i=0;i+n<=chars.length;i++) add(chars.slice(i,i+n).join(""),i);
  } else {
-   const tokens=source.match(/[\p{L}][\p{L}'’\-]{2,35}/gu)||[];
-   for(const token of tokens) add(token);
+   const tokens=source.match(/[\p{L}][\p{L}'’\-]{2,47}/gu)||[];
+   tokens.forEach((token,index)=>{ if(!tokenLooksLikeName(token,index,lang)) add(token,index); });
+   // Multiword terminology is often unknown even when every component is familiar.
+   if(DOMAIN_CONTEXT.test(source)) for(let i=0;i<tokens.length-1;i++) {
+     const phrase=tokens.slice(i,i+2).join(" ");
+     if(phrase.length>=9) add(phrase,i);
+   }
  }
- return [...counts.entries()].filter(([,v])=>CJK.has(lang)?v.count>=2:(v.count>=2||v.term.length>=9))
-   .map(([normalized,v])=>({term:v.term,normalized_term:normalized,occurrences:v.count,language:lang,confidence_hint:Math.min(0.9,0.45+v.count*0.08)}))
-   .sort((a,b)=>b.occurrences-a.occurrences||b.term.length-a.term.length)
-   .slice(0,Math.max(1,Math.min(12,Number(options.limit)||8)));
+ const rows=[];
+ for(const [normalized,v] of counts) {
+   const knowledge=classifyVocabularyKnowledge(v.term,lang,source);
+   const repeated=v.count>=2, morphology=knowledge.signals?.includes("technical_morphology");
+   const contextual=knowledge.signals?.includes("market_domain_context");
+   const long=knowledge.signals?.includes("long_lexical_form");
+   // A single long/technical term can be surfaced, but a short unrecognized token needs repeated/contextual evidence.
+   const eligible=CJK.has(lang)?v.count>=2:(repeated || (long&&(morphology||contextual)) || (morphology&&contextual));
+   if(!eligible || knowledge.knowledge_state==="known_in_internal_lexicon") continue;
+   const score=Math.min(0.97,knowledge.confidence+(repeated?0.12:0)+(morphology?0.06:0));
+   rows.push({term:v.term,normalized_term:normalized,occurrences:v.count,language:lang,knowledge_state:score>=0.72?"likely_unknown":"uncertain",confidence_hint:Number(score.toFixed(2)),signals:[...(knowledge.signals||[]),...(repeated?["repeated_in_document"]:[])]});
+ }
+ return rows.sort((a,b)=>b.confidence_hint-a.confidence_hint||b.occurrences-a.occurrences||b.term.length-a.term.length)
+   .slice(0,Math.max(1,Math.min(20,Number(options.limit)||8)));
 }
 
 export async function lookupVocabularyMeaning(term, language, fetchImpl=fetch) {
