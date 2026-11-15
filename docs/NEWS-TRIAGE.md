@@ -43,3 +43,5 @@
 - Missing AI binding, failed retrieval, malformed model output or weak evidence must produce an unavailable/abstaining result rather than fabricated certainty.
 - The model is not continuously fine-tuned from its own answers. Persistent learning still requires reviewed corrections and a held-out evaluation set; self-confirmation is explicitly avoided.
 - Regression tests: `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs worker/news-reasoning-engine.test.mjs`.
+
+- Authenticated `POST /news/reason/feedback` accepts a correction only with a valid evidence URL and an allowed error category. It stores up to 80 human-reviewed examples in `MARKET_CACHE`; the next reasoning cycle can retrieve the latest 15 as contextual lessons. This is retrieval-based memory, not fine-tuning. The route uses the existing Worker cron-secret verification.
