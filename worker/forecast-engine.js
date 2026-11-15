@@ -20,7 +20,7 @@ const MARKET_NEWS_TERMS = [
   "تجارت خارجی","گمرک","مالیات","یارانه","دستمزد","قیمت مسکن","بازار مسکن","قیمت خودرو","بازار خودرو",
   "صنعت خودرو","صنعت فولاد","صنعت نفت","صنعت پتروشیمی","قیمت کالا","بازار جهانی","تحریم اقتصادی",
   "تحریم‌های ایران","ارزش پول ملی","فشار اقتصادی",
-  "currency","exchange rate","inflation","gold","gold price","gold futures","gold bullion","gold market","dollar","euro","rial","yuan","oil","forex","stocks","bonds",
+  "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market","forex","stocks","bonds",
   "precious metals","central bank","interest rate","interest rates","rate hike","rate hikes","rate cut",
   "rate cuts","federal reserve","fed rate","fed rates","treasury yield","treasury yields","bond yield",
   "bond yields","oil price","oil prices","brent crude","crude oil","oil futures","oil supply","oil production",
