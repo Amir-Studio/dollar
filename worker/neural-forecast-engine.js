@@ -1,16 +1,16 @@
 // Deterministic supervised MLP for market-return forecasting.
 // Training uses only matured labels available at the forecast origin.
 // This is a price-series model, not a language model or a trading instruction.
-export const NEURAL_MODEL_VERSION = "dollar-price-mlp-2.2.0";
-const INPUTS = 9;
-const HIDDEN = 8;
-const ENSEMBLE_SIZE = 5;
-const MAX_TRAINING_ROWS = 120;
-const MIN_TRAINING_ROWS = 60;
-const MAX_EPOCHS = 12;
-const PATIENCE = 3;
-const LEARNING_RATE = 0.018;
-const WEIGHT_DECAY = 0.001;
+export const NEURAL_MODEL_VERSION = "dollar-price-mlp-3.0.0-temporal-multifold";
+const INPUTS = 15;
+const HIDDEN = 16;
+const ENSEMBLE_SIZE = 9;
+const MAX_TRAINING_ROWS = 300;
+const MIN_TRAINING_ROWS = 90;
+const MAX_EPOCHS = 40;
+const PATIENCE = 6;
+const LEARNING_RATE = 0.012;
+const WEIGHT_DECAY = 0.0008;
 const GRADIENT_LIMIT = 2.5;
 const DAY = 86400000;
 
@@ -51,15 +51,30 @@ function featuresAt(points,index) {
   const maRows=points.slice(Math.max(0,index-19),index+1);
   const ma=maRows.reduce((s,x)=>s+Number(x.p),0)/maRows.length;
   const old20=valueAtOrAfter(points,index,20);
+  const recentReturns=daily.slice(-14);
+  const gains=recentReturns.filter(x=>x>0),losses=recentReturns.filter(x=>x<0).map(Math.abs);
+  const avgGain=gains.reduce((s,x)=>s+x,0)/Math.max(1,recentReturns.length);
+  const avgLoss=losses.reduce((s,x)=>s+x,0)/Math.max(1,recentReturns.length);
+  const rsi=avgGain+avgLoss>0?(avgGain-avgLoss)/(avgGain+avgLoss):0;
+  const downside=Math.sqrt(recentReturns.reduce((s,x)=>s+Math.min(0,x)**2,0)/Math.max(1,recentReturns.length));
+  const upside=Math.sqrt(recentReturns.reduce((s,x)=>s+Math.max(0,x)**2,0)/Math.max(1,recentReturns.length));
+  const high30=Math.max(...points.slice(Math.max(0,index-29),index+1).map(x=>Number(x.p)));
+  const vol7=volatility(7),vol20=volatility(20);
   return [
     logReturn(p,valueAtOrAfter(points,index,1)),
     logReturn(p,valueAtOrAfter(points,index,3)),
     logReturn(p,valueAtOrAfter(points,index,7)),
     logReturn(p,valueAtOrAfter(points,index,14)),
     logReturn(p,valueAtOrAfter(points,index,30)),
-    volatility(7),volatility(20),
+    vol7,vol20,
     logReturn(p,old20)/Math.max(1,(Number(points[index].t)-Number(points[Math.max(0,index-20)].t))/DAY),
-    ma>0?Math.log(p/ma):0
+    ma>0?Math.log(p/ma):0,
+    vol20>1e-9?vol7/vol20:1,
+    rsi,
+    downside,
+    upside,
+    downside+upside>1e-9?(upside-downside)/(upside+downside):0,
+    high30>0?Math.log(p/high30):0
   ];
 }
 function fitScaler(rows) {
@@ -125,28 +140,45 @@ function validationLoss(net,scaler,rows,labels) {
   return total/Math.max(1,rows.length);
 }
 function chooseEpochs(examples,labels,horizonDays) {
-  const split=Math.floor(examples.length*0.8);
-  const validStart=examples[split]?.origin_time;
-  // Purge training labels whose realization window overlaps the validation era.
-  const trainIndices=examples.slice(0,split).map((item,index)=>({item,index}))
-    .filter(x=>x.item.target_time < validStart).map(x=>x.index);
-  const validIndices=examples.slice(split).map((_,index)=>split+index);
-  const trainRows=trainIndices.map(i=>examples[i].features),trainLabels=trainIndices.map(i=>labels[i]);
-  const validRows=validIndices.map(i=>examples[i].features),validLabels=validIndices.map(i=>labels[i]);
-  if(trainRows.length<35||validRows.length<12) return {epochs:MAX_EPOCHS,validation_loss:null,baseline_loss:null,purged_training_samples:trainRows.length};
-  const scaler=fitScaler(trainRows),x=trainRows.map(scaler.apply),net=makeNetwork();
-  let best=Infinity,bestEpoch=1,stale=0;
-  for(let epoch=1;epoch<=MAX_EPOCHS;epoch++) {
-    trainOneEpoch(net,x,trainLabels);
-    const score=validationLoss(net,scaler,validRows,validLabels);
-    if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;} else stale++;
-    if(stale>=PATIENCE) break;
+  // Three expanding-window folds. Every fold purges examples whose target
+  // realization reaches into its validation period.
+  const fractions=[0.60,0.72,0.84], folds=[];
+  for(let fold=0;fold<fractions.length;fold++) {
+    const split=Math.floor(examples.length*fractions[fold]);
+    const end=fold===fractions.length-1?examples.length:Math.floor(examples.length*fractions[fold+1]);
+    const validStart=examples[split]?.origin_time;
+    const trainIndices=examples.slice(0,split).map((item,index)=>({item,index}))
+      .filter(x=>x.item.target_time<validStart).map(x=>x.index);
+    const validIndices=Array.from({length:Math.max(0,end-split)},(_,i)=>split+i);
+    const trainRows=trainIndices.map(i=>examples[i].features);
+    const trainLabels=trainIndices.map(i=>labels[i]);
+    const validRows=validIndices.map(i=>examples[i].features);
+    const validLabels=validIndices.map(i=>labels[i]);
+    if(trainRows.length<35||validRows.length<10) continue;
+    const scaler=fitScaler(trainRows),x=trainRows.map(scaler.apply),net=makeNetwork((0x6d2b79f5+Math.imul(fold+1,0x9e3779b9))>>>0);
+    let best=Infinity,bestEpoch=1,stale=0;
+    for(let epoch=1;epoch<=MAX_EPOCHS;epoch++) {
+      trainOneEpoch(net,x,trainLabels);
+      const score=validationLoss(net,scaler,validRows,validLabels);
+      if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;} else stale++;
+      if(stale>=PATIENCE) break;
+    }
+    const baseline=validLabels.reduce((sum,y)=>sum+huber(y),0)/validLabels.length;
+    folds.push({epochs:bestEpoch,loss:best,baseline,samples:validRows.length,
+      purged_training_samples:trainRows.length});
   }
-  const baseline=validLabels.reduce((sum,y)=>sum+huber(y),0)/validLabels.length;
-  return {epochs:bestEpoch,validation_loss:Number(best.toFixed(8)),
-    baseline_loss:Number(baseline.toFixed(8)),
-    validation_skill:Number((baseline>0?1-best/baseline:0).toFixed(6)),
-    purged_training_samples:trainRows.length,validation_samples:validRows.length};
+  if(!folds.length) return {epochs:Math.min(12,MAX_EPOCHS),validation_loss:null,
+    baseline_loss:null,validation_skill:null,purged_training_samples:0,validation_samples:0,
+    validation_folds:0};
+  const orderedEpochs=folds.map(x=>x.epochs).sort((a,b)=>a-b);
+  const epochs=orderedEpochs[Math.floor(orderedEpochs.length/2)];
+  const loss=folds.reduce((sum,x)=>sum+x.loss*x.samples,0)/folds.reduce((sum,x)=>sum+x.samples,0);
+  const baseline=folds.reduce((sum,x)=>sum+x.baseline*x.samples,0)/folds.reduce((sum,x)=>sum+x.samples,0);
+  return {epochs,validation_loss:Number(loss.toFixed(8)),baseline_loss:Number(baseline.toFixed(8)),
+    validation_skill:Number((baseline>0?1-loss/baseline:0).toFixed(6)),
+    purged_training_samples:Math.min(...folds.map(x=>x.purged_training_samples)),
+    validation_samples:folds.reduce((sum,x)=>sum+x.samples,0),
+    validation_folds:folds.length};
 }
 function targetScale(labels) {
   const sorted=labels.map(Math.abs).sort((a,b)=>a-b);
@@ -206,6 +238,7 @@ export function trainNeuralReturnModel(points,horizonDays) {
     validation_baseline_huber_loss:selection.baseline_loss,validation_skill:selection.validation_skill,
     ensemble_prediction_std:Number(ensembleStd.toFixed(8)),validation_skill_gate:Number(skillGate.toFixed(4)),
     purged_training_samples:selection.purged_training_samples,validation_samples:selection.validation_samples,
+    validation_folds:selection.validation_folds,
     final_training_huber_loss:Number(fitted.loss.toFixed(8)),target_scale:Number(scale.toFixed(6)),
     volatility_cap:Number(volatilityCap.toFixed(6)),horizon_days:horizon,
     version:NEURAL_MODEL_VERSION,training_method:"purged_chronological_holdout_early_stopping_huber_backprop_walk_forward"
