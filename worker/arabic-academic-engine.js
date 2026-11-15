@@ -19,12 +19,13 @@ export function normalizeArabic(value = "") {
     .replace(/[\u200c\u200f\u202a-\u202e]/g, " ")
     .replace(/[٠-٩]/g, d => String(ARABIC_DIGITS.indexOf(d)))
     .replace(/[۰-۹]/g, d => String(PERSIAN_DIGITS.indexOf(d)))
+    .replace(/٫/g, ".").replace(/٬/g, ",")
     .replace(/\s+/g, " ").trim();
 }
 
 const DIALECT_MARKERS = {
-  egyptian: ["مش", "عايز", "عاوز", "إزاي", "ازاي", "ليه", "دلوقتي", "جنيه", "هن", "احنا"],
-  gulf: ["شلون", "وش", "إيش", "ابغى", "أبغى", "مو", "مب", "الحين", "ريال", "درهم"],
+  egyptian: ["مش", "عايز", "عاوز", "إزاي", "ازاي", "ليه", "دلوقتي", "هن", "احنا", "بتاع"],
+  gulf: ["وش", "إيش", "ابغى", "أبغى", "مو", "مب", "الحين", "يا هلا", "ترى"],
   levantine: ["شو", "بدّي", "بدي", "هلأ", "هلق", "كتير", "منيح", "مش", "رح"],
   iraqi: ["شلون", "شنو", "هسه", "ماكو", "أكو", "مو", "راح"],
   maghrebi: ["بزاف", "واش", "دابا", "ديال", "ماشي", "كاين", "بصح"]
@@ -84,9 +85,11 @@ function occurrences(text, words) {
 }
 
 function detectDialect(text) {
-  const scores = Object.entries(DIALECT_MARKERS).map(([dialect, words]) => ({
-    dialect, markers: occurrences(text, words), score: occurrences(text, words).length
-  })).sort((a,b) => b.score-a.score);
+  const scores = Object.entries(DIALECT_MARKERS).map(([dialect, words]) => {
+    const normalizedWords=words.map(normalizeArabic);
+    const markers=occurrences(text,normalizedWords);
+    return {dialect,markers,score:markers.length};
+  }).sort((a,b) => b.score-a.score);
   const best = scores[0];
   if (!best || best.score === 0) return {dialect:"msa_or_unclassified",confidence:0,markers:[]};
   if (scores[1]?.score === best.score) return {dialect:"mixed_or_ambiguous",confidence:0.35,markers:best.markers};
