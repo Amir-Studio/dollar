@@ -116,6 +116,71 @@ function rssTag(block, tag) {
   const match = block.match(new RegExp("<" + safe + "(?:\\s[^>]*)?>([\\s\\S]*?)</" + safe + ">", "i"));
   return match ? xmlText(match[1]) : "";
 }
+function decodeArticleEntities(value) {
+  return String(value||"")
+    .replace(/&nbsp;|&#160;/gi," ")
+    .replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'")
+    .replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
+    .replace(/&#(\d+);/g,(_,n)=>{try{return String.fromCodePoint(Number(n));}catch{return " ";}})
+    .replace(/&#x([0-9a-f]+);/gi,(_,n)=>{try{return String.fromCodePoint(parseInt(n,16));}catch{return " ";}});
+}
+function selectArticleParagraphs(groups) {
+  const clean=(value)=>decodeArticleEntities(value).replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+  const isSentence=(value)=>/[.!?؟…][”"')\]]?$/.test(value) || /[.!?؟]/.test(value);
+  const preferred=(groups.preferred||[]).map(clean).filter(x=>x.length>=55&&isSentence(x));
+  if(preferred.length) return [...new Set(preferred)].join(String.fromCharCode(10)).slice(0,16000);
+  const article=(groups.article||[]).map(clean).filter(x=>x.length>=140&&isSentence(x));
+  if(article.length) return [...new Set(article)].join(String.fromCharCode(10)).slice(0,16000);
+  const main=(groups.main||[]).map(clean).filter(x=>x.length>=180&&isSentence(x));
+  return [...new Set(main)].join(String.fromCharCode(10)).slice(0,16000);
+}
+function parseArticleParagraphGroups(html) {
+  const groups={preferred:[],article:[],main:[]};
+  const tokens=String(html||"").match(/<!--[\s\S]*?-->|<\/?[^>]+>|[^<]+/g)||[];
+  const stack=[];
+  let current=null;
+  const voidTags=new Set(["area","base","br","col","embed","hr","img","input","link","meta","param","source","track","wbr"]);
+  const finish=()=>{
+    if(!current) return;
+    const value=decodeArticleEntities(current.text).replace(/\s+/g," ").trim();
+    if(value.length>=35){
+      if(current.preferred) groups.preferred.push(value);
+      if(current.article) groups.article.push(value);
+      if(current.main) groups.main.push(value);
+    }
+    current=null;
+  };
+  for(const token of tokens){
+    if(token.startsWith("<!--")||token.startsWith("<!")) continue;
+    if(token.startsWith("</")){
+      const tag=token.match(/^<\/\s*([a-z0-9:-]+)/i)?.[1]?.toLowerCase();
+      if(tag==="p") finish();
+      if(tag){
+        for(let i=stack.length-1;i>=0;i--){
+          if(stack[i].tag===tag){stack.length=i;break;}
+        }
+      }
+      continue;
+    }
+    if(token.startsWith("<")){
+      const tag=token.match(/^<\s*([a-z0-9:-]+)/i)?.[1]?.toLowerCase();
+      if(!tag) continue;
+      const attrs=token.slice(tag.length+1);
+      const classes=(attrs.match(/\bclass\s*=\s*["']([^"']*)["']/i)?.[1]||"").toLowerCase();
+      const itemprop=(attrs.match(/\bitemprop\s*=\s*["']([^"']*)["']/i)?.[1]||"").toLowerCase();
+      const parent=stack[stack.length-1]||{preferred:false,article:false,main:false};
+      const preferred=parent.preferred||/entry-content|post-content|article-content|article-body|story-body|article__body|article-body__content/.test(classes)||itemprop==="articlebody";
+      const article=parent.article||tag==="article";
+      const main=parent.main||tag==="main";
+      if(tag==="p") current={text:"",preferred,article,main};
+      if(!voidTags.has(tag)&&!/\/\s*>$/.test(token)) stack.push({tag,preferred,article,main});
+      continue;
+    }
+    if(current) current.text+=token;
+  }
+  finish();
+  return groups;
+}
 async function fetchFullArticleText(url) {
   try {
     const response=await fetch(url,{
@@ -123,41 +188,33 @@ async function fetchFullArticleText(url) {
       signal:AbortSignal.timeout(9000)
     });
     if(!response.ok || !response.headers.get("content-type")?.includes("text/html")) return "";
-    // Cloudflare Workers provide HTMLRewriter; Supabase Edge Runtime does not.
-    // Use the streaming parser where available and a bounded paragraph fallback elsewhere.
     if (typeof HTMLRewriter !== "undefined") {
-      const paragraphs=[],seen=new Set();
-      let current="";
-      const handler={
-        element(element){
-          current="";
-          element.onEndTag(()=>{
-            const paragraph=current.replaceAll("\n"," ").replaceAll("\r"," ").split(" ").filter(Boolean).join(" ").trim();
-            if(paragraph.length>=35 && !seen.has(paragraph)){seen.add(paragraph);paragraphs.push(paragraph);}
+      const groups={preferred:[],article:[],main:[]};
+      const handlerFor=(key)=>{
+        let current="";
+        return {
+          element(element){
             current="";
-          });
-        },
-        text(chunk){current+=chunk.text;}
+            element.onEndTag(()=>{
+              const paragraph=current.replace(/\s+/g," ").trim();
+              if(paragraph.length>=35) groups[key].push(paragraph);
+              current="";
+            });
+          },
+          text(chunk){current+=chunk.text;}
+        };
       };
       const transformed=new HTMLRewriter()
-        .on("article p, main p, [itemprop='articleBody'] p",handler)
+        .on("[itemprop='articleBody'] p, .entry-content p, .post-content p, .article-content p, .article-body p, .story-body p, .article__body p",handlerFor("preferred"))
+        .on("article p",handlerFor("article"))
+        .on("main p",handlerFor("main"))
         .transform(response);
       await transformed.text();
-      return paragraphs.join(String.fromCharCode(10)).slice(0,16000);
+      return selectArticleParagraphs(groups);
     }
     const html=await response.text();
-    const body=html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ");
-    const paragraphs=[...body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(match=>
-      match[1]
-        .replace(/<[^>]+>/g," ")
-        .replace(/&nbsp;|&#160;/gi," ")
-        .replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'")
-        .replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
-        .replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n)))
-        .replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)))
-        .replace(/\s+/g," ").trim()
-    ).filter(paragraph=>paragraph.length>=35);
-    return [...new Set(paragraphs)].join(String.fromCharCode(10)).slice(0,16000);
+    const withoutNoise=html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ");
+    return selectArticleParagraphs(parseArticleParagraphGroups(withoutNoise));
   } catch(error) {
     console.warn("Full article extraction failed:",new URL(url).hostname,String(error?.message||error).slice(0,100));
     return "";
@@ -692,15 +749,17 @@ export async function reanalyzeCountryTestBatch(env, limit=10) {
   let updated=0;
   for(const row of rows||[]) {
     if(!row.article_text || row.article_text.length<1000) continue;
+    const refreshedText=await fetchFullArticleText(row.article_url);
+    const fullText=refreshedText.length>=1000?refreshedText:row.article_text;
     const output=analyzeMarketLanguage([{
-      title:row.title,original_title:row.title,original_text:row.article_text,
+      title:row.title,original_title:row.title,original_text:fullText,
       full_text_mode:true,language_code:row.language_code,url:row.article_url,
       published_at:row.published_at,domain:row.publisher_domain
     }]).per_news?.[0] || null;
     if(!output) continue;
     await learningRest(env,"market_news_country_test_corpus?country_code=eq."+encodeURIComponent(row.country_code),{
       method:"PATCH",headers:{prefer:"return=minimal"},
-      body:{model_output:output,model_version:LANGUAGE_ENGINE_VERSION,evaluation_notes:null,updated_at:new Date().toISOString()}
+      body:{article_text:fullText,article_chars:fullText.length,extraction_status:"full_article_extracted",model_output:output,model_version:LANGUAGE_ENGINE_VERSION,evaluation_notes:null,updated_at:new Date().toISOString()}
     });
     updated++;
   }
