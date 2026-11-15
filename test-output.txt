@@ -1,0 +1,126 @@
+TAP version 13
+# Subtest: Arabic normalization removes diacritics and standardizes Arabic numerals
+ok 1 - Arabic normalization removes diacritics and standardizes Arabic numerals
+  ---
+  duration_ms: 43.46918
+  type: 'test'
+  ...
+# Subtest: MSA analysis identifies finance domain, attribution and discourse markers
+ok 2 - MSA analysis identifies finance domain, attribution and discourse markers
+  ---
+  duration_ms: 13.345428
+  type: 'test'
+  ...
+# Subtest: Arabic number extraction preserves decimal values and currency units
+ok 3 - Arabic number extraction preserves decimal values and currency units
+  ---
+  duration_ms: 3.035957
+  type: 'test'
+  ...
+# Subtest: Egyptian and Maghrebi colloquial markers are not silently treated as MSA
+ok 4 - Egyptian and Maghrebi colloquial markers are not silently treated as MSA
+  ---
+  duration_ms: 2.320533
+  type: 'test'
+  ...
+# Subtest: clitic and morphology outputs are explicitly marked as candidates
+ok 5 - clitic and morphology outputs are explicitly marked as candidates
+  ---
+  duration_ms: 1.834855
+  type: 'test'
+  ...
+# Subtest: academic benchmark reports its limited scope and exposes all cases
+ok 6 - academic benchmark reports its limited scope and exposes all cases
+  ---
+  duration_ms: 16.773787
+  type: 'test'
+  ...
+# Subtest: formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
+ok 7 - formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
+  ---
+  duration_ms: 0.965522
+  type: 'test'
+  ...
+# Subtest: formal Arabic diagnostics detect إن وأخواتها
+ok 8 - formal Arabic diagnostics detect إن وأخواتها
+  ---
+  duration_ms: 29.238251
+  type: 'test'
+  ...
+# Subtest: formal Arabic diagnostics detect كان وأخواتها
+ok 9 - formal Arabic diagnostics detect كان وأخواتها
+  ---
+  duration_ms: 0.561063
+  type: 'test'
+  ...
+# Subtest: formal Arabic diagnostics distinguish subjunctive and jussive triggers
+ok 10 - formal Arabic diagnostics distinguish subjunctive and jussive triggers
+  ---
+  duration_ms: 0.366975
+  type: 'test'
+  ...
+# Subtest: formal Arabic diagnostics detect idafa, prepositions, condition and exception
+ok 11 - formal Arabic diagnostics detect idafa, prepositions, condition and exception
+  ---
+  duration_ms: 0.278216
+  type: 'test'
+  ...
+# Subtest: formal grammar benchmark passes all curated rule triggers
+not ok 12 - formal grammar benchmark passes all curated rule triggers
+  ---
+  duration_ms: 3.094159
+  type: 'test'
+  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:37:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    [{"id":"passive_case","rule":"passive","passed":false}]
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:39:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: official Arabic monetary-policy news preserves actor, direction, rates and basis points
+ok 13 - official Arabic monetary-policy news preserves actor, direction, rates and basis points
+  ---
+  duration_ms: 14.608684
+  type: 'test'
+  ...
+# Subtest: Persian inflation news preserves monthly and annual rates
+ok 14 - Persian inflation news preserves monthly and annual rates
+  ---
+  duration_ms: 239.783562
+  type: 'test'
+  ...
+# Subtest: Persian and Arabic versions of the CBE rate decision retain the same numeric facts
+ok 15 - Persian and Arabic versions of the CBE rate decision retain the same numeric facts
+  ---
+  duration_ms: 166.170466
+  type: 'test'
+  ...
+# Subtest: Arabic article analysis exposes grammar candidates but never claims final i'rab
+ok 16 - Arabic article analysis exposes grammar candidates but never claims final i'rab
+  ---
+  duration_ms: 2.139288
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 15
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 550.261247
