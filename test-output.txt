@@ -2,186 +2,186 @@ TAP version 13
 # Subtest: Arabic normalization removes diacritics and standardizes Arabic numerals
 ok 1 - Arabic normalization removes diacritics and standardizes Arabic numerals
   ---
-  duration_ms: 16.262798
+  duration_ms: 2.773373
   type: 'test'
   ...
 # Subtest: MSA analysis identifies finance domain, attribution and discourse markers
 ok 2 - MSA analysis identifies finance domain, attribution and discourse markers
   ---
-  duration_ms: 6.555538
+  duration_ms: 6.988474
   type: 'test'
   ...
 # Subtest: Arabic number extraction preserves decimal values and currency units
 ok 3 - Arabic number extraction preserves decimal values and currency units
   ---
-  duration_ms: 1.722083
+  duration_ms: 2.291062
   type: 'test'
   ...
 # Subtest: Egyptian and Maghrebi colloquial markers are not silently treated as MSA
 ok 4 - Egyptian and Maghrebi colloquial markers are not silently treated as MSA
   ---
-  duration_ms: 2.242129
+  duration_ms: 1.834728
   type: 'test'
   ...
 # Subtest: clitic and morphology outputs are explicitly marked as candidates
 ok 5 - clitic and morphology outputs are explicitly marked as candidates
   ---
-  duration_ms: 1.735963
+  duration_ms: 1.863681
   type: 'test'
   ...
 # Subtest: academic benchmark reports its limited scope and exposes all cases
 ok 6 - academic benchmark reports its limited scope and exposes all cases
   ---
-  duration_ms: 12.403856
+  duration_ms: 13.497643
   type: 'test'
   ...
 # Subtest: formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
 ok 7 - formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
   ---
-  duration_ms: 0.674499
+  duration_ms: 0.953458
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics detect إن وأخواتها
 ok 8 - formal Arabic diagnostics detect إن وأخواتها
   ---
-  duration_ms: 2.917117
+  duration_ms: 1.317785
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics detect كان وأخواتها
 ok 9 - formal Arabic diagnostics detect كان وأخواتها
   ---
-  duration_ms: 0.458823
+  duration_ms: 0.497024
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics distinguish subjunctive and jussive triggers
 ok 10 - formal Arabic diagnostics distinguish subjunctive and jussive triggers
   ---
-  duration_ms: 0.409219
+  duration_ms: 0.376706
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics detect idafa, prepositions, condition and exception
 ok 11 - formal Arabic diagnostics detect idafa, prepositions, condition and exception
   ---
-  duration_ms: 0.272912
+  duration_ms: 0.2774
   type: 'test'
   ...
 # Subtest: formal grammar benchmark passes all curated rule triggers
 ok 12 - formal grammar benchmark passes all curated rule triggers
   ---
-  duration_ms: 1.974805
+  duration_ms: 2.043967
   type: 'test'
   ...
 # Subtest: official Arabic monetary-policy news preserves actor, direction, rates and basis points
 ok 13 - official Arabic monetary-policy news preserves actor, direction, rates and basis points
   ---
-  duration_ms: 66.654234
+  duration_ms: 77.430877
   type: 'test'
   ...
 # Subtest: Persian inflation news preserves monthly and annual rates
 ok 14 - Persian inflation news preserves monthly and annual rates
   ---
-  duration_ms: 236.699259
+  duration_ms: 319.57017
   type: 'test'
   ...
 # Subtest: Persian and Arabic versions of the CBE rate decision retain the same numeric facts
 ok 15 - Persian and Arabic versions of the CBE rate decision retain the same numeric facts
   ---
-  duration_ms: 93.673343
+  duration_ms: 128.894064
   type: 'test'
   ...
 # Subtest: Arabic article analysis exposes grammar candidates but never claims final i'rab
 ok 16 - Arabic article analysis exposes grammar candidates but never claims final i'rab
   ---
-  duration_ms: 1.080102
+  duration_ms: 1.376011
   type: 'test'
   ...
 # Subtest: formal Arabic register is separated from colloquial dialect
 ok 17 - formal Arabic register is separated from colloquial dialect
   ---
-  duration_ms: 0.262086
+  duration_ms: 0.326603
   type: 'test'
   ...
 # Subtest: English-pivot market lexicon has broad language coverage and stable sense IDs
 ok 18 - English-pivot market lexicon has broad language coverage and stable sense IDs
   ---
-  duration_ms: 0.103106
+  duration_ms: 0.140297
   type: 'test'
   ...
 # Subtest: English synonyms and inflections map to canonical concepts
 ok 19 - English synonyms and inflections map to canonical concepts
   ---
-  duration_ms: 27.623526
+  duration_ms: 39.279796
   type: 'test'
   ...
 # Subtest: Persian financial terms map to canonical English senses
 ok 20 - Persian financial terms map to canonical English senses
   ---
-  duration_ms: 0.49595
+  duration_ms: 0.539416
   type: 'test'
   ...
 # Subtest: Arabic official news terms map to canonical English senses
 ok 21 - Arabic official news terms map to canonical English senses
   ---
-  duration_ms: 0.367896
+  duration_ms: 0.412089
   type: 'test'
   ...
 # Subtest: Chinese and Russian rate policy terms are recognized
 ok 22 - Chinese and Russian rate policy terms are recognized
   ---
-  duration_ms: 36.946335
+  duration_ms: 50.774892
   type: 'test'
   ...
 # Subtest: Turkish and Spanish inflected/plural rate phrases are recognized
 ok 23 - Turkish and Spanish inflected/plural rate phrases are recognized
   ---
-  duration_ms: 46.083464
+  duration_ms: 63.483139
   type: 'test'
   ...
 # Subtest: Disinflation and deflation are kept as distinct concepts
 ok 24 - Disinflation and deflation are kept as distinct concepts
   ---
-  duration_ms: 0.20526
+  duration_ms: 0.24398
   type: 'test'
   ...
 # Subtest: Curated multilingual lexicon benchmark has no misses
 ok 25 - Curated multilingual lexicon benchmark has no misses
   ---
-  duration_ms: 213.237623
+  duration_ms: 245.61473
   type: 'test'
   ...
 # Subtest: previously defined English market synonyms map to canonical action concepts
 ok 26 - previously defined English market synonyms map to canonical action concepts
   ---
-  duration_ms: 1.286895
+  duration_ms: 1.168885
   type: 'test'
   ...
 # Subtest: lexicon output distinguishes English synonyms from cross-language equivalents
 ok 27 - lexicon output distinguishes English synonyms from cross-language equivalents
   ---
-  duration_ms: 0.897226
+  duration_ms: 0.690038
   type: 'test'
   ...
 # Subtest: expanded English-pivot ontology covers conflict, diplomacy, humanitarian law, energy and trade
 ok 28 - expanded English-pivot ontology covers conflict, diplomacy, humanitarian law, energy and trade
   ---
-  duration_ms: 0.220803
+  duration_ms: 0.180046
   type: 'test'
   ...
 # Subtest: Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to English concepts
 not ok 29 - Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to English concepts
   ---
-  duration_ms: 2.065601
+  duration_ms: 2.170243
   type: 'test'
   location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:175:1'
   failureType: 'testCodeFailure'
-  error: 'humanitarian_aid'
+  error: 'ceasefire'
   code: 'ERR_ASSERTION'
   name: 'AssertionError'
   expected: true
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:177:60)
+    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:179:60)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
@@ -192,11 +192,11 @@ not ok 29 - Persian, Arabic, Russian and Chinese conflict-news vocabulary maps t
 # Subtest: English geopolitical and economic news maps to distinct concepts
 not ok 30 - English geopolitical and economic news maps to distinct concepts
   ---
-  duration_ms: 0.533446
+  duration_ms: 0.450055
   type: 'test'
   location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:186:1'
   failureType: 'testCodeFailure'
-  error: 'oil_supply_disruption'
+  error: 'supply_chain_disruption'
   code: 'ERR_ASSERTION'
   name: 'AssertionError'
   expected: true
@@ -214,7 +214,7 @@ not ok 30 - English geopolitical and economic news maps to distinct concepts
 # Subtest: war-crime and armed-conflict concepts are descriptive, not legal verdicts
 ok 31 - war-crime and armed-conflict concepts are descriptive, not legal verdicts
   ---
-  duration_ms: 0.136306
+  duration_ms: 0.125105
   type: 'test'
   ...
 1..31
@@ -225,4 +225,4 @@ ok 31 - war-crime and armed-conflict concepts are descriptive, not legal verdict
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 816.100589
+# duration_ms 1030.394398
