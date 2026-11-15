@@ -8,7 +8,8 @@ import {
   evaluateComponentWeightAdjustment,
   runComponentCalibrationSelfTest,
   getMissingForecastHorizons,
-  hasRecentForecastForModel
+  hasRecentForecastForModel,
+  selectWeightsFromErrorSums
 } from "../worker/forecast-engine.js";
 
 test("inner forecast duplicate guard does not let an older model block a new version", () => {
@@ -24,6 +25,20 @@ test("forecast issuance deduplication is isolated by model version", () => {
     { horizon_days: 7, model_version: "iran-ensemble-wf-2.7-maturity-safe-walkforward" }
   ]);
   assert.deepEqual(missing, [1, 7]);
+});
+
+test("experts with zero or insufficient matured samples never receive learned weight", () => {
+  const weights=selectWeightsFromErrorSums(
+    ["no_change","never_observed","sparse_expert","validated_expert"],
+    40,
+    100,
+    {never_observed:0,sparse_expert:0,validated_expert:80},
+    {never_observed:0,sparse_expert:3,validated_expert:40}
+  );
+  assert.equal(weights.never_observed,0);
+  assert.equal(weights.sparse_expert,0);
+  assert.ok(weights.validated_expert>0);
+  assert.ok(Math.abs(Object.values(weights).reduce((a,b)=>a+b,0)-1)<1e-9);
 });
 
 test("robust calibration passes its holdout and minimum-sample regression checks", () => {
