@@ -31,17 +31,19 @@
 - Cloudflare Worker must have its Workers AI binding `AI`, Supabase service-role secret, and `MARKET_CACHE` KV binding.
 - The Supabase migrations are `20261115221117_market_news_triage_learning` and `20261115221348_market_news_triage_model_store`.
 - Run tests with:
-  `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs`.
+  `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs worker/news-reasoning-engine.test.mjs`.
 
 ## Evidence-first reasoning and active research
 
 - `worker/news-reasoning-engine.js` adds a separate reasoning layer; it is not the triage MLP and does not change triage labels by itself.
-- It uses Cloudflare Workers AI `@cf/meta/llama-3.3-70b-instruct-fp8-fast` for structured comprehension, causal hypotheses, alternative explanations, counter-evidence and abstention.
+- It uses the active Cloudflare Workers AI model `@cf/meta/llama-3.3-70b-instruct-fp8-fast` for structured comprehension, causal hypotheses, alternative explanations, counter-evidence and abstention. Its documented context window is 24,000 tokens; the application imposes a stricter 18,000-character JSON payload budget and rejects oversized payloads rather than cutting JSON mid-stream. <https://developers.cloudflare.com/workers-ai/models/llama-3.3-70b-instruct-fp8-fast/>
 - It retrieves up to three relevant History research dossiers and up to four matching items from History's pending-review news archive. Draft/pending status and source limitations are preserved; History is context, never automatic proof.
-- When the first pass identifies a material evidence gap, it issues at most three targeted Google News RSS searches, reads available snippets and up to four publisher-page excerpts, then performs a second synthesis pass. Search results remain leads, not independent verification.
+- When the first pass identifies a material evidence gap, it issues at most three targeted Google News RSS searches, reads available snippets and up to four publisher-page excerpts, then performs a second synthesis pass. Search results remain leads, not independent verification. Similar headlines are clustered as possible syndication, and different domains are not automatically counted as independent evidence. Every fact/claim/hypothesis must include source IDs from the supplied evidence catalogue; unknown IDs are flagged, and unsupported assertions trigger abstention. A valid ID is only a reference check, not proof that the source text substantiates the claim.
 - The scheduled Worker stores the latest reasoning result in `MARKET_CACHE` under `news:reasoning:latest`; `/news` exposes the cached result and its freshness status.
-- Missing AI binding, failed retrieval, malformed model output or weak evidence must produce an unavailable/abstaining result rather than fabricated certainty.
+- Missing AI binding, malformed model output, failed second-pass verification or unreferenced assertions must produce an unavailable/abstaining result rather than fabricated certainty. Publisher-page redirects are followed only through bounded, revalidated public HTTP(S) destinations; private-network destinations are blocked. Scheduled inference has a 15-minute cooldown to avoid repeatedly spending model calls on unchanged news.
 - The model is not continuously fine-tuned from its own answers. Persistent learning still requires reviewed corrections and a held-out evaluation set; self-confirmation is explicitly avoided.
 - Regression tests: `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs worker/news-reasoning-engine.test.mjs`.
 
 - Authenticated `POST /news/reason/feedback` accepts a correction only with a valid evidence URL and an allowed error category. It stores up to 80 human-reviewed examples in `MARKET_CACHE`; the next reasoning cycle can retrieve the latest 15 as contextual lessons. This is retrieval-based memory, not fine-tuning. The route uses the existing Worker cron-secret verification.
+
+- Reasoning hardening release `dollar-evidence-reasoner-1.1.0` adds strict structured-output validation, evidence-ID audits, probable-syndication detection, History archive retrieval tests, payload-budget tests, and redirect/SSRF regression tests. GitHub Actions runs these tests on relevant pushes; a passing run and a live Cloudflare deployment must still be checked separately.
