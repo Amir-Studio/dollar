@@ -99,7 +99,8 @@ export function buildForecastErrorDiagnostic(forecast) {
       forecast_mode:mode,quote_age_hours:Number.isFinite(quoteAge)?quoteAge:null,
       quote_source_count:Number.isFinite(sourceCount)?sourceCount:null,quote_spread_pct:Number.isFinite(spread)?spread:null,
       event_risk_score:Number.isFinite(eventRisk)?eventRisk:null,headline_count:Number.isFinite(headlines)?headlines:null,
-      selected_model_count:selected.length,live_bias_applied:validation.live_error_feedback?.applied===true
+      selected_model_count:selected.length,live_bias_applied:validation.live_error_feedback?.applied===true,
+      live_component_weights_applied:validation.live_component_feedback?.applied===true
     },
     root_cause_candidates:candidates
   };
@@ -1021,7 +1022,7 @@ export async function handleForecastApi(url,env) {
     }
     if(url.pathname==="/forecast/learning"){
       const data=await db(env,"market_learning_cycles?select=cycle_at,model_version,evaluated_count,asset_metrics,learning_actions&order=cycle_at.desc&limit=100");
-      return Response.json({model_version:MODEL_VERSION,cycles:data||[],note_fa:"وزن‌های مدل با آزمون walk-forward و فقط با داده‌های بالغ‌شده دوباره محاسبه می‌شوند؛ این گزارش، عملکرد زنده و هشدار افت کیفیت را ثبت می‌کند."},{headers:{"cache-control":"no-store"}});
+      return Response.json({model_version:MODEL_VERSION,cycles:data||[],note_fa:"وزن اجزای مدل فقط پس از حداقل ۶۰ پیش‌بینی بالغ‌شده و بهبود در داده‌های نگه‌داشته‌شده تغییر می‌کند؛ اصلاح بایاس نیز به حداقل ۳۰ نمونه و بهبود آزمون خارج از نمونه نیاز دارد. عملکرد نسخه‌ها جداگانه گزارش می‌شود."},{headers:{"cache-control":"no-store"}});
     }
     if(url.pathname==="/forecast/history"){
       const horizon=Number(url.searchParams.get("horizon_days")||7);
