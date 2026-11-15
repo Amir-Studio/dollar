@@ -24,7 +24,7 @@ test("trained model exposes auditable holdout and training metadata", () => {
   const result = trainNeuralReturnModel(points, 7);
   assert.equal(result.available, true);
   assert.ok(result.training_samples >= 90);
-  assert.equal(result.architecture, "9-8-1");
+  assert.equal(result.architecture, "15-24-12-1");
   assert.equal(result.ensemble_size, 9);
   assert.ok(Number.isFinite(result.ensemble_prediction_std));
   assert.ok(result.validation_skill_gate >= 0 && result.validation_skill_gate <= 1);
