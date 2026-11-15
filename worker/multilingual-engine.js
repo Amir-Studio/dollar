@@ -1,6 +1,7 @@
-// Dollar multilingual market-news comprehension engine v1.0
+// Dollar multilingual market-news comprehension engine.
 // Deterministic, auditable linguistic feature extraction; not a generative model or a translation engine.
-export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.2.0";
+import { analyzeArabicText, ARABIC_ENGINE_VERSION } from "./arabic-academic-engine.js";
+export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.3.0";
 
 const LANGS = {
   ar: {
@@ -443,6 +444,7 @@ export function analyzeMultilingualNews(title, body="", languageHint=null) {
     version:MULTILINGUAL_VERSION,language,language_name:LANGS[language].name,
     language_detection:detection,reading_status:text.length>0?"parsed_linguistic_features":"insufficient_text",
     sentence_frames:frames,claims,extracted_quantities:frames.flatMap(f=>f.quantities),
+    ...(language==="ar"?{arabic_academic_analysis:analyzeArabicText(text),arabic_engine_version:ARABIC_ENGINE_VERSION}:{}),
     summary:{
       sentence_count:frames.length,
       conditional_count:frames.filter(f=>f.conditional).length,
@@ -458,7 +460,7 @@ export function analyzeMultilingualNews(title, body="", languageHint=null) {
     limitations:[
       "Rule-based language support; not neural or human-level comprehension.",
       "No machine translation is performed.",
-      "Arabic dialects, Chinese traditional characters, German compounds and French idioms need broader validation.",
+      "Arabic dialect and academic-layer outputs are candidate analyses; full morphology, syntactic scope and idioms still require expert validation.",
       "A detected linguistic relation does not verify the underlying event or causal claim.",
       "Long-distance coreference, sarcasm and source credibility require separate evidence."
     ]
