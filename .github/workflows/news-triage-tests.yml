@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - "worker/news-reasoning-engine.js"
+      - "worker/news-reasoning-engine.test.mjs"
       - "worker/news-triage-engine.js"
       - "worker/news-triage-engine.test.mjs"
       - "worker/index.js"
@@ -24,7 +26,8 @@ jobs:
           node-version: "22"
       - name: Syntax checks
         run: |
+          node --experimental-default-type=module --check worker/news-reasoning-engine.js
           node --experimental-default-type=module --check worker/news-triage-engine.js
           node --experimental-default-type=module --check worker/index.js
       - name: News triage unit tests
-        run: node --experimental-default-type=module --test worker/news-triage-engine.test.mjs
+        run: node --experimental-default-type=module --test worker/news-triage-engine.test.mjs worker/news-reasoning-engine.test.mjs
