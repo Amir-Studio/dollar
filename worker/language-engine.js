@@ -876,7 +876,9 @@ function themeMatchesForArticle(text, theme) {
 }
 function classifyOne(item) {
   const title = String(item?.title || item?.original_title || "");
-  const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,3000);
+  const fullArticle = item?.full_text_mode === true;
+  const bodyLimit = fullArticle ? 15000 : 3000;
+  const body = String(item?.original_text || item?.translated_text_fa || item?.summary_fa || "").slice(0,bodyLimit);
   const text = normalize(title + " " + body);
   const themeHits = THEMES.map(t=>({...t,matches:themeMatchesForArticle(text,t)})).filter(t=>t.matches.length);
   const events = EVENT_TERMS.filter(e=>containsAny(text,e.terms).length).map(e=>({id:e.id,label_fa:e.label_fa,market_effect:e.direction}));
@@ -898,7 +900,7 @@ function classifyOne(item) {
   const simpleAnalysis=buildSimpleNewsAnalysis({title,body,language,events,themes:themeHits.map(t=>t.id),uncertain,text,english});
   return {
     title,source:item?.domain||item?.source_id||null,published_at:item?.published_at||null,url:item?.url||null,
-    language,content_chars:body.length,input_mode:body.length?"headline_plus_rss_excerpt":"headline_only",
+    language,content_chars:body.length,input_mode:body.length?(fullArticle?"full_article":"headline_plus_rss_excerpt"):"headline_only",
     simple_analysis_fa:simpleAnalysis,
     themes:themeHits.map(t=>t.id),
     theme_evidence:themeHits.map(t=>({
@@ -906,7 +908,7 @@ function classifyOne(item) {
       matched_terms:t.matches,
       matched_in_title:t.matches.filter(term=>containsThemeTerm(normalize(title),term)),
       matched_in_excerpt:t.matches.filter(term=>containsThemeTerm(normalize(body),term)),
-      evidence_scope:body.length?"title_and_rss_excerpt":"headline_only"
+      evidence_scope:body.length?(fullArticle?"title_and_full_article":"title_and_rss_excerpt"):"headline_only"
     })),
     events,wording_tone:tone,uncertain,
     english_semantics:language==="en"?{...english,b1_analysis:b1,c1_analysis:c1,market_glossary:glossaryTerms}:null,
@@ -915,7 +917,7 @@ function classifyOne(item) {
     bilingual_vocabulary:bilingualVocabulary,
     pragmatics,
     formal_register:formalRegister,
-    reading_comprehension:analyzeNewsReading(title,body,item?.published_at||null),
+    reading_comprehension:analyzeNewsReading(title,body,item?.published_at||null,fullArticle),
     numbers:[...numberMentions,...extractEnglishAmounts(text)].slice(0,20),confidence:Number(confidence.toFixed(2)),
     limitations:["lexicon_based","syntax_and_context_not_fully_resolved"]
   };
