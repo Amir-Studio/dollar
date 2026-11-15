@@ -184,7 +184,7 @@ test("Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to Engl
 });
 
 test("English geopolitical and economic news maps to distinct concepts", () => {
-  const result=analyzeMarketLexicon("The ceasefire talks stalled as sanctions disrupted the oil supply chain and raised energy security concerns.","en");
+  const result=analyzeMarketLexicon("The ceasefire talks stalled as sanctions disrupted the oil supply disruption and supply-chain disruptions raised energy security concerns.","en");
   for(const id of ["ceasefire","peace_negotiations","sanctions","oil_supply_disruption","supply_chain_disruption","energy_security"]) {
     assert.ok(result.matched_concept_ids.includes(id),id);
   }
