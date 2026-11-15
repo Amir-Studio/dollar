@@ -414,7 +414,7 @@ async function makeFreeAnalysis(env, asset) {
   const summary = "بر پایهٔ رگرسیون لگاریتمی " + model.count + " مشاهدهٔ اخیر، روند روزانه حدود " +
     model.daily_pct.toFixed(2) + "٪ و تغییر ۷روزهٔ گذشته " +
     (model.momentum_7d_pct===null?"نامشخص":model.momentum_7d_pct.toFixed(2)+"٪") +
-    " بوده است. برآورد آماری ۷روزه " + directionFa + " را نشان می‌دهد. این گزارش از مدل زبانی استفاده نمی‌کند؛ خبرها فقط گردآوری و بر اساس موضوع دسته‌بندی شده‌اند.";
+    " بوده است. برآورد آماری ۷روزه " + directionFa + " را نشان می‌دهد. متن خبرهای پشتیبانی‌شده با قواعد زبانی چندزبانه برای استخراج ساختار ادعا پردازش شده‌اند؛ این پردازش ترجمه یا راستی‌آزمایی خبر نیست.";
   const risks = [];
   if (recent.length < 3) risks.push("پوشش خبرهای دارای تاریخ در ۲۴ ساعت اخیر محدود است؛ ممکن است رویداد مهمی از دست رفته باشد.");
   if (rows.length < 30) risks.push("تاریخچه کمتر از ۳۰ مشاهده دارد؛ برآورد آماری ناپایدارتر است.");
@@ -441,7 +441,7 @@ async function makeFreeAnalysis(env, asset) {
       daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),
       max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),
       regression_target:Math.round(model.baseline7),observations:model.count},
-    note_fa:"تحلیل نسخهٔ نخست هستهٔ پردازش زبان تخصصی فارسی و انگلیسی به‌همراه تاریخچهٔ قیمت است؛ هنوز مدل زبانی مولد نیست و توصیهٔ خریدوفروش ارائه نمی‌کند."
+    note_fa:"هستهٔ تحلیل از NLP تخصصی فارسی و انگلیسی و پردازش قاعده‌محور خبر به ۱۴ زبان دیگر استفاده می‌کند؛ مدل زبانی مولد یا مترجم نیست و تحلیل زبانی را نباید راستی‌آزمایی واقعیت خبر دانست."
   },200,{"cache-control":"public, max-age=300","vary":"Origin"});
 }
 
@@ -1289,8 +1289,8 @@ export default {
           name: "Dollar Domain NLP",
           version: LANGUAGE_ENGINE_VERSION,
           mode: "deterministic_domain_nlp_not_llm",
-          languages: ["fa", "en", "ar", "zh", "de", "fr"],
-          multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})()},
+          languages: ["fa", "en", "ar", "zh", "de", "fr", "ru", "ja", "ko", "hi", "es", "it", "pt", "tr", "nl", "pl"],
+          multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})()},
           news_input: "rss_excerpt_or_headline",
           history_analysis: true,
           pragmatics: {
@@ -1309,6 +1309,7 @@ export default {
         continuous_learning_ready: learningStorageReady,
         news_storage_enabled: newsStorageReady,
         news_pipeline_schema_ready: newsPipelineSchemaReady,
+        country_news_sources: {...validateCountryNewsSources(),refresh_batches:4,feeds_per_batch:[8,8,7,7],runtime_health:"check per-country ingestion logs"},
         forecast_ledger_table: "market_forecast_runs",
         news_store_table: "market_news_items",
         kv_binding_present: kvBindingPresent,
