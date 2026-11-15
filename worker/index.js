@@ -666,7 +666,7 @@ async function fetchCountryNewsArticle(country) {
     if(fullText.length<1000) continue;
     const title=String(article.title).slice(0,500);
     const analyzed=analyzeMarketLanguage([{
-      title,original_title:title,original_text:fullText,language_code:language,
+      title,original_title:title,original_text:fullText,full_text_mode:true,language_code:language,
       url,published_at:parseGdeltDate(article.seendate),domain:article.domain||""
     }]).per_news?.[0] || null;
     return {
@@ -675,7 +675,7 @@ async function fetchCountryNewsArticle(country) {
       article_url:url,title,published_at:parseGdeltDate(article.seendate),
       article_text:fullText.slice(0,15000),article_chars:fullText.length,
       extraction_status:"full_article_extracted",model_version:LANGUAGE_ENGINE_VERSION,
-      model_output:analyzed,evaluation_status:"pending_review",
+      model_output:analyzed,evaluation_status:"pending_review",evaluation_notes:null,
       collected_at:new Date().toISOString(),updated_at:new Date().toISOString()
     };
   }
