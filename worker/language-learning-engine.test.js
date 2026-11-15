@@ -1,11 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest, LANGUAGE_LEARNER_VERSION } from "./language-learning-engine.js";
+import { extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest, LANGUAGE_LEARNER_VERSION, classifyVocabularyKnowledge } from "./language-learning-engine.js";
 
 test("learner discovers repeated unknown economic terms and filters stopwords",()=>{
  const result=runLanguageLearnerSelfTest();
  assert.equal(result.passed,true,JSON.stringify(result));
  assert.match(LANGUAGE_LEARNER_VERSION,/^dollar-language-learner-/);
+});
+test("known vocabulary is not incorrectly marked unknown",()=>{
+ assert.equal(classifyVocabularyKnowledge("inflation","en").knowledge_state,"known_in_internal_lexicon");
+ assert.equal(classifyVocabularyKnowledge("the","en").knowledge_state,"known_function_word");
+});
+test("technical terminology can be detected on a single occurrence with domain evidence",()=>{
+ const result=extractUnknownVocabularyCandidates("The central bank discussed Klimarisikoprämie during monetary policy review.","de");
+ assert.ok(result.some(x=>x.normalized_term==="klimarisikoprämie"));
+});
+test("unknown short words without context are not promoted as learned gaps",()=>{
+ const result=extractUnknownVocabularyCandidates("mavo terek luno pavi","en");
+ assert.equal(result.length,0);
+});
+test("multiword market terminology is surfaced as a candidate",()=>{
+ const result=extractUnknownVocabularyCandidates("The central bank discussed quantitative tightening and liquidity risk.","en",{limit:20});
+ assert.ok(result.some(x=>x.normalized_term==="quantitative tightening"));
 });
 test("cross-language ontology resolves known concepts without a web request",async()=>{
  const result=await lookupVocabularyMeaning("geldpolitische Straffung","de",async()=>{throw Error("should not fetch");});
@@ -26,7 +42,6 @@ test("unsupported language is rejected instead of guessed",async()=>{
  assert.equal(result.ok,false);
  assert.equal(result.status,"invalid_input");
 });
-
 test("existing specialist German and Chinese vocabularies are not re-flagged as unknown",()=>{
  const german=extractUnknownVocabularyCandidates("Zinserhöhung Zinserhöhung Zinserhöhung", "de");
  const chinese=extractUnknownVocabularyCandidates("通胀预期通胀预期通胀预期", "zh");
