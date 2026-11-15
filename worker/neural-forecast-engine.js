@@ -189,7 +189,7 @@ function chooseEpochs(examples,labels,horizonDays) {
     const net=makeNetwork((0x6d2b79f5+Math.imul(fold+1,0x9e3779b9))>>>0);
     const optimizer=makeOptimizer(net);
     let best=Infinity,bestEpoch=1,stale=0,bestNet=null;
-    for(let epoch=1;epoch<=MAX_EPOCHS;epoch++) {
+    for(let epoch=1;epoch<=epochLimit;epoch++) {
       trainOneEpoch(net,x,trainLabels,optimizer,epoch);
       const score=validationLoss(net,scaler,validRows,validLabels);
       if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;bestNet=structuredClone(net);} else stale++;
@@ -218,7 +218,7 @@ function targetScale(labels) {
   const medianAbs=sorted[Math.floor(sorted.length*0.5)]||0;
   return clamp(medianAbs*2.5,0.003,0.12);
 }
-function buildExamples(points,horizonDays) {
+function buildExamples(points,horizonDays,maxRows=MAX_TRAINING_ROWS) {
   const examples=[],start=Math.max(31,points.length-365);
   for(let i=start;i<points.length-1;i++) {
     const targetTime=Number(points[i].t)+horizonDays*DAY;
@@ -233,14 +233,15 @@ function buildExamples(points,horizonDays) {
     if(Number.isFinite(target)&&features.every(Number.isFinite))
       examples.push({features,target:clamp(target,-0.30,0.30),origin_time:Number(points[i].t),target_time:Number(points[j].t)});
   }
-  return examples.slice(-MAX_TRAINING_ROWS);
+  return examples.slice(-maxRows);
 }
-export function trainNeuralReturnModel(points,horizonDays) {
+export function trainNeuralReturnModel(points,horizonDays,options={}) {
   const horizon=Number(horizonDays);
   if(![1,3,7].includes(horizon)) return {available:false,reason:"unsupported_horizon",version:NEURAL_MODEL_VERSION};
   if(!validSeries(points)) return {available:false,reason:"invalid_or_unsorted_price_history",version:NEURAL_MODEL_VERSION};
   if(points.length<90) return {available:false,reason:"insufficient_history",observations:points.length,version:NEURAL_MODEL_VERSION};
-  const examples=buildExamples(points,horizon);
+  const fast=options.fast===true;
+  const examples=buildExamples(points,horizon,fast?140:MAX_TRAINING_ROWS);
   if(examples.length<MIN_TRAINING_ROWS) return {available:false,reason:"insufficient_matured_examples",
     training_samples:examples.length,required_samples:MIN_TRAINING_ROWS,version:NEURAL_MODEL_VERSION};
   const rows=examples.map(x=>x.features),rawTargets=examples.map(x=>x.target);
@@ -274,7 +275,8 @@ export function trainNeuralReturnModel(points,horizonDays) {
     validation_folds:selection.validation_folds,
     final_training_huber_loss:Number(fitted.loss.toFixed(8)),target_scale:Number(scale.toFixed(6)),
     volatility_cap:Number(volatilityCap.toFixed(6)),horizon_days:horizon,
-    version:NEURAL_MODEL_VERSION,training_method:"deep_15_24_12_1_adam_huber_purged_expanding_walk_forward"
+    version:NEURAL_MODEL_VERSION,compute_mode:fast?"single_member_walkforward_proxy":"full_ensemble",
+    training_method:fast?"deep_15_24_12_1_adam_huber_sparse_walkforward_proxy":"deep_15_24_12_1_adam_huber_purged_expanding_walk_forward"
   };
 }
 export function runNeuralForecastSelfTest() {
