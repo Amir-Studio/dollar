@@ -635,7 +635,7 @@ async function fetchCountryNewsArticle(country) {
   if(!response.ok) throw Error("GDELT HTTP "+response.status);
   const payload=await response.json();
   const articles=Array.isArray(payload?.articles)?payload.articles:[];
-  for(const article of articles.slice(0,8)){
+  for(const article of articles.slice(0,4)){
     const language=normalizeGdeltLanguage(article.language);
     const url=String(article.url||"");
     if(!language || !(url.startsWith("https://") || url.startsWith("http://")) || !article.title) continue;
