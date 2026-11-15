@@ -61,6 +61,49 @@ export function directionMatches(actualChange,direction) {
   const expected=String(direction??"").toLowerCase();
   return ["up","down","sideways"].includes(expected)&&actual===expected;
 }
+export function buildForecastErrorDiagnostic(forecast) {
+  const actual=Number(forecast?.actual_price), predicted=Number(forecast?.predicted_price), reference=Number(forecast?.reference_price);
+  if(!(actual>0&&predicted>0&&reference>0)) return null;
+  const validation=forecast?.validation&&typeof forecast.validation==="object"?forecast.validation:{};
+  const context=validation.news_context&&typeof validation.news_context==="object"?validation.news_context:{};
+  const quote=validation.quote_quality&&typeof validation.quote_quality==="object"?validation.quote_quality:{};
+  const errorPct=Math.abs((actual/predicted-1)*100), baselineErrorPct=Math.abs((actual/reference-1)*100);
+  const signedErrorPct=(predicted/actual-1)*100, improvement=baselineErrorPct>0?(1-errorPct/baselineErrorPct)*100:0;
+  const actualChangePct=(actual/reference-1)*100, candidates=[];
+  const add=(code,evidence)=>candidates.push({code,evidence,confidence:"low",causal:false});
+  const mode=String(validation.forecast_mode||"unknown"), quoteAge=Number(validation.quote_age_hours);
+  const sourceCount=Number(quote.source_count??context.source_count), spread=Number(quote.spread_pct);
+  const eventRisk=Number(context.event_risk_score), headlines=Number(context.headline_count);
+  const selected=Array.isArray(validation.selected_models)?validation.selected_models:[];
+  if(mode==="baseline_only") add("baseline_only_mode","Forecast intentionally used the no-change baseline; this is not evidence of a directional-model failure.");
+  if(errorPct>baselineErrorPct+0.1) add("underperformed_no_change","Absolute forecast error exceeded the same-row no-change baseline.");
+  if(Number.isFinite(quoteAge)&&quoteAge>6) add("quote_age_elevated","Reference quote age exceeded six hours.");
+  if(Number.isFinite(sourceCount)&&sourceCount<=1) add("limited_quote_sources","Quote context reports one or fewer independent sources.");
+  if(Number.isFinite(spread)&&spread>2) add("quote_spread_elevated","Observed quote spread exceeded two percent.");
+  if(Number.isFinite(eventRisk)&&eventRisk>=50) add("high_event_risk","News context marked elevated event risk.");
+  if(Number.isFinite(headlines)&&headlines===0) add("no_news_coverage","No relevant headlines were available in the stored context.");
+  if(forecast?.direction_correct===false) add("direction_miss","Persisted direction did not match the realized move under the production deadband.");
+  if(mode!=="baseline_only"&&selected.length===0) add("no_selected_models","No component models were selected for this directional forecast.");
+  if(!candidates.length) add("insufficient_evidence","No single contributing factor crossed a diagnostic threshold.");
+  return {
+    forecast_id:forecast.id,asset:forecast.asset,horizon_days:Number(forecast.horizon_days),model_version:String(forecast.model_version||"unknown"),
+    error_metrics:{
+      absolute_error_pct:Number(errorPct.toFixed(5)),no_change_error_pct:Number(baselineErrorPct.toFixed(5)),
+      improvement_vs_no_change_pct:Number(improvement.toFixed(3)),signed_error_pct:Number(signedErrorPct.toFixed(5)),
+      predicted_change_pct:Number(Number(forecast.predicted_change_pct??((predicted/reference-1)*100)).toFixed(5)),
+      actual_change_pct:Number(actualChangePct.toFixed(5)),
+      direction_correct:typeof forecast.direction_correct==="boolean"?forecast.direction_correct:null,
+      diagnostic_method:"same_forecast_no_change_comparison_v1"
+    },
+    contributing_factors:{
+      forecast_mode:mode,quote_age_hours:Number.isFinite(quoteAge)?quoteAge:null,
+      quote_source_count:Number.isFinite(sourceCount)?sourceCount:null,quote_spread_pct:Number.isFinite(spread)?spread:null,
+      event_risk_score:Number.isFinite(eventRisk)?eventRisk:null,headline_count:Number.isFinite(headlines)?headlines:null,
+      selected_model_count:selected.length,live_bias_applied:validation.live_error_feedback?.applied===true
+    },
+    root_cause_candidates:candidates
+  };
+}
 async function json(url) {
   const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
   if(!r.ok) throw Error("HTTP "+r.status+" from market source");
@@ -635,7 +678,7 @@ async function evaluateDue(env,market) {
   for(const asset of ASSETS){
     const item=items.find(x=>x.symbol===asset), actual=num(item?.price), stamp=dateMs(item?.timestamp||market.meta?.published_at||market.meta?.timestamp);
     if(!(actual>0)||!Number.isFinite(stamp)||Date.now()-stamp>45*60000) continue;
-    const due=await db(env,"market_forecast_runs?select=id,asset,horizon_days,reference_price,predicted_price,predicted_change_pct,direction,target_at&asset=eq."+asset+"&status=eq.pending&target_at=lte."+encodeURIComponent(new Date(stamp).toISOString())+"&limit=100");
+    const due=await db(env,"market_forecast_runs?select=id,asset,horizon_days,model_version,reference_price,predicted_price,predicted_change_pct,direction,target_at,validation&asset=eq."+asset+"&status=eq.pending&target_at=lte."+encodeURIComponent(new Date(stamp).toISOString())+"&limit=100");
     for(const f of due||[]){
       const actualChange=(actual/Number(f.reference_price)-1)*100;
       const error=Math.abs((actual/Number(f.predicted_price)-1)*100);
@@ -643,7 +686,7 @@ async function evaluateDue(env,market) {
       const patch={status:"evaluated",actual_price:actual,actual_at:new Date(stamp).toISOString(),absolute_error_pct:Number(error.toFixed(5)),
         direction_correct:directionMatches(actualChange,f.direction)};
       await db(env,"market_forecast_runs?id=eq."+f.id,{method:"PATCH",headers:{"prefer":"return=minimal"},body:JSON.stringify(patch)});
-      done.push({id:f.id,asset,horizon_days:f.horizon_days,error_pct:patch.absolute_error_pct,direction_correct:patch.direction_correct});
+      done.push({id:f.id,asset,horizon_days:f.horizon_days,model_version:f.model_version,reference_price:Number(f.reference_price),predicted_price:Number(f.predicted_price),predicted_change_pct:Number(f.predicted_change_pct),actual_price:actual,direction_correct:patch.direction_correct,validation:f.validation||{}});
     }
   }
   return done;
@@ -651,6 +694,18 @@ async function evaluateDue(env,market) {
 async function runContinuousLearning(env, evaluatedNow) {
   if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
   try {
+    let diagnosticCount=0;
+    try {
+      const diagnostics=(evaluatedNow||[]).map(buildForecastErrorDiagnostic).filter(Boolean);
+      if(diagnostics.length) {
+        await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
+          method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(diagnostics)
+        });
+        diagnosticCount=diagnostics.length;
+      }
+    } catch(error) {
+      console.error("Forecast diagnostic persistence failed:",error?.message||error);
+    }
     const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
     const groups = new Map();
     for (const row of (Array.isArray(rows)?rows:[])) {
@@ -697,7 +752,7 @@ async function runContinuousLearning(env, evaluatedNow) {
       model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,evaluated:evaluatedNow.length,groups:Object.keys(assetMetrics).length,actions:actions.length};
+    return {ran:true,evaluated:evaluatedNow.length,diagnostics:diagnosticCount,groups:Object.keys(assetMetrics).length,actions:actions.length};
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};

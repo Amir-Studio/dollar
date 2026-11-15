@@ -1,3 +1,6 @@
+import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
+import { buildDecisionBrief, DECISION_ENGINE_VERSION } from "./decision-engine.js";
+
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
@@ -51,6 +54,56 @@ const dateMs = v => {
   }
   return Date.parse(String(v ?? ""));
 };
+export function directionMatches(actualChange,direction) {
+  const change=Number(actualChange);
+  if(!Number.isFinite(change)) return false;
+  const actual=change>0.1?"up":change< -0.1?"down":"sideways";
+  const expected=String(direction??"").toLowerCase();
+  return ["up","down","sideways"].includes(expected)&&actual===expected;
+}
+export function buildForecastErrorDiagnostic(forecast) {
+  const actual=Number(forecast?.actual_price), predicted=Number(forecast?.predicted_price), reference=Number(forecast?.reference_price);
+  if(!(actual>0&&predicted>0&&reference>0)) return null;
+  const validation=forecast?.validation&&typeof forecast.validation==="object"?forecast.validation:{};
+  const context=validation.news_context&&typeof validation.news_context==="object"?validation.news_context:{};
+  const quote=validation.quote_quality&&typeof validation.quote_quality==="object"?validation.quote_quality:{};
+  const errorPct=Math.abs((actual/predicted-1)*100), baselineErrorPct=Math.abs((actual/reference-1)*100);
+  const signedErrorPct=(predicted/actual-1)*100, improvement=baselineErrorPct>0?(1-errorPct/baselineErrorPct)*100:0;
+  const actualChangePct=(actual/reference-1)*100, candidates=[];
+  const add=(code,evidence)=>candidates.push({code,evidence,confidence:"low",causal:false});
+  const mode=String(validation.forecast_mode||"unknown"), quoteAge=Number(validation.quote_age_hours);
+  const sourceCount=Number(quote.source_count??context.source_count), spread=Number(quote.spread_pct);
+  const eventRisk=Number(context.event_risk_score), headlines=Number(context.headline_count);
+  const selected=Array.isArray(validation.selected_models)?validation.selected_models:[];
+  if(mode==="baseline_only") add("baseline_only_mode","Forecast intentionally used the no-change baseline; this is not evidence of a directional-model failure.");
+  if(errorPct>baselineErrorPct+0.1) add("underperformed_no_change","Absolute forecast error exceeded the same-row no-change baseline.");
+  if(Number.isFinite(quoteAge)&&quoteAge>6) add("quote_age_elevated","Reference quote age exceeded six hours.");
+  if(Number.isFinite(sourceCount)&&sourceCount<=1) add("limited_quote_sources","Quote context reports one or fewer independent sources.");
+  if(Number.isFinite(spread)&&spread>2) add("quote_spread_elevated","Observed quote spread exceeded two percent.");
+  if(Number.isFinite(eventRisk)&&eventRisk>=50) add("high_event_risk","News context marked elevated event risk.");
+  if(Number.isFinite(headlines)&&headlines===0) add("no_news_coverage","No relevant headlines were available in the stored context.");
+  if(forecast?.direction_correct===false) add("direction_miss","Persisted direction did not match the realized move under the production deadband.");
+  if(mode!=="baseline_only"&&selected.length===0) add("no_selected_models","No component models were selected for this directional forecast.");
+  if(!candidates.length) add("insufficient_evidence","No single contributing factor crossed a diagnostic threshold.");
+  return {
+    forecast_id:forecast.id,asset:forecast.asset,horizon_days:Number(forecast.horizon_days),model_version:String(forecast.model_version||"unknown"),
+    error_metrics:{
+      absolute_error_pct:Number(errorPct.toFixed(5)),no_change_error_pct:Number(baselineErrorPct.toFixed(5)),
+      improvement_vs_no_change_pct:Number(improvement.toFixed(3)),signed_error_pct:Number(signedErrorPct.toFixed(5)),
+      predicted_change_pct:Number(Number(forecast.predicted_change_pct??((predicted/reference-1)*100)).toFixed(5)),
+      actual_change_pct:Number(actualChangePct.toFixed(5)),
+      direction_correct:typeof forecast.direction_correct==="boolean"?forecast.direction_correct:null,
+      diagnostic_method:"same_forecast_no_change_comparison_v1"
+    },
+    contributing_factors:{
+      forecast_mode:mode,quote_age_hours:Number.isFinite(quoteAge)?quoteAge:null,
+      quote_source_count:Number.isFinite(sourceCount)?sourceCount:null,quote_spread_pct:Number.isFinite(spread)?spread:null,
+      event_risk_score:Number.isFinite(eventRisk)?eventRisk:null,headline_count:Number.isFinite(headlines)?headlines:null,
+      selected_model_count:selected.length,live_bias_applied:validation.live_error_feedback?.applied===true
+    },
+    root_cause_candidates:candidates
+  };
+}
 async function json(url) {
   const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
   if(!r.ok) throw Error("HTTP "+r.status+" from market source");
@@ -410,52 +463,126 @@ export function headlineConflictCandidates(items) {
   }
   return pairs;
 }
-async function fetchNewsContext(env,asset,asOf) {
+function buildUnifiedNewsContext({asset,price,asOf,points,items}) {
+  const historyRows=(Array.isArray(points)?points:[]).map(point=>({date:Number(point.t),close:Number(point.p)}))
+    .filter(row=>Number.isFinite(row.date)&&Number.isFinite(row.close)&&row.close>0);
+  const languageAnalysis=analyzeMarketLanguage(items,historyRows);
+  const decisionBrief=buildDecisionBrief({
+    asset,
+    quote:{price,source_time:new Date(asOf).toISOString()},
+    history:{rows:historyRows},
+    news:items,
+    languageAnalysis,
+    now:asOf
+  });
+  const evidence=Array.isArray(decisionBrief.news_context?.event_evidence)?decisionBrief.news_context.event_evidence:[];
+  const semanticRisk=Math.min(100,evidence.reduce((sum,item)=>sum+(Number(item.weight)||0),0)*8);
+  const riskTerms=[
+    "sanction","تحریم","war","جنگ","conflict","درگیری","escalation","تشدید",
+    "nuclear","هسته‌ای","negotiation","مذاکره","inflation","تورم","interest rate","نرخ بهره",
+    "central bank","بانک مرکزی","oil shock","شوک نفتی","policy change","تغییر سیاست",
+    "budget deficit","کسری بودجه","currency crisis","بحران ارزی","rate hike","افزایش نرخ بهره",
+    "trade war","جنگ تجاری","export ban","ممنوعیت صادرات"
+  ];
+  let weightedHeadlineRisk=0;
+  for(const item of items){
+    const text=String((item.title||item.original_title||"")+" "+(item.original_text||"")).toLocaleLowerCase();
+    const hits=riskTerms.filter(term=>text.includes(term.toLocaleLowerCase())).length;
+    if(!hits) continue;
+    const ageHours=Math.max(0,(asOf-Date.parse(item.published_at||""))/3600000);
+    weightedHeadlineRisk+=Math.min(2,hits*0.55)*Math.exp(-ageHours/36);
+  }
+  const keywordRisk=Math.min(100,weightedHeadlineRisk*5);
+  const riskSignal=decisionBrief.news_context?.risk_signal||"insufficient";
+  const riskScore=Number(Math.max(0,Math.min(100,Math.max(keywordRisk,semanticRisk))).toFixed(1));
+  return {
+    window_hours:72,
+    headline_count:items.length,
+    source_count:decisionBrief.news_context?.unique_publisher_domains||0,
+    unique_story_clusters:decisionBrief.news_context?.unique_story_clusters||0,
+    potential_conflict_count:languageAnalysis.possible_conflicts.length,
+    potential_conflicts:languageAnalysis.possible_conflicts.slice(0,6),
+    event_risk_score:riskScore,
+    interpretation:riskScore>=65?"elevated":riskScore>=30?"moderate":"limited",
+    risk_signal:riskSignal,
+    directional_use:"disabled_until_historically_validated",
+    language_intelligence:{
+      engine:"dollar-domain-nlp",
+      version:LANGUAGE_ENGINE_VERSION,
+      mode:"deterministic_domain_nlp_not_llm",
+      analyzed_articles:languageAnalysis.news_analyzed,
+      excerpt_articles:languageAnalysis.news_with_excerpt,
+      excerpt_coverage_pct:languageAnalysis.excerpt_coverage_pct,
+      themes:(languageAnalysis.themes||[]).slice(0,6),
+      events:(languageAnalysis.events||[]).slice(0,12),
+      possible_conflicts:languageAnalysis.possible_conflicts.slice(0,6),
+      quality:languageAnalysis.quality
+    },
+    decision_brief:{
+      engine:"dollar-evidence-decision-engine",
+      version:DECISION_ENGINE_VERSION,
+      action:decisionBrief.action,
+      state:decisionBrief.synthesis?.state||"insufficient_evidence",
+      label_fa:decisionBrief.decision_label_fa,
+      explanation_fa:decisionBrief.synthesis?.explanation_fa||"",
+      evidence_quality:decisionBrief.evidence_quality
+    },
+    headlines:items.slice(0,8).map(item=>({
+      title:String(item.title||item.original_title||"").slice(0,240),
+      url:String(item.url||""),
+      domain:String(item.domain||"unknown"),
+      published_at:item.published_at,
+      language_code:item.language_code||null,
+      content_type:item.original_text||item.translated_text_fa||item.summary_fa?"rss_excerpt":"headline_only"
+    }))
+  };
+}
+
+export function runUnifiedNewsPipelineSelfTest() {
+  const now=Date.parse("2026-11-14T12:00:00.000Z");
+  const points=Array.from({length:40},(_,i)=>({t:now-(39-i)*86400000,p:100+i*0.25}));
+  const items=[
+    {title:"Central bank announces monetary policy update",original_text:"The central bank announced a change in monetary policy and interest rates.",domain:"one.example",language_code:"en",published_at:new Date(now-3600000).toISOString(),url:"https://one.example/a"},
+    {title:"بانک مرکزی از تغییر سیاست پولی خبر داد",original_text:"بانک مرکزی تغییر سیاست پولی و نرخ بهره را اعلام کرد.",domain:"two.example",language_code:"fa",published_at:new Date(now-7200000).toISOString(),url:"https://two.example/b"},
+    {title:"Gold market reacts to inflation data",original_text:"Gold prices moved after new inflation data was released.",domain:"three.example",language_code:"en",published_at:new Date(now-10800000).toISOString(),url:"https://three.example/c"}
+  ];
+  try {
+    const result=buildUnifiedNewsContext({asset:"USD_IRR_FREE",price:110,asOf:now,points,items});
+    const checks=[
+      result.language_intelligence.analyzed_articles===items.length,
+      result.decision_brief.engine==="dollar-evidence-decision-engine",
+      result.directional_use==="disabled_until_historically_validated",
+      result.potential_conflict_count===result.language_intelligence.possible_conflicts.length
+    ];
+    return {total:checks.length,passed:checks.filter(Boolean).length,failed:checks.filter(Boolean).length===checks.length?[]:checks.map((passed,index)=>({index,passed})).filter(x=>!x.passed)};
+  } catch(error) {
+    return {total:4,passed:0,failed:[{error:String(error?.message||error).slice(0,180)}]};
+  }
+}
+
+async function fetchNewsContext(env,asset,asOf,price,points) {
   try {
     const since=new Date(asOf-72*60*60*1000).toISOString();
-    const rows=await db(env,"market_news_items?select=url,title,original_title,domain,source_id,published_at&published_at=gte."+encodeURIComponent(since)+"&order=published_at.desc&limit=100");
+    const rows=await db(env,"market_news_items?select=url,title,original_title,original_text,translated_title_fa,translated_text_fa,summary_fa,domain,source_id,language_code,published_at&published_at=gte."+encodeURIComponent(since)+"&order=published_at.desc&limit=100");
     const seen=new Set();
     const items=(Array.isArray(rows)?rows:[]).filter(item=>{
       const title=String(item.title||item.original_title||"").trim();
       const published=Date.parse(item.published_at||"");
       if(!isMarketRelevantHeadline(title)||!Number.isFinite(published)||published>asOf+5*60*1000||asOf-published>72*60*60*1000) return false;
-      const key=String(item.url||"").toLowerCase().replace(/[?#].*$/,"")||title.toLocaleLowerCase().replace(/\s+/g," ").trim();
+      const key=String(item.url||"").toLowerCase().replace(/[?#].*$/,"")||title.toLocaleLowerCase().replace(/\\s+/g," ").trim();
       if(!key||seen.has(key)) return false;
       seen.add(key);
       return true;
     }).sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at));
-    const riskTerms=[
-      "sanction","تحریم","war","جنگ","conflict","درگیری","escalation","تشدید",
-      "nuclear","هسته‌ای","negotiation","مذاکره","inflation","تورم","interest rate","نرخ بهره",
-      "central bank","بانک مرکزی","oil shock","شوک نفتی","policy change","تغییر سیاست",
-      "budget deficit","کسری بودجه","currency crisis","بحران ارزی","rate hike","افزایش نرخ بهره",
-      "trade war","جنگ تجاری","export ban","ممنوعیت صادرات"
-    ];
-    let weightedRisk=0;
-    for(const item of items){
-      const title=String(item.title||item.original_title||"").toLocaleLowerCase();
-      const hits=riskTerms.filter(term=>title.includes(term.toLocaleLowerCase())).length;
-      if(!hits) continue;
-      const ageHours=Math.max(0,(asOf-Date.parse(item.published_at||""))/3600000);
-      weightedRisk+=Math.min(2,hits*0.55)*Math.exp(-ageHours/36);
-    }
-    const domains=[...new Set(items.map(x=>String(x.domain||x.source_id||"").toLowerCase()).filter(Boolean))];
-    const conflicts=headlineConflictCandidates(items);
-    const score=Math.max(0,Math.min(100,weightedRisk*5));
-    return {
-      window_hours:72,headline_count:items.length,source_count:domains.length,
-      potential_conflict_count:conflicts.length,potential_conflicts:conflicts,
-      event_risk_score:Number(score.toFixed(1)),
-      interpretation:score>=65?"elevated":score>=30?"moderate":"limited",
-      directional_use:"disabled_until_historically_validated",
-      headlines:items.slice(0,8).map(x=>({
-        title:String(x.title||x.original_title||"").slice(0,240),
-        url:String(x.url||""),domain:String(x.domain||"unknown"),published_at:x.published_at
-      }))
-    };
+    return buildUnifiedNewsContext({asset,price,asOf,points,items});
   } catch(error) {
-    return {window_hours:72,headline_count:0,source_count:0,event_risk_score:0,
-      directional_use:"disabled_until_historically_validated",error:String(error?.message||error).slice(0,120)};
+    return {
+      window_hours:72,headline_count:0,source_count:0,event_risk_score:0,
+      directional_use:"disabled_until_historically_validated",
+      pipeline_error:String(error?.message||error).slice(0,120),
+      language_intelligence:{engine:"dollar-domain-nlp",version:LANGUAGE_ENGINE_VERSION,status:"unavailable"},
+      decision_brief:{engine:"dollar-evidence-decision-engine",version:DECISION_ENGINE_VERSION,state:"insufficient_evidence"}
+    };
   }
 }
 async function fetchInputs(env,asset,marketPayload) {
@@ -475,7 +602,7 @@ async function fetchInputs(env,asset,marketPayload) {
   if(!latest||stamp-latest.t>10*DAY||latest.t>stamp+300000) throw Error("تاریخچهٔ روزانه قدیمی یا ناسازگار با زمان نرخ مرجع است.");
   const divergence=Math.abs(price/latest.p-1);
   if(divergence>0.25) throw Error("اختلاف نرخ زنده و آخرین بسته‌شدن تاریخی بیش از ۲۵٪ است؛ احتمال اختلاف واحد یا منبع وجود دارد.");
-  const newsContext=await fetchNewsContext(env,asset,stamp);
+  const newsContext=await fetchNewsContext(env,asset,stamp,price,points);
   return {price,stamp,source:String(item.source||"unknown"),provider_meta:item.provider_meta||null,history_provider:historyProvider,points,newsContext};
 }
 
@@ -512,7 +639,13 @@ async function issueForecast(env,asset,horizon,input) {
     event_risk_score:input.newsContext?.event_risk_score??0,
     headline_count:input.newsContext?.headline_count??0,
     source_count:input.newsContext?.source_count??0,
-    directional_use:"disabled_until_historically_validated"
+    directional_use:"disabled_until_historically_validated",
+    language_engine_version:input.newsContext?.language_intelligence?.version??null,
+    analyzed_articles:input.newsContext?.language_intelligence?.analyzed_articles??0,
+    excerpt_coverage_pct:input.newsContext?.language_intelligence?.excerpt_coverage_pct??0,
+    decision_action:input.newsContext?.decision_brief?.action??"unavailable",
+    decision_state:input.newsContext?.decision_brief?.state??"insufficient_evidence",
+    potential_conflict_count:input.newsContext?.potential_conflict_count??0
   }};
   const payload={
     asset,horizon_days:horizon,model_version:MODEL_VERSION,issued_at:issuedAt,target_at:targetAt,
@@ -545,15 +678,15 @@ async function evaluateDue(env,market) {
   for(const asset of ASSETS){
     const item=items.find(x=>x.symbol===asset), actual=num(item?.price), stamp=dateMs(item?.timestamp||market.meta?.published_at||market.meta?.timestamp);
     if(!(actual>0)||!Number.isFinite(stamp)||Date.now()-stamp>45*60000) continue;
-    const due=await db(env,"market_forecast_runs?select=id,asset,horizon_days,reference_price,predicted_price,predicted_change_pct,target_at&asset=eq."+asset+"&status=eq.pending&target_at=lte."+encodeURIComponent(new Date(stamp).toISOString())+"&limit=100");
+    const due=await db(env,"market_forecast_runs?select=id,asset,horizon_days,model_version,reference_price,predicted_price,predicted_change_pct,direction,target_at,validation&asset=eq."+asset+"&status=eq.pending&target_at=lte."+encodeURIComponent(new Date(stamp).toISOString())+"&limit=100");
     for(const f of due||[]){
       const actualChange=(actual/Number(f.reference_price)-1)*100;
       const error=Math.abs((actual/Number(f.predicted_price)-1)*100);
-      const sign=x=>x>0.1?"up":x< -0.1?"down":"sideways";
+      
       const patch={status:"evaluated",actual_price:actual,actual_at:new Date(stamp).toISOString(),absolute_error_pct:Number(error.toFixed(5)),
-        direction_correct:sign(actualChange)===f.direction};
+        direction_correct:directionMatches(actualChange,f.direction)};
       await db(env,"market_forecast_runs?id=eq."+f.id,{method:"PATCH",headers:{"prefer":"return=minimal"},body:JSON.stringify(patch)});
-      done.push({id:f.id,asset,horizon_days:f.horizon_days,error_pct:patch.absolute_error_pct,direction_correct:patch.direction_correct});
+      done.push({id:f.id,asset,horizon_days:f.horizon_days,model_version:f.model_version,reference_price:Number(f.reference_price),predicted_price:Number(f.predicted_price),predicted_change_pct:Number(f.predicted_change_pct),actual_price:actual,direction_correct:patch.direction_correct,validation:f.validation||{}});
     }
   }
   return done;
@@ -561,6 +694,18 @@ async function evaluateDue(env,market) {
 async function runContinuousLearning(env, evaluatedNow) {
   if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
   try {
+    let diagnosticCount=0;
+    try {
+      const diagnostics=(evaluatedNow||[]).map(buildForecastErrorDiagnostic).filter(Boolean);
+      if(diagnostics.length) {
+        await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
+          method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(diagnostics)
+        });
+        diagnosticCount=diagnostics.length;
+      }
+    } catch(error) {
+      console.error("Forecast diagnostic persistence failed:",error?.message||error);
+    }
     const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
     const groups = new Map();
     for (const row of (Array.isArray(rows)?rows:[])) {
@@ -607,7 +752,7 @@ async function runContinuousLearning(env, evaluatedNow) {
       model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,evaluated:evaluatedNow.length,groups:Object.keys(assetMetrics).length,actions:actions.length};
+    return {ran:true,evaluated:evaluatedNow.length,diagnostics:diagnosticCount,groups:Object.keys(assetMetrics).length,actions:actions.length};
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};

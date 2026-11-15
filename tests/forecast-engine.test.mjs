@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot, directionMatches } from '../worker/forecast-engine.js';
+import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot, directionMatches, buildForecastErrorDiagnostic } from '../worker/forecast-engine.js';
 
 const DAY = 86_400_000;
 function series(count, dailyLogReturn) {
@@ -99,4 +99,30 @@ test('forecast direction scoring uses persisted direction and production deadban
   assert.equal(directionMatches(0.11, 'down'), false);
   assert.equal(directionMatches(0.11, null), false);
   assert.equal(directionMatches(Number.NaN, 'up'), false);
+});
+
+
+test('buildForecastErrorDiagnostic records error decomposition and cautious evidence candidates', () => {
+  const diagnostic = buildForecastErrorDiagnostic({
+    id: 'forecast-1', asset: 'USD_IRR_FREE', horizon_days: 1, model_version: 'test-v1',
+    reference_price: 100, predicted_price: 110, predicted_change_pct: 10, actual_price: 105, direction_correct: true,
+    validation: {
+      forecast_mode: 'adaptive_directional', quote_age_hours: 8,
+      quote_quality: { source_count: 1, spread_pct: 2.5 },
+      news_context: { source_count: 1, headline_count: 0, event_risk_score: 55 },
+      selected_models: ['trend_15']
+    }
+  });
+  assert.equal(diagnostic.forecast_id, 'forecast-1');
+  assert.equal(diagnostic.error_metrics.absolute_error_pct, 4.54545);
+  assert.equal(diagnostic.error_metrics.no_change_error_pct, 5);
+  assert.equal(diagnostic.error_metrics.improvement_vs_no_change_pct, 9.091);
+  assert.equal(diagnostic.contributing_factors.live_bias_applied, false);
+  assert.ok(diagnostic.root_cause_candidates.some(x => x.code === 'quote_age_elevated'));
+  assert.ok(diagnostic.root_cause_candidates.every(x => x.causal === false && x.confidence === 'low'));
+});
+
+test('buildForecastErrorDiagnostic refuses incomplete or invalid price rows', () => {
+  assert.equal(buildForecastErrorDiagnostic({ reference_price: 100, predicted_price: 110, actual_price: 105 }), null);
+  assert.equal(buildForecastErrorDiagnostic({ id: 'x', reference_price: 0, predicted_price: 110, actual_price: 105 }), null);
 });
