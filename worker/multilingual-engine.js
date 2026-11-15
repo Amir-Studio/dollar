@@ -13,7 +13,7 @@ const LANGS = {
     attribution: /(?:قال|قالت|أفاد|أفادت|اعلن|اعلنت|ذكر|ذكرت|بحسب|وفقا ل|اوضح|اوضحت|حذر|حذرت|صرح|صرحت|نفي|نفت)/,
     causal: /(?:بسبب|نتيجة ل|مما أدى إلى|أدى إلى|أدت إلى|يرجع إلى|جراء|لذلك|وبالتالي)/,
     contrast: /(?:لكن|غير أن|إلا أن|على الرغم من|رغم|بينما|في المقابل|مع ذلك)/,
-    comparison: /(?:مقارنه ب|مقارنه مع|اعلى من|اقل من|اكثر من|ضعف|نصف|مقابل)/,
+    comparison: /(?:مقارنة ب|مقارنة مع|أعلى من|أقل من|أكثر من|ضعف|نصف|مقابل)/,
     forecast: /(?:توقع|تتوقع|يتوقع|توقعات|تنبأ|من المتوقع|يرجح|قد يرتفع|قد ينخفض)/,
     past: /(?:امس|الاسبوع الماضي|الشهر الماضي|العام الماضي|ارتفع|ارتفعت|انخفض|انخفضت|اعلن|اعلنت|فرض|فرضت|وافق|وافقت|توافق|تراجعت|تراجع)/,
     future: /(?:غدا|الاسبوع المقبل|الشهر المقبل|العام المقبل|المقبل|سوف|سي(?:رتفع|نخفض|علن|فرض|كون)|من المتوقع ان)/,
@@ -38,13 +38,13 @@ const LANGS = {
     modality: /(?:可能|或将|预计|预期|有望|或许|恐将|可能会)/,
     conditional: /(?:如果|若|假如|除非|在.*情况下|前提是)/,
     negation: /(?:没有|未能|尚未|并未|不会|不再|否认|未证实|未宣布|未批准|并非|不是|无意)/,
-    attribution: /(?:表示|称|指出|宣布|报告称|据.*报道|根据.*报告|警告|透露|预计)/,
+    attribution: /(?:表示|称|指出|宣布|报告称|据.*报告|据.*报道|根据.*报告|警告|透露|预计)/,
     causal: /(?:由于|因为|导致|因此|从而|促使|源于|归因于)/,
-    contrast: /(?:但是|然而|不过|尽管|虽然|相比之下|另一方面|却)/,
+    contrast: /(?:但是|但|然而|不过|尽管|虽然|相比之下|另一方面|却)/,
     comparison: /(?:相比|与.*相比|高于|低于|超过|少于|同比|环比|增长.*个百分点)/,
     forecast: /(?:预计|预测|展望|预期|估计|将.*增长|将.*下降)/,
     past: /(?:昨日|上周|上月|去年|此前|已经|宣布|表示|上涨|下跌|批准|暂停|恢复)/,
-    future: /(?:明日|明年|下周|下月|将|即将|未来|预计)/,
+    future: /(?:明日|明年|下周|下月|将|即将|未来)/,
     actions: [
       ["increase", /(?:上涨|上升|增加|增长|提高|升至|攀升|走高)/],
       ["decrease", /(?:下跌|下降|减少|降低|降至|回落|走低)/],
@@ -55,7 +55,7 @@ const LANGS = {
       ["negotiate", /(?:谈判|磋商|会谈|协议)/],
       ["invest", /(?:投资|融资)/],
       ["export", /(?:出口|出口额)/],
-      ["oil", /(?:石油|原油|布伦特)/]
+      ["oil", /(?:石油|原油|油价|布伦特)/],
     ],
     actors: [["central_bank", /(?:央行|中央银行)/],["government", /(?:政府|财政部|商务部)/],["opec", /(?:欧佩克|石油输出国组织)/],["imf", /(?:国际货币基金组织)/],["us", /(?:美国|美联储)/],["china", /(?:中国|中国人民银行)/]]
   },
@@ -77,7 +77,7 @@ const LANGS = {
       ["increase", /(?:stieg|stiegen|steigt|steigen|erhöhte|erhöhen|zunahm|zunahme|wuchs|wachstum|legte zu)/i],
       ["decrease", /(?:sank|sanken|sinkt|sinken|fallen|fiel|fielen|senkte|rückgang|ging zurück|gingen zurück|zurückgingen)/i],
       ["hold", /(?:unverändert|stabil|hielt.*konstant|bleibt gleich)/i],
-      ["deny", /(?:bestritt|wies.*zurück| dementierte|lehnte ab)/i],
+      ["deny", /(?:bestritt|bestreitet|wies.*zurück|dementierte|lehnte ab)/i],
       ["approve", /(?:genehmigte|genehmigt|genehmigen|billigte|verabschiedete|stimmte zu)/i],
       ["sanction", /(?:sanktionen|sanktionierte|hob.*sanktionen auf)/i],
       ["negotiate", /(?:verhandlungen|verhandelte|gespräche|einigung)/i],
@@ -96,7 +96,7 @@ const LANGS = {
     negation: /(?:\bne\b.*\bpas\b|\bne\b.*\bplus\b|\baucun(?:e)?\b|\bjamais\b|\bn'a pas\b|\bn'ont pas\b|\bpas encore\b|a démenti|a rejeté)/i,
     attribution: /(?:selon|a déclaré|a annoncé|a indiqué|a affirmé|a averti|d'après|d’après|le rapport indique|a estimé)/i,
     causal: /(?:en raison de|à cause de|grâce à|a entraîné|a provoqué|conduit à|donc|par conséquent)/i,
-    contrast: /(?:cependant|toutefois|pourtant|bien que|alors que|en revanche|mais|malgré)/i,
+    contrast: /(?:cependant|toutefois|pourtant|bien que|alors que|en revanche|mais|malgré|tandis que)/i,
     comparison: /(?:par rapport à|comparé à|supérieur à|inférieur à|plus que|moins que|contre)/i,
     forecast: /(?:prévoit|prévision|perspectives|s'attend à|estime que|anticiper|devrait|devraient)/i,
     past: /(?:hier|la semaine dernière|le mois dernier|l'année dernière|a annoncé|a augmenté|a baissé|a chuté|a approuvé|a suspendu)/i,
@@ -119,10 +119,9 @@ const LANGS = {
 
 const normalize = (value, lang) => {
   let s = String(value ?? "").normalize("NFKC").toLocaleLowerCase(lang === "tr" ? "tr" : "und");
-  if (lang === "ar") s = s.replace(/[ًٌٍَُِّْـٰ]/g, "").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ؤ/g,"و").replace(/ئ/g,"ي");
+  if (lang === "ar") s = s.replace(/[ًٌٍَُِّْـٰ]/g, "").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ؤ/g,"و").replace(/ئ/g,"ي").replace(/[٠-٩۰-۹]/g, d => String("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹".indexOf(d) % 10));
   if (lang === "de") s = s.replace(/ß/g,"ss");
   return s.replace(/[\u200b-\u200f\uFEFF]/g," ").replace(/\s+/g," ").trim();
-  if (lang === "ar") s = s.replace(/[٠-٩۰-۹]/g, d => String("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹".indexOf(d) % 10));
 };
 
 function detectMultilingualLanguage(text, hint) {
