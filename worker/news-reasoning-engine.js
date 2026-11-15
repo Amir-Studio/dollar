@@ -5,15 +5,22 @@ export const REASONING_VERSION = "dollar-evidence-reasoner-1.0.0";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const HISTORY_INDEX = "https://raw.githubusercontent.com/Amir-Studio/History/main/data/index.json";
 const HISTORY_NEWS_INDEX = "https://raw.githubusercontent.com/Amir-Studio/History/main/data/pending-review/news-index.json";
-const HISTORY_BASE = "https://raw.githubusercontent.com/Amir-Studio/History/main/";
 const clamp = (v, lo=0, hi=1) => Math.max(lo, Math.min(hi, Number(v) || 0));
 const clean = (v, max=1200) => String(v ?? "").replace(/\u0000/g, "").trim().slice(0,max);
 const decode = s => String(s||"").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1")
   .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
   .replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
+const STOP_WORDS = new Set(["the","and","for","with","from","that","this","was","were","has","have","had","will","would","could","should","about","after","before","into","over","under","در","از","به","با","برای","این","آن","که","را","است","بود","شد","های","می","یک","تا","اما","اگر","بر","یا","هم"]);
 function words(value) {
-  return clean(value,5000).normalize("NFKC").toLocaleLowerCase()
-    .match(/[\p{L}\p{N}]{3,}/gu) || [];
+  return clean(value,7000).normalize("NFKC").toLocaleLowerCase()
+    .replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u064B-\u065F\u0670]/g,"")
+    .match(/[\p{L}\p{N}]{2,}/gu)?.filter(x=>!STOP_WORDS.has(x)) || [];
+}
+function titleSimilarity(a,b) {
+  const A=new Set(words(a)),B=new Set(words(b));
+  if(!A.size||!B.size) return 0;
+  let common=0;for(const x of A)if(B.has(x))common++;
+  return common/Math.max(1,Math.min(A.size,B.size));
 }
 function overlap(a,b) {
   const A=new Set(words(a)), B=new Set(words(b));
@@ -81,16 +88,30 @@ function parseRss(xml, query) {
 function safePublisherUrl(value) {
   try {
     const parsed=new URL(value),host=parsed.hostname.toLowerCase();
-    if(!["http:","https:"].includes(parsed.protocol)||!host.includes(".")||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||/^[\\d.]+$/.test(host)||host.includes(":")) return null;
+    if(!["http:","https:"].includes(parsed.protocol)||parsed.username||parsed.password||!host.includes(".")||
+      host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")) return null;
+    if(/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
+      const octets=host.split(".").map(Number);
+      if(octets.some(x=>x>255)||octets[0]===0||octets[0]===10||octets[0]===127||
+        octets[0]>=224||(octets[0]===169&&octets[1]===254)||(octets[0]===172&&octets[1]>=16&&octets[1]<=31)||
+        (octets[0]===192&&octets[1]===168)||(octets[0]===100&&octets[1]>=64&&octets[1]<=127)) return null;
+    } else if(host.includes(":")||host==="::1"||host.startsWith("fc")||host.startsWith("fd")||host.startsWith("fe80")) return null;
     return parsed;
   } catch { return null; }
 }
 async function fetchArticleExcerpt(url,fetchImpl=fetch) {
   try {
-    const parsed=safePublisherUrl(url);
-    if(!parsed) return "";
-    const response=await fetchImpl(parsed.href,{redirect:"manual",headers:{accept:"text/html,application/xhtml+xml","user-agent":"DollarReasoningReader/1.0"},signal:AbortSignal.timeout(5000)});
-    if(!response.ok||!String(response.headers.get("content-type")||"").includes("text/html")) return "";
+    let current=safePublisherUrl(url),response=null;
+    if(!current) return "";
+    for(let hop=0;hop<=3;hop++) {
+      response=await fetchImpl(current.href,{redirect:"manual",headers:{accept:"text/html,application/xhtml+xml","user-agent":"DollarReasoningReader/1.0"},signal:AbortSignal.timeout(5000)});
+      if(![301,302,303,307,308].includes(response.status)) break;
+      const location=response.headers.get("location");
+      if(!location||hop===3) return "";
+      current=safePublisherUrl(new URL(location,current).href);
+      if(!current) return "";
+    }
+    if(!response?.ok||!String(response.headers.get("content-type")||"").includes("text/html")) return "";
     const html=(await response.text()).slice(0,180000);
     const paragraphs=[...html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ").matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
       .map(x=>decode(x[1])).filter(x=>x.length>=70);
