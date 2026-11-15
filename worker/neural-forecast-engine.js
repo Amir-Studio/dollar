@@ -1,7 +1,7 @@
 // Deterministic supervised MLP for market-return forecasting.
 // Training uses only matured labels available at the forecast origin.
 // This is a price-series model, not a language model or a trading instruction.
-export const NEURAL_MODEL_VERSION = "dollar-price-mlp-2.1.0";
+export const NEURAL_MODEL_VERSION = "dollar-price-mlp-2.2.0";
 const INPUTS = 9;
 const HIDDEN = 8;
 const ENSEMBLE_SIZE = 5;
