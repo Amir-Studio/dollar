@@ -376,6 +376,17 @@ function localActionEvidence(text, cfg, language) {
       }
     }
   }
+  if (!evidence.length) {
+    for (const [concept,pattern] of cfg.actions) {
+      const match=normalized.match(pattern);
+      if (match) evidence.push({
+        concept,matched_form:match[0],clause:normalized,
+        polarity:"affirmed_or_unspecified",modality:"not_locally_marked",
+        local_negation_detected:false,evidence_window:normalized.slice(0,150),
+        scope_fallback:"whole_sentence_due_to_no_clause_match"
+      });
+    }
+  }
   return evidence.slice(0,40);
 }
 
