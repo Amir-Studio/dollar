@@ -87,7 +87,11 @@ Deno.serve(async (request: Request) => {
     try { payload = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
     const progress = payload?.progress;
     if (!progress || typeof progress !== "object" || Array.isArray(progress)) return json({ error: "Invalid progress object" }, 400);
-    const ids = ["known", "learning", "due"].flatMap((key) => Array.isArray(progress[key]) ? progress[key] : []);
+    const ids = [
+      ...(Array.isArray(progress.known) ? progress.known : []),
+      ...(Array.isArray(progress.learning) ? progress.learning : []),
+      ...(Array.isArray(progress.due) ? progress.due.map((item: any) => item?.id) : []),
+    ];
     if (ids.length > 1000 || ids.some((id) => typeof id !== "string" || !/^de\\d{3}$/.test(id))) {
       return json({ error: "Progress contains invalid vocabulary identifiers" }, 400);
     }
