@@ -52,20 +52,34 @@ export async function analyzeEnglishNewsNeurally(text,env,options={}) {
   if(!source) return {status:"empty_input",model:MODEL,matches:[],unknown_candidates:[]};
   if(!env?.AI?.run) return {status:"neural_binding_not_configured",model:MODEL,matches:[],unknown_candidates:[]};
   const rows=concepts();
-  const [query,index]=await Promise.all([embed(env.AI,[source]).then(x=>x[0]),loadIndex(env,rows)]);
+  const additionalQueries=(Array.isArray(options.additionalQueries)?options.additionalQueries:[])
+    .filter(x=>x&&typeof x.text==="string"&&x.text.trim())
+    .slice(0,12).map(x=>({language:String(x.language||"und").slice(0,12),article_count:Number(x.article_count)||0,text:x.text.trim().slice(0,6000)}));
+  const queryTexts=[source,...additionalQueries.map(x=>x.text)];
+  const [queries,index]=await Promise.all([embed(env.AI,queryTexts),loadIndex(env,rows)]);
   const byId=new Map(rows.map(x=>[x.id,x]));
   const minimum=Number.isFinite(Number(options.minimumScore))?Number(options.minimumScore):0.30;
-  const matches=index.vectors.map((v,i)=>({...byId.get(index.ids[i]),
+  const rankMatches=(query,limit)=>index.vectors.map((v,i)=>({...byId.get(index.ids[i]),
     semantic_score:Number(cosine(query,v).toFixed(5)),match_type:"pretrained_multilingual_neural_embedding"}))
     .filter(x=>x.id&&x.semantic_score>=minimum).sort((a,b)=>b.semantic_score-a.semantic_score)
-    .slice(0,Math.max(1,Math.min(30,Number(options.limit)||15)));
+    .slice(0,Math.max(1,Math.min(30,Number(limit)||15)));
+  const query=queries[0];
+  const matches=rankMatches(query,options.limit);
+  const crossLanguageAnalyses=additionalQueries.map((item,i)=>({
+    language:item.language,article_count:item.article_count,
+    matches:rankMatches(queries[i+1],8),
+    model:MODEL,semantic_mode:"cross_lingual_embedding_against_english_market_ontology"
+  }));
   const unknown=extractUnknownVocabularyCandidates(source,"en",{limit:Math.max(1,Math.min(12,Number(options.unknownLimit)||8))});
   const termResearch = options.researchUnknown
     ? await Promise.all(unknown.slice(0,Math.max(0,Math.min(3,Number(options.researchLimit)||2))).map(x=>researchEnglishTerm(x.term,source,env)))
     : [];
   return {status:"neural_semantic_analysis_complete",model:MODEL,version:ENGLISH_NEURAL_VERSION,
-    pivot_language:"en",concept_count:rows.length,embedding_dimension:query.length,matches,unknown_candidates:unknown,term_research:termResearch,
-    learning_policy:"Unknown terms are candidates only; require dictionary evidence, source context, deduplication and review before promotion."};
+    pivot_language:"en",concept_count:rows.length,embedding_dimension:query.length,matches,
+    cross_language_analyses:crossLanguageAnalyses,
+    analyzed_language_count:1+crossLanguageAnalyses.length,
+    unknown_candidates:unknown,term_research:termResearch,
+    learning_policy:"Multilingual inputs are compared with the reviewed English market ontology; unknown terms remain candidates and require evidence and review."};
 }
 export async function researchEnglishTerm(term,context="",env,fetchImpl=fetch) {
   const clean=String(term||"").normalize("NFKC").trim().slice(0,100);
