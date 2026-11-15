@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { analyzeNewsWithReasoning, retrieveHistoryContext, runReasoningSelfTest, saveReasoningFeedback, REASONING_VERSION } from "./news-reasoning-engine.js";
 
 const json = value => new Response(JSON.stringify(value),{status:200,headers:{"content-type":"application/json"}});
-const rss = `<?xml version="1.0"?><rss><channel><item><title>Central bank releases new inflation data</title><link>https://example.org/report</link><pubDate>Sun, 15 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>`;
+const rss = `<?xml version="1.0"?><rss><channel><item><title>Central bank releases new inflation data</title><link>https://example.org/report</link><pubDate>Sun, 15 Nov 2026 10:00:00 GMT</pubDate><description>Central bank reports latest inflation and policy data.</description></item></channel></rss>`;
 const historyIndex = {updated_at:"2026-11-13",items:[{id:"history-of-us-dollar",title:"تاریخچه دلار آمریکا",description:"نهادهای پولی و نظام ارزی",keywords:["دلار","ارز","نرخ بهره"],json_url:"https://amir-studio.github.io/History/data/articles/history-of-us-dollar.json"}]};
 const historyDoc = {id:"history-of-us-dollar",title:"تاریخچه دلار آمریکا",status:"draft",lastVerified:"2026-11-13",summary:"زمینه تاریخی نظام پولی دلار.",sections:[{heading:"نقاط عطف",paragraphs:["تغییرات نظام پولی باید در زمینه نهادی بررسی شوند."]}],sources:[{title:"Federal Reserve History",publisher:"Federal Reserve",url:"https://example.org/history"}]};
 const mockFetch = async url => {
@@ -40,6 +40,7 @@ test("reasoner searches when first pass identifies an evidence gap and then revi
   assert.equal(result.ok,true);
   assert.equal(result.search.attempted,true);
   assert.equal(result.search.results.length,1);
+  assert.match(result.search.results[0].snippet,/inflation and policy data/);
   assert.equal(result.search.second_pass,"completed");
   assert.equal(result.abstained,true);
   assert.equal(result.analysis.conclusion,"هنوز برای نتیجه قطعی کافی نیست");
