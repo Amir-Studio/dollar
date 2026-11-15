@@ -233,7 +233,7 @@ const LANGS = {
     modality:/(?:olabilir|bekleniyor|muhtemelen|öngörülüyor|ihtimali)/i,
     conditional:/(?:\beğer\b|\bise\b|şartıyla|durumunda|olmadıkça)/i,
     negation:/(?:değil|yok|hayır|reddetti|doğrulamadı|onaylamadı)/i,
-    attribution:/(?:açıklamasına göre|dedi|belirtti|duyurdu|uyardı|raporuna göre)/i,
+    attribution:/(?:açıklamasına göre|açıkladı|dedi|belirtti|duyurdu|uyardı|raporuna göre)/i,
     causal:/(?:nedeniyle|sonucunda|yol açtı|sebebiyle|bu nedenle)/i,
     contrast:/(?:ancak|fakat|oysa|rağmen|buna karşın|öte yandan)/i,
     comparison:/(?:karşılaştırıldığında|göre daha|daha yüksek|daha düşük|geçen yıla göre)/i,
