@@ -42,7 +42,7 @@ const FINANCE = [
   ["public_debt", ["الدين العام", "خدمة الدين", "سندات الخزانة"]],
   ["fiscal_policy", ["السياسة المالية", "العجز المالي", "الفائض المالي", "الإنفاق الحكومي"]],
   ["monetary_policy", ["السياسة النقدية", "التيسير النقدي", "التشديد النقدي", "سحب السيولة"]],
-  ["oil_market", ["أسعار النفط", "النفط الخام", "خام برنت", "خام غرب تكساس", "أوبك", "أوبك بلس"]],
+  ["oil_market", ["سعر النفط", "أسعار النفط", "النفط الخام", "خام برنت", "خام غرب تكساس", "أوبك", "أوبك بلس"]],
   ["gold_market", ["الذهب", "المعدن الأصفر", "أونصة الذهب", "الذهب الفوري"]],
   ["trade_balance", ["الميزان التجاري", "الصادرات", "الواردات", "الحساب الجاري"]],
   ["sanctions", ["العقوبات الاقتصادية", "رفع العقوبات", "تشديد العقوبات", "حزمة عقوبات"]]
@@ -159,7 +159,8 @@ function extractNumbers(text) {
   const re=/(\d+(?:[.,]\d+)?)\s*(%|٪|بالمئة|في المئة|مئة|مائة|ألف|آلاف|مليون|ملايين|مليار|مليارات|ترليون|تريليون|دولار|دولارات|درهم|دراهم|ريال|ريالات|دينار|دنانير|جنيه|جنيهات|ليرة|ليرات|برميل|أونصة|اونصة|نقطة مئوية)?/gu;
   for(const m of text.matchAll(re)){
     const raw=m[0].trim(); if(!raw) continue;
-    const value=Number(m[1].replace(",","."));
+    const numeric=m[1].includes(",")?( /,\\d{3}$/.test(m[1])?m[1].replace(/,/g,""):m[1].replace(",",".") ):m[1];
+    const value=Number(numeric);
     out.push({raw,value,unit:m[2]||null,unit_normalized:normalizeUnit(m[2]||""),context:text.slice(Math.max(0,m.index-55),Math.min(text.length,m.index+raw.length+55))});
     if(out.length>=30) break;
   }
