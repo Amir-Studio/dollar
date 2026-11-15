@@ -25,8 +25,8 @@ function mockKv() {
 test("only verified correction-shaped cases enter neural memory", async () => {
   const env = { AI: mockAi(), MARKET_CACHE: mockKv() };
   const result = await refreshNeuralErrorMemory([
-    { id:"1", feedback_id:"f1", category:"wrong_action", input_text:"Central bank rate decision", expected_output:{ action:"increase" }, results:[] },
-    { id:"2", feedback_id:"f2", category:"other", input_text:"", expected_output:{ action:"hold" } },
+    { id:"1", feedback_id:"f1", total:1, category:"wrong_action", input_text:"Central bank rate decision", expected_output:{ action:"increase" }, results:[] },
+    { id:"2", feedback_id:"f2", total:1, category:"other", input_text:"", expected_output:{ action:"hold" } },
     { id:"3", feedback_id:"f3", category:"other", input_text:"No correction" }
   ], env);
   assert.equal(result.indexed, 1);
@@ -34,7 +34,7 @@ test("only verified correction-shaped cases enter neural memory", async () => {
 test("retrieval returns a verified correction for a semantically related query", async () => {
   const env = { AI: mockAi(), MARKET_CACHE: mockKv() };
   await refreshNeuralErrorMemory([
-    { id:"1", feedback_id:"f1", category:"wrong_action", input_text:"Central bank raised interest rates", expected_output:{ action:"increase" }, results:[] },
+    { id:"1", feedback_id:"f1", total:1, category:"wrong_action", input_text:"Central bank raised interest rates", expected_output:{ action:"increase" }, results:[] },
     { id:"2", feedback_id:"f2", category:"other", input_text:"Football club won championship", expected_output:{ topic:"sports" }, results:[] }
   ], env);
   const result = await retrieveNeuralErrorGuidance("The monetary authority increased borrowing costs.", env, { minimumScore:0.5 });
