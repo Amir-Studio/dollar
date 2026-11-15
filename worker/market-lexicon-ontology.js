@@ -93,7 +93,7 @@ C("negotiation_breakdown","negotiation breakdown","A failure or collapse of talk
 fa:["شکست مذاکرات","فروپاشی گفت‌وگوها"],ar:["انهيار المفاوضات","فشل المحادثات"],de:["Scheitern der Verhandlungen"],fr:["échec des négociations"],ru:["срыв переговоров"],zh:["谈判破裂"],ja:["交渉決裂"],ko:["협상 결렬"],hi:["वार्ता विफल होना"],es:["fracaso de las negociaciones"],it:["fallimento dei negoziati"],pt:["fracasso das negociações"],tr:["müzakerelerin çökmesi"],nl:["mislukken van onderhandelingen"],pl:["fiasko negocjacji"]})
 
 C("armed_conflict","armed conflict","Organized hostilities between states or organized armed groups; the term describes a conflict, not its legal classification.",{
-fa:["درگیری مسلحانه"],ar:["نزاع مسلح","نزاع مسلح"],de:["bewaffneter Konflikt"],fr:["conflit armé"],ru:["вооружённый конфликт"],zh:["武装冲突"],ja:["武力紛争"],ko:["무력 충돌"],hi:["सशस्त्र संघर्ष"],es:["conflicto armado"],it:["conflitto armato"],pt:["conflito armado"],tr:["silahlı çatışma"],nl:["gewapend conflict"],pl:["konflikt zbrojny"]},{category:"conflict"}),
+fa:["درگیری مسلحانه"],ar:["نزاع مسلح"],de:["bewaffneter Konflikt"],fr:["conflit armé"],ru:["вооружённый конфликт"],zh:["武装冲突"],ja:["武力紛争"],ko:["무력 충돌"],hi:["सशस्त्र संघर्ष"],es:["conflicto armado"],it:["conflitto armato"],pt:["conflito armado"],tr:["silahlı çatışma"],nl:["gewapend conflict"],pl:["konflikt zbrojny"]},{category:"conflict"}),
 C("ceasefire","ceasefire","An agreed or declared pause or cessation of fighting, which may be temporary or conditional.",{
 fa:["آتش‌بس"],ar:["وقف إطلاق النار","الهدنة"],de:["Waffenstillstand","Waffenruhe"],fr:["cessez-le-feu","trêve"],ru:["прекращение огня","перемирие"],zh:["停火"],ja:["停戦"],ko:["휴전"],hi:["युद्धविराम"],es:["alto el fuego","cese del fuego"],it:["cessate il fuoco","tregua"],pt:["cessar-fogo","trégua"],tr:["ateşkes"],nl:["staakt-het-vuren"],pl:["zawieszenie broni"]},{category:"conflict"}),
 C("armistice","armistice","A formal agreement to suspend hostilities, often preceding a final peace settlement.",{
@@ -101,7 +101,7 @@ fa:["متارکه جنگ"],ar:["هدنة رسمية"],de:["Waffenstillstandsabko
 C("peace_negotiations","peace negotiations","Diplomatic talks intended to end a conflict or establish terms for a durable settlement.",{
 fa:["مذاکرات صلح"],ar:["مفاوضات السلام"],de:["Friedensverhandlungen"],fr:["négociations de paix"],ru:["мирные переговоры"],zh:["和平谈判"],ja:["和平交渉"],ko:["평화 협상"],hi:["शांति वार्ता"],es:["negociaciones de paz"],it:["negoziati di pace"],pt:["negociações de paz"],tr:["barış müzakereleri"],nl:["vredesonderhandelingen"],pl:["negocjacje pokojowe"]},{category:"diplomacy"}),
 C("peace_agreement","peace agreement","A negotiated arrangement intended to formally end a conflict and set out political or security commitments.",{
-fa:["توافق‌نامه صلح","توافق صلح"],ar:["اتفاقية سلام"],de:["Friedensabkommen"],fr:["accord de paix"],ru:["мирное соглашение"],zh:["和平协议"],ja:["和平合意"],ko:["평화 협정"],hi:["शांति समझौता"],es:["acuerdo de paz"],it:["accordo di pace"],pt:["acordo de paz"],tr:["barış anlaşması"],nl:["v vredesakkoord"],pl:["porozumienie pokojowe"]},{category:"diplomacy"}),
+fa:["توافق‌نامه صلح","توافق صلح"],ar:["اتفاقية سلام"],de:["Friedensabkommen"],fr:["accord de paix"],ru:["мирное соглашение"],zh:["和平协议"],ja:["和平合意"],ko:["평화 협정"],hi:["शांति समझौता"],es:["acuerdo de paz"],it:["accordo di pace"],pt:["acordo de paz"],tr:["barış anlaşması"],nl:["vredesakkoord"],pl:["porozumienie pokojowe"]},{category:"diplomacy"}),
 C("conflict_escalation","conflict escalation","An increase in the intensity, geographic scope or number of actors involved in a conflict.",{
 fa:["تشدید درگیری","گسترش تنش"],ar:["تصعيد الصراع","تصاعد التوتر"],de:["Eskalation des Konflikts"],fr:["escalade du conflit"],ru:["эскалация конфликта"],zh:["冲突升级"],ja:["紛争の激化"],ko:["분쟁 격화"],hi:["संघर्ष में वृद्धि"],es:["escalada del conflicto"],it:["escalatione del conflitto"],pt:["escalada do conflito"],tr:["çatışmanın tırmanması"],nl:["escalatie van het conflict"],pl:["eskalacja konfliktu"]},{category:"conflict"}),
 C("deescalation","de-escalation","A reduction in tension or intensity intended to prevent further confrontation.",{
@@ -189,7 +189,43 @@ const ENGLISH_FORMS = [
 ["sanctions_relief",["lift sanctions","lifts sanctions","lifted sanctions","ease sanctions","eases sanctions","sanctions relief","waive sanctions","waives sanctions"]],
 ["sanctions_imposition",["impose sanctions","imposes sanctions","imposed sanctions","tighten sanctions","tightens sanctions","new sanctions","sanctions package"]],
 ["negotiation_progress",["resume talks","resumes talks","talks resume","restart negotiations","restarts negotiations","reach an agreement","deal reached","make progress in talks"]],
-["negotiation_breakdown",["walk away from talks","walks away from talks","talks collapse","negotiations collapse","break off talks","breaks off talks","negotiations stall"]]
+["negotiation_breakdown",["walk away from talks","walks away from talks","talks collapse","negotiations collapse","break off talks","breaks off talks","negotiations stall"]],
+["armed_conflict",["armed hostilities","hostilities"]],
+["ceasefire",["truce","cessation of hostilities","stop fighting"]],
+["armistice",["armistice agreement"]],
+["peace_negotiations",["peace talks","ceasefire talks","peace process","peace dialogue"]],
+["peace_agreement",["peace deal","peace accord"]],
+["conflict_escalation",["escalating conflict","heightened conflict","military escalation"]],
+["deescalation",["de-escalation","lower tensions","ease tensions"]],
+["invasion",["military invasion","cross-border invasion"]],
+["military_occupation",["occupation of territory","occupied territory"]],
+["sovereignty",["national sovereignty","state sovereignty"]],
+["territorial_integrity",["territorial unity"]],
+["diplomatic_relations",["diplomatic ties","bilateral relations"]],
+["diplomatic_ties_break",["break diplomatic ties","sever diplomatic ties","diplomatic rupture"]],
+["economic_embargo",["trade embargo"]],
+["arms_embargo",["weapons embargo"]],
+["humanitarian_crisis",["humanitarian emergency"]],
+["humanitarian_aid",["relief assistance","emergency aid"]],
+["refugee",["refugees"]],
+["internally_displaced_person",["internally displaced people","IDPs"]],
+["international_humanitarian_law",["IHL","law of armed conflict"]],
+["war_crime",["war crimes"]],
+["civilian_protection",["protect civilians","civilian safety"]],
+["critical_infrastructure",["essential infrastructure"]],
+["energy_security",["security of energy supply"]],
+["supply_chain_disruption",["supply disruptions","supply-chain disruption","disrupted supply chains"]],
+["trade_route",["shipping route","commercial route"]],
+["maritime_chokepoint",["strategic sea passage","maritime bottleneck"]],
+["food_security",["access to food","food insecurity"]],
+["commodity_market",["commodities market","raw materials market"]],
+["oil_supply_disruption",["disruption to oil supplies","oil supply shock","oil export disruption"]],
+["defense_spending",["military spending","defence spending"]],
+["military_alliance",["defense alliance","defence alliance"]],
+["proxy_conflict",["proxy war","proxy warfare"]],
+["cyber_incident",["cyberattack","cyber attack","cyber disruption"]],
+["blockade",["naval blockade","trade blockade"]],
+["ceasefire_violation",["breach of ceasefire","ceasefire breach"]]
 ];
 const FORM_MAP = new Map(ENGLISH_FORMS.flatMap(([id,forms])=>forms.map(term=>[term.toLowerCase(),id])));
 const CONCEPT_MAP = new Map(MARKET_CONCEPTS.map(c=>[c.id,c]));
