@@ -1181,8 +1181,11 @@ export default {
     ctx.waitUntil(refreshBackground(env).then(async market => {
       await runForecastCycle(env,market);
       await runNewsLearningCycle(env);
-      await runVocabularyLearningCycle(env);
     }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
+    // Vocabulary discovery is isolated from market refresh/forecast failures.
+    ctx.waitUntil(runVocabularyLearningCycle(env).then(result => {
+      console.log("Autonomous vocabulary learning cycle:",JSON.stringify(result));
+    }).catch(error => console.error("Autonomous vocabulary learning failed:",error?.message || error)));
     ctx.waitUntil(collectGlobalCountryTestBatch(env).then(result => {
       console.log("Global country test collector:", JSON.stringify(result));
     }).catch(error => console.error("Global country test collector crashed:",error?.message || error)));
