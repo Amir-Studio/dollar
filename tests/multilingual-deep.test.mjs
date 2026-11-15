@@ -20,7 +20,7 @@ const samples = [
 ];
 
 test("multilingual engine exposes clause-local action evidence in every supported language sample",()=>{
-  assert.equal(MULTILINGUAL_VERSION,"dollar-multilingual-news-1.2.0");
+  assert.equal(MULTILINGUAL_VERSION,"dollar-multilingual-news-1.5.0");
   for(const [lang,sentence] of samples){
     const result=analyzeMultilingualNews(sentence,"",lang);
     const frame=result.sentence_frames[0];
