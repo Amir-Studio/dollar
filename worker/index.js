@@ -807,6 +807,7 @@ async function runVocabularyLearningCycle(env) {
       const historyDispatch=await queueHistoryVocabularyRecord(env,{
         term:candidate.term,
         language:candidate.language,
+        status:found?"learning_pending":"unknown",
         context:contextRecord.text||candidate.contexts?.[0]||candidate.term,
         captured_at:now,
         source_url:contextRecord.source_url||incoming[0]||null,
