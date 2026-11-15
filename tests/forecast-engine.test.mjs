@@ -53,6 +53,15 @@ test('walk-forward ensemble can qualify on a stable synthetic trend and returns 
 });
 
 
+test('walk-forward forecast exposes a regime-aware expert and directional quality gate', () => {
+  const points = series(600, 0.0025);
+  const result = buildForecast(points, points.at(-1).p, 7);
+  assert.equal(result.eligible, true);
+  assert.ok(Number.isFinite(result.validation.candidate_predictions_log.regime_ewma_5));
+  assert.equal(result.validation.directional_gate_passed, true);
+  assert.equal(result.validation.directional_gate_min_samples, 20);
+});
+
 test('news relevance filter keeps market headlines and rejects unrelated or incident-only headlines', () => {
   assert.equal(isMarketRelevantHeadline('قیمت نفت کاهش یافت'), true);
   assert.equal(isMarketRelevantHeadline('US Treasury warns against rate hikes during Iran energy shock'), true);
