@@ -135,6 +135,13 @@ test('health endpoint distinguishes missing credentials from working database st
   assert.equal(health.decision_engine.self_test.passed, health.decision_engine.self_test.total);
 });
 
+test('deep evidence analysis is rendered in the market report', () => {
+  assert.match(aiJs, /deepAnalysisHtml/);
+  assert.match(aiJs, /ماتریس شواهد/);
+  assert.match(aiJs, /سناریوهای رقیب/);
+  assert.match(aiJs, /استقلال تحریریه‌ای ناشران/);
+});
+
 test('market data limitations and risk disclosure are visible', () => {
   assert.ok(html.includes('id="marketStatus"'), 'market data status should exist');
   assert.match(html, /توصیهٔ سرمایه‌گذاری|توصیهٔ خریدوفروش/);
