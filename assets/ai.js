@@ -48,7 +48,7 @@ function simpleNewsAnalysisHtml(languageAnalysis, fa){
 function forecastCurveHtml(f,fa){
  const curve=Array.isArray(f?.forecast_curve)?f.forecast_curve:[];
  const complete=f?.forecast_curve_meta?.complete===true&&curve.length===8&&curve.every(p=>p.available!==false&&Number.isFinite(Number(p.price))&&Number.isFinite(Number(p.lower))&&Number.isFinite(Number(p.upper)));
- if(!complete)return '<div class="ai-driver"><h4>نمودار مسیر هفت‌روزه</h4><p>برای تمام روزها شواهد تاریخی کافی در دسترس نیست؛ برای جلوگیری از نمایش دادهٔ ساختگی، نمودار کامل رسم نشد.</p></div>';
+ if(!complete)return '<div class="ai-driver"><h4>نمودار مسیر هفت‌روزه</h4><p>'+escapeHtml(f?.forecast_curve_meta?.note_fa||'برای تمام روزها شواهد تاریخی کافی در دسترس نیست؛ برای جلوگیری از نمایش دادهٔ ساختگی، نمودار کامل رسم نشد.')+'</p></div>';
  const W=760,H=310,L=104,R=22,T=22,B=46,PW=W-L-R,PH=H-T-B;
  const all=curve.flatMap(p=>[Number(p.lower),Number(p.upper)]);
  let lo=Math.min(...all),hi=Math.max(...all);
