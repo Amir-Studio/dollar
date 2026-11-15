@@ -5,7 +5,8 @@ import {
   buildForecastErrorDiagnostic,
   directionMatches,
   summarizeLearningEvidence,
-  evaluateComponentWeightAdjustment
+  evaluateComponentWeightAdjustment,
+  runComponentCalibrationSelfTest
 } from "../worker/forecast-engine.js";
 
 test("robust calibration passes its holdout and minimum-sample regression checks", () => {
@@ -122,4 +123,10 @@ test("live component reweighting requires at least 60 matured forecasts", () => 
   const result = evaluateComponentWeightAdjustment(rows,{trend_15:1});
   assert.equal(result.applied,false);
   assert.equal(result.samples,59);
+});
+
+test("component calibration built-in regression suite passes", () => {
+  const result = runComponentCalibrationSelfTest();
+  assert.equal(result.failed.length,0,JSON.stringify(result.failed));
+  assert.equal(result.passed,result.total);
 });
