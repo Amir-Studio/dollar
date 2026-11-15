@@ -187,7 +187,9 @@ export async function analyzeNewsWithReasoning({news,languageAnalysis=null,contr
   }
   const confidence=clamp(final.confidence);
   return {ok:true,status:"analyzed",version:REASONING_VERSION,model:MODEL,
-    created_at:new Date().toISOString(),history_status:history.status,history_documents:(history.documents||[]).map(x=>({id:x.id,title:x.title,status:x.status,relevance:x.relevance})),\n    history_news_archive_items:(history.news_archive||[]).length,
+    created_at:new Date().toISOString(),history_status:history.status,
+    history_documents:(history.documents||[]).map(x=>({id:x.id,title:x.title,status:x.status,relevance:x.relevance})),
+    history_news_archive_items:(history.news_archive||[]).length,
     learning:{reviewed_lessons_considered:reviewedLessons.length,mode:"human_reviewed_retrieval_memory_not_online_weight_updates"},
     search:{attempted:queries.length>0,queries:queries.slice(0,3),results:searched,second_pass:secondPass},
     analysis:final,confidence,abstained:final.abstain===true,
