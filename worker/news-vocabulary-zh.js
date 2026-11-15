@@ -1,10 +1,12 @@
-// Curated Chinese-language news vocabulary, batches 1-4 (400 of 1,000 target concepts).
+// Curated Chinese-language news vocabulary, batches 1-6 (600 of 1,000 target concepts).
 // Each row: [id, category, English concept, Simplified Chinese, pinyin, Persian meaning].
 // Entries are specialist news terms, not everyday vocabulary.
 import { CHINESE_NEWS_VOCABULARY_BATCH_2, runChineseVocabularyBatch2SelfTest } from "./news-vocabulary-zh-batch-2.js";
 import { CHINESE_NEWS_VOCABULARY_BATCH_3, runChineseVocabularyBatch3SelfTest } from "./news-vocabulary-zh-batch-3.js";
 import { CHINESE_NEWS_VOCABULARY_BATCH_4, runChineseVocabularyBatch4SelfTest } from "./news-vocabulary-zh-batch-4.js";
-export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.5.0";
+import { CHINESE_NEWS_VOCABULARY_BATCH_5, runChineseVocabularyBatch5SelfTest } from "./news-vocabulary-zh-batch-5.js";
+import { CHINESE_NEWS_VOCABULARY_BATCH_6, runChineseVocabularyBatch6SelfTest } from "./news-vocabulary-zh-batch-6.js";
+export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.6.0";
 const CHINESE_NEWS_VOCABULARY_BATCH_1 = [
 ["zh001","macroeconomics","consumer price index","居民消费价格指数","jūmín xiāofèi jiàgé zhǐshù","شاخص قیمت مصرف‌کننده"],
 ["zh002","macroeconomics","producer price index","工业生产者出厂价格指数","gōngyè shēngchǎnzhě chūchǎng jiàgé zhǐshù","شاخص قیمت تولیدکننده"],
@@ -128,7 +130,7 @@ const CHINESE_NEWS_VOCABULARY_BATCH_1 = [
 ["zh120","conflict_security","arms control","军备控制","jūnbèi kòngzhì","کنترل تسلیحات"]
 ];
 
-export const CHINESE_NEWS_VOCABULARY = [...CHINESE_NEWS_VOCABULARY_BATCH_1, ...CHINESE_NEWS_VOCABULARY_BATCH_2, ...CHINESE_NEWS_VOCABULARY_BATCH_3, ...CHINESE_NEWS_VOCABULARY_BATCH_4];
+export const CHINESE_NEWS_VOCABULARY = [...CHINESE_NEWS_VOCABULARY_BATCH_1, ...CHINESE_NEWS_VOCABULARY_BATCH_2, ...CHINESE_NEWS_VOCABULARY_BATCH_3, ...CHINESE_NEWS_VOCABULARY_BATCH_4, ...CHINESE_NEWS_VOCABULARY_BATCH_5, ...CHINESE_NEWS_VOCABULARY_BATCH_6];
 
 const ids = new Set();
 const terms = new Set();
@@ -149,11 +151,11 @@ export function getChineseNewsVocabulary({category=null, query=null, limit=1000}
     version:CHINESE_NEWS_VOCABULARY_VERSION,
     language:"zh",
     script:"Simplified Chinese",
-    batch:4,
-    batch_size:80,
+    batch:6,
+    batch_size:100,
     target_total:1000,
-    previously_covered_concepts:320,
-    current_batch_new:CHINESE_NEWS_VOCABULARY_BATCH_4.length,
+    previously_covered_concepts:500,
+    current_batch_new:CHINESE_NEWS_VOCABULARY_BATCH_6.length,
     current_total:CHINESE_NEWS_VOCABULARY.length,
     coverage_pct:CHINESE_NEWS_VOCABULARY.length/10,
     categories:[...new Set(CHINESE_NEWS_VOCABULARY.map(x=>x[1]))],
@@ -172,6 +174,8 @@ export function runChineseNewsVocabularySelfTest() {
     batch_2:runChineseVocabularyBatch2SelfTest(),
     batch_3:runChineseVocabularyBatch3SelfTest(),
     batch_4:runChineseVocabularyBatch4SelfTest(),
+    batch_5:runChineseVocabularyBatch5SelfTest(),
+    batch_6:runChineseVocabularyBatch6SelfTest(),
     scope:"Structural and deduplication checks only; translations and pinyin require native-speaker review before high-stakes use."
   };
 }
