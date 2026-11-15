@@ -108,7 +108,7 @@ export function runChineseVocabularyBatch2SelfTest() {
   const terms = new Set(CHINESE_NEWS_VOCABULARY_BATCH_2.map(row => row[3]));
   const categories = new Set(CHINESE_NEWS_VOCABULARY_BATCH_2.map(row => row[1]));
   const valid = CHINESE_NEWS_VOCABULARY_BATCH_2.every(row =>
-    row.length === 6 && /^zh\\d{3}$/.test(row[0]) && row[2] && /[\\u3400-\\u9fff]/.test(row[3]) && row[4] && row[5]
+    row.length === 6 && /^zh\d{3}$/.test(row[0]) && row[2] && /[\u3400-\u9fff]/.test(row[3]) && row[4] && row[5]
   );
   return { total: CHINESE_NEWS_VOCABULARY_BATCH_2.length, unique_ids: ids.size, unique_chinese_terms: terms.size, category_count: categories.size, passed: valid && ids.size === 100 && terms.size === 100 && categories.size >= 8 };
 }
