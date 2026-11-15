@@ -11,6 +11,7 @@ import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest 
 import { COUNTRY_NEWS_SOURCES as CURATED_NEWS_SOURCES, validateCountryNewsSources } from "./country-news-sources.js";
 import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
 import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.js";
+import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_CONTRADICTION_VERSION } from "./news-contradiction-engine.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -673,8 +674,12 @@ function evaluateNewsLearningCase(item) {
     return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:item.validation_status,...compareLearningAssertions(actual,item.expected_output)};
   }
   if(item.category==="contradiction") {
-    // A single article cannot establish a cross-source contradiction.
-    return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:"not_evaluable_single_article",total:0,passed:0,failed:0,results:[],evaluation_note:"Requires at least two independently sourced article claims; never mark a single-article case as passed."};
+    let payload;
+    try { payload=JSON.parse(String(item.input_text||"")); } catch {}
+    const articles=Array.isArray(payload?.articles)?payload.articles:[];
+    if(articles.length<2) return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:"not_evaluable_requires_two_articles",total:0,passed:0,failed:0,results:[],evaluation_note:"Requires a JSON input_text object with at least two independently sourced articles. A single article is never scored as a cross-source contradiction."};
+    const actual=analyzeCrossSourceContradictions(articles);
+    return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:item.validation_status,analysis:actual,...compareLearningAssertions(actual,item.expected_output)};
   }
   const actual=analyzeNewsReading(title,body);
   return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:item.validation_status,...compareLearningAssertions(actual,item.expected_output)};
@@ -685,10 +690,17 @@ function runNewsLearningEvaluationSelfTest() {
     input_text:"بازار ارز و نرخ دلار\nقیمت دلار آزاد در بازار ارز بررسی شد.",
     expected_output:{assertions:[{path:"themes",equals:["fx_policy"]}]},validation_status:"verified"});
   const contradiction=evaluateNewsLearningCase({id:"synthetic-conflict",feedback_id:"synthetic-conflict",category:"contradiction",
-    input_text:"دو خبر متناقض\nخبر اول می‌گوید نرخ ثابت ماند.",expected_output:{assertions:[{path:"possible_conflicts",equals:[]}]},validation_status:"verified"});
+    input_text:"دو خبر متناقض\nخبر اول می‌گوید نرخ ثابت ماند.",expected_output:{assertions:[{path:"potential_contradiction_count",equals:1}]},validation_status:"verified"});
+  const crossSource=evaluateNewsLearningCase({id:"synthetic-cross-source",feedback_id:"synthetic-cross-source",category:"contradiction",
+    input_text:JSON.stringify({articles:[
+      {title:"Central bank raised interest rates",domain:"a.example",url:"https://a.example/rates",published_at:"2026-11-15T10:00:00Z"},
+      {title:"Central bank cut interest rates",domain:"b.example",url:"https://b.example/rates",published_at:"2026-11-15T11:00:00Z"}
+    ]}),expected_output:{assertions:[{path:"potential_contradiction_count",equals:1}]},validation_status:"verified"});
   const results=[
     {name:"topic_feedback_uses_topic_classifier",passed:topic.total===1&&topic.passed===1},
-    {name:"single_article_cannot_pass_cross_source_contradiction",passed:contradiction.total===0&&contradiction.status==="not_evaluable_single_article"},
+    {name:"single_article_cannot_pass_cross_source_contradiction",passed:contradiction.total===0&&contradiction.status==="not_evaluable_requires_two_articles"},
+    {name:"two_source_contradiction_case_is_evaluated",passed:crossSource.total===1&&crossSource.passed===1&&crossSource.analysis.potential_contradiction_count===1},
+    {name:"contradiction_benchmark_passes",passed:runNewsContradictionBenchmark().failed===0},
     {name:"wrong_expected_topic_is_counted_as_failure",passed:evaluateNewsLearningCase({id:"synthetic-wrong-topic",feedback_id:"synthetic-wrong-topic",category:"topic_classification",input_text:"بازار ارز و نرخ دلار\\nقیمت دلار آزاد در بازار ارز بررسی شد.",expected_output:{assertions:[{path:"themes",equals:["gold"]}]},validation_status:"verified"}).failed===1},
     {name:"missing_assertions_is_not_a_pass",passed:evaluateNewsLearningCase({id:"synthetic-no-assertions",feedback_id:"synthetic-no-assertions",category:"topic_classification",input_text:"بازار ارز و نرخ دلار\\nقیمت دلار آزاد در بازار ارز بررسی شد.",expected_output:{themes:["fx_policy"]},validation_status:"verified"}).total===0}
   ];
@@ -702,6 +714,7 @@ async function newsLearningReport(env) {
     learningRest(env,"market_news_learning_cycles?select=cycle_at,analyzer_version,feedback_seen,verified_cases,pending_cases,rejected_cases,benchmark_before,benchmark_after,actions,notes&order=cycle_at.desc&limit=20")
   ]);
   const benchmark=runNewsReadingBenchmark();
+  const contradictionBenchmark=runNewsContradictionBenchmark();
   const learningEvaluationBenchmark=runNewsLearningEvaluationSelfTest();
   const verifiedFeedbackIds=new Set(feedback.filter(x=>x.status==="verified").map(x=>x.id));
   const evaluated=cases.filter(item=>verifiedFeedbackIds.has(item.feedback_id)).map(evaluateNewsLearningCase);
@@ -727,6 +740,7 @@ async function newsLearningReport(env) {
       real_case_assertions_passed:checks.filter(x=>x.passed).length,
       real_case_assertions_failed:checks.filter(x=>!x.passed).length,
       benchmark:{version:benchmark.version,total:benchmark.total,passed:benchmark.passed,failed:benchmark.failed,score_pct:benchmark.score_pct},
+      contradiction_benchmark:contradictionBenchmark,
       learning_evaluation_benchmark:learningEvaluationBenchmark
     },
     benchmark_failures:benchmark.failures,real_case_results:evaluated,
@@ -1298,6 +1312,7 @@ export default {
       const stored = await readNewsFromSupabase(env).catch(() => []);
       const items = cleanNewsItems(stored);
       const conflicts = headlineConflictCandidates(items);
+      const crossSourceVerification = analyzeCrossSourceContradictions(items);
       const languageAnalysis = analyzeMarketLanguage(items, []);
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
@@ -1305,6 +1320,7 @@ export default {
         source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
         potential_conflicts:conflicts,
         potential_conflict_count:conflicts.length,
+        cross_source_verification:crossSourceVerification,
         language_intelligence:{engine:"dollar-domain-nlp",version:LANGUAGE_ENGINE_VERSION,mode:"deterministic_domain_nlp_not_llm",analyzed_articles:languageAnalysis.news_analyzed,excerpt_articles:languageAnalysis.news_with_excerpt,excerpt_coverage_pct:languageAnalysis.excerpt_coverage_pct,themes:languageAnalysis.themes,
           topic_evidence:languageAnalysis.per_news.map(article=>({title:article.title,source:article.source,themes:article.theme_evidence||[],input_mode:article.input_mode,content_chars:article.content_chars})),
           events:languageAnalysis.events,possible_conflicts:languageAnalysis.possible_conflicts,structured_claim_conflicts:languageAnalysis.structured_claim_conflicts,structured_conflict_benchmark:languageAnalysis.structured_conflict_benchmark,formal_language:languageAnalysis.formal_language,bilingual_lexicon:languageAnalysis.bilingual_lexicon,hard_news_comprehension:languageAnalysis.hard_news_comprehension,news_reading_comprehension:languageAnalysis.news_reading_comprehension,quality:languageAnalysis.quality,theme_classification_benchmark:languageAnalysis.theme_classification_benchmark},
@@ -1418,12 +1434,13 @@ export default {
         multi_source_quotes_enabled: true,
         quote_freshness_guard_hours: 24,
         news_conflict_screening_enabled: true,
+        cross_source_verification:{enabled:true,version:NEWS_CONTRADICTION_VERSION,mode:"deterministic_candidate_screening_not_truth_verdict",benchmark:runNewsContradictionBenchmark()},
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: false,
          market_news_search_enabled: true,
          market_news_search_provider: "Google News RSS plus local archive; market-topic-only",
-        capabilities: ["market-news-live-search","multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
+        capabilities: ["market-news-live-search","multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","cross-source-contradiction-screening","verified-news-learning-evaluation","decision-quality-gates","database-schema-diagnostics","no-external-language-model"
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
