@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot, directionMatches, buildForecastErrorDiagnostic } from '../worker/forecast-engine.js';
+import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot, directionMatches, buildForecastErrorDiagnostic, evaluateComponentWeightAdjustment, selectWeightsFromErrorSums } from '../worker/forecast-engine.js';
 
 const DAY = 86_400_000;
 function series(count, dailyLogReturn) {
@@ -29,6 +29,10 @@ test('flat series records a neutral baseline for calibration without inventing a
   assert.equal(result.validation.samples >= 30, true);
   assert.equal(result.validation.directional_signal, false);
   assert.match(result.validation.reason, /بدون تغییر/);
+  assert.equal(result.validation.candidate_predictions_scope, 'as_of_forecast_issue');
+  assert.ok(result.validation.candidate_predictions_log);
+  assert.ok(Object.keys(result.validation.candidate_predictions_log).includes('no_change'));
+  assert.ok(Object.values(result.validation.candidate_predictions_log).every(Number.isFinite));
 });
 
 test('walk-forward ensemble can qualify on a stable synthetic trend and returns an uncertainty band', () => {
@@ -125,4 +129,64 @@ test('buildForecastErrorDiagnostic records error decomposition and cautious evid
 test('buildForecastErrorDiagnostic refuses incomplete or invalid price rows', () => {
   assert.equal(buildForecastErrorDiagnostic({ reference_price: 100, predicted_price: 110, actual_price: 105 }), null);
   assert.equal(buildForecastErrorDiagnostic({ id: 'x', reference_price: 0, predicted_price: 110, actual_price: 105 }), null);
+});
+
+test('matured neutral forecasts can train component weights only after a newer holdout improves', () => {
+  const base = { no_change: 1, trend_15: 0 };
+  const rows = Array.from({length:60}, () => ({
+    reference_price:100,
+    actual_price:100*Math.exp(0.01),
+    model_weights:base,
+    validation:{candidate_predictions_log:{no_change:0,trend_15:0.01}}
+  }));
+  const result = evaluateComponentWeightAdjustment(rows, base);
+  assert.equal(result.applied, true);
+  assert.equal(result.training_samples, 40);
+  assert.equal(result.holdout_samples, 20);
+  assert.ok(result.holdout_improvement_pct >= 3);
+  assert.ok(result.weights.trend_15 > 0);
+});
+
+test('incremental walk-forward selector reproduces the batch error-weight calculation', () => {
+  const keys = ['no_change','trend_15','momentum_5','revert_30_14'];
+  const rows = Array.from({length:73}, (_,i) => {
+    const actual = 0.012*Math.sin(i*0.31) + (i%9===0?0.004:0);
+    return {actual,preds:{
+      no_change:0,
+      trend_15:0.008*Math.sin(i*0.29),
+      momentum_5:0.006*Math.cos(i*0.17),
+      revert_30_14:-0.003*Math.sin(i*0.11)
+    }};
+  });
+  const baselineErrorSum = rows.reduce((sum,row)=>sum+Math.abs(Math.expm1(-row.actual))*100,0);
+  const candidateErrorSums = Object.fromEntries(keys.map(key=>[
+    key,rows.reduce((sum,row)=>sum+Math.abs(Math.expm1((row.preds[key]??0)-row.actual))*100,0)
+  ]));
+  const incremental = selectWeightsFromErrorSums(keys,rows.length,baselineErrorSum,candidateErrorSums);
+  const baselineMae = baselineErrorSum/rows.length;
+  const ranked = keys.filter(key=>key!=='no_change').map(key=>({
+    key,mae:candidateErrorSums[key]/rows.length
+  })).filter(item=>item.mae<baselineMae*0.95).sort((a,b)=>a.mae-b.mae).slice(0,3);
+  let reference;
+  if(!ranked.length) reference=Object.fromEntries(keys.map(key=>[key,key==='no_change'?1:0]));
+  else {
+    const inverse=ranked.map(item=>1/Math.pow(0.05+item.mae,2));
+    const sum=inverse.reduce((a,b)=>a+b,0);
+    const weights=Object.fromEntries(keys.map(key=>[key,0]));
+    weights.no_change=0.15;
+    ranked.forEach((item,index)=>weights[item.key]=0.85*inverse[index]/sum);
+    for(let pass=0;pass<6;pass++){
+      const over=ranked.filter(item=>weights[item.key]>0.60);
+      if(!over.length) break;
+      let excess=0;
+      over.forEach(item=>{excess+=weights[item.key]-0.60;weights[item.key]=0.60;});
+      const under=ranked.filter(item=>weights[item.key]<0.60);
+      const underTotal=under.reduce((s,item)=>s+weights[item.key],0);
+      if(!underTotal) break;
+      under.forEach(item=>weights[item.key]+=excess*weights[item.key]/underTotal);
+    }
+    const total=Object.values(weights).reduce((a,b)=>a+b,0);
+    reference=Object.fromEntries(keys.map(key=>[key,weights[key]/total]));
+  }
+  assert.deepEqual(incremental, reference);
 });

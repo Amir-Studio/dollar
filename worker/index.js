@@ -7,6 +7,7 @@ import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conv
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
 import { NEWS_SOURCES as CURATED_NEWS_SOURCES } from "./news-sources.js";
 import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
+import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -255,29 +256,33 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
     items.push({
       title,url:link,domain,published_at:new Date(published).toISOString(),
       source_id:feed.source_id,language_code:feed.language_code,original_title:title,
-      original_text:articleText
+      original_text:articleText,
+      article_status:articleText.length?"extracted":"headline_only",
+      extraction_method:articleText.length?"rss_excerpt":"headline_only",
+      article_chars:articleText.length
     });
   }
-  // Enrich the lead story from the publisher page, not just the RSS description.
-  // The full text is used for analysis; the persistent record remains compact.
+  // Enrich only the newest relevant story per feed. Keep the outbound request
+  // budget bounded; the live search route performs a separate on-demand lookup.
   if(items.length){
     const lead=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at))[0];
-    if((lead.original_text||"").length<1200){
+    const currentText=lead.original_text||"";
+    if(currentText.length<1200){
       const fullText=await fetchFullArticleText(lead.url);
-      if(fullText.length>=(lead.original_text||"").length+250){
+      if(fullText.length>=currentText.length+250){
         lead.original_text=fullText;
         lead.article_status="extracted";
         lead.extraction_method="publisher_html_article_paragraphs";
         lead.article_chars=fullText.length;
       } else {
-        lead.article_status=lead.original_text?"extracted":"headline_only";
-        lead.extraction_method=lead.original_text?"rss_excerpt":"headline_only";
-        lead.article_chars=(lead.original_text||"").length;
+        lead.article_status=currentText?"extracted":"headline_only";
+        lead.extraction_method=currentText?"rss_excerpt":"headline_only";
+        lead.article_chars=currentText.length;
       }
     } else {
       lead.article_status="extracted";
       lead.extraction_method="rss_content";
-      lead.article_chars=lead.original_text.length;
+      lead.article_chars=currentText.length;
     }
   }
   console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
@@ -1120,6 +1125,42 @@ export default {
       catch(error) { console.error("News learning report failed:",error); return reply({error:"Learning report unavailable"},503); }
     }
 
+    if (url.pathname === "/news/search") {
+      const rawQuery=url.searchParams.get("q")||"";
+      const checked=normalizeMarketNewsSearchQuery(rawQuery);
+      if(!checked.ok) return reply({ok:false,error:checked.reason,query:checked.query},400,{"cache-control":"no-store"});
+      const [liveResult,archiveResult]=await Promise.allSettled([
+        searchMarketNews(checked.query),
+        readNewsFromSupabase(env)
+      ]);
+      const live=liveResult.status==="fulfilled"?liveResult.value.items:[];
+      const stored=archiveResult.status==="fulfilled"?archiveResult.value:[];
+      const tokens=checked.query.split(/\s+/).filter(token=>token.length>1);
+      const archive=stored.filter(item=>{
+        const text=[item.title,item.original_title,item.original_text,item.translated_title_fa,item.translated_text_fa,item.summary_fa]
+          .filter(Boolean).join(" ").normalize("NFKC").toLocaleLowerCase();
+        return tokens.every(token=>text.includes(token));
+      });
+      const seen=new Set(),items=[];
+      for(const item of [...live,...archive].sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at))){
+        const key=String(item.url||"").toLowerCase().replace(/[?#].*$/,"");
+        if(!key||seen.has(key)) continue;
+        seen.add(key);items.push(item);
+      }
+      if(liveResult.status==="rejected"&&archiveResult.status==="rejected")
+        return reply({ok:false,error:"جست‌وجوی زنده و آرشیو خبرها موقتاً در دسترس نیست."},503,{"cache-control":"no-store"});
+      return reply({
+        ok:true,search_mode:true,query:checked.query,
+        provider:liveResult.status==="fulfilled"?"Google News RSS":"آرشیو داخلی خبرها",
+        live_search_ok:liveResult.status==="fulfilled",
+        live_search_error:liveResult.status==="rejected"?String(liveResult.reason?.message||liveResult.reason).slice(0,160):null,
+        live_results_count:live.length,archive_results_count:archive.length,
+        result_count:items.length,source_count:new Set(items.map(x=>x.domain||x.source_id)).size,
+        items:items.slice(0,24),
+        note_fa:"نتایج زنده از Google News RSS و نتایج آرشیوی از خبرهای ذخیره‌شده‌اند. دامنهٔ ناشر به‌تنهایی تأییدکنندهٔ اعتبار یا استقلال منبع نیست؛ تیتر نیز اثبات‌کنندهٔ اثر بر قیمت نیست."
+      },200,{"cache-control":"no-store"});
+    }
+
     if (url.pathname === "/news") {
       // Public GET requests are read-only. RSS ingestion runs only in the
       // scheduled refresh path, not on arbitrary visitor traffic.
@@ -1237,7 +1278,9 @@ export default {
         live_error_feedback_min_samples: 30,
         quote_persistence_enabled: quotePersistenceReady,
         web_search_enabled: false,
-        capabilities: ["multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
+         market_news_search_enabled: true,
+         market_news_search_provider: "Google News RSS plus local archive; market-topic-only",
+        capabilities: ["market-news-live-search","multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({

@@ -1,0 +1,39 @@
+name: Forecast learning safety tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "tests/**"
+      - "assets/ai.js"
+      - ".github/workflows/forecast-learning-tests.yml"
+  push:
+    branches:
+      - "feature/forecast-learning-baseline-feedback"
+      - "feature/market-search-validation"
+    paths:
+      - "worker/**"
+      - "tests/**"
+      - "assets/ai.js"
+      - ".github/workflows/forecast-learning-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check forecast engine syntax
+        run: node --check worker/forecast-engine.js
+      - name: Check market news search syntax
+        run: node --check worker/news-search.js && node --check worker/index.js && node --check assets/ai.js
+      - name: Run full regression suite
+        run: node --test
