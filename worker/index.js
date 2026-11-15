@@ -1,6 +1,7 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
+import { runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
@@ -805,7 +806,8 @@ export default {
           name: "Dollar Domain NLP",
           version: LANGUAGE_ENGINE_VERSION,
           mode: "deterministic_domain_nlp_not_llm",
-          languages: ["fa", "en"],
+          languages: ["fa", "en", "ar", "zh", "de", "fr"],
+          multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})()},
           news_input: "rss_excerpt_or_headline",
           history_analysis: true,
           pragmatics: {
