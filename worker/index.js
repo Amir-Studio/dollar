@@ -696,7 +696,7 @@ export async function collectGlobalCountryTestBatch(env) {
     const state=await learningRest(env,"market_news_country_test_state?select=next_index,total_countries,last_attempt_at,last_error&id=eq.1&limit=1");
     const start=Math.max(0,Number(state?.[0]?.next_index)||0);
     if(start>=GLOBAL_TEST_COUNTRIES.length) return {ran:false,complete:true,next_index:start};
-    const batch=GLOBAL_TEST_COUNTRIES.slice(start,start+10);
+    const batch=GLOBAL_TEST_COUNTRIES.slice(start,start+1);
     const results=await Promise.allSettled(batch.map(fetchCountryNewsArticle));
     const rows=results.map((result,index)=>{
       if(result.status==="fulfilled") return result.value;
