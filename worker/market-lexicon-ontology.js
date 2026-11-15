@@ -155,7 +155,7 @@ export function analyzeMarketLexicon(text,language) {
     const found=pattern?pattern.test(normalized):normalized.includes(term);
     if(found) for(const id of ids) {
       const concept=CONCEPT_MAP.get(id);
-      matches.push({concept_id:id,pivot_term:concept.pivot.term,matched_term:term,language:lang,relation:"contextual_equivalent",definition:concept.pivot.definition,register:"standard_financial",notes:concept.note||null,near_miss:concept.near_miss||null});
+      matches.push({concept_id:id,pivot_term:concept.pivot.term,matched_term:term,language:lang,relation:lang==="en"?(term===concept.pivot.term?"pivot_term":"english_synonym_or_inflection"):"contextual_equivalent",definition:concept.pivot.definition,register:"standard_financial",notes:concept.note||null,near_miss:concept.near_miss||null});
     }
   }
   const unique=[...new Map(matches.map(x=>[x.concept_id+"|"+x.matched_term,x])).values()];
@@ -166,7 +166,7 @@ export function getMarketLexicon({language=null,query=null,limit=100}={}) {
   return {version:MARKET_LEXICON_VERSION,pivot:PIVOT_LANGUAGE,supported_languages:SUPPORTED_LEXICON_LANGUAGES,total_concepts:MARKET_CONCEPTS.length,concepts:MARKET_CONCEPTS.filter(c=>{
     if(q && ![c.id,c.pivot.term,c.pivot.definition,...Object.values(c.equivalents).flat()].some(v=>String(v).toLocaleLowerCase().includes(q))) return false;
     return !language || language==="en" || Object.prototype.hasOwnProperty.call(c.equivalents,language);
-  }).slice(0,Math.max(1,Math.min(200,limit)))};
+  }).slice(0,Math.max(1,Math.min(200,limit))).map(c=>({...c,english_synonyms:ENGLISH_FORMS.filter(([id])=>id===c.id).flatMap(([,terms])=>terms)}))};
 }
 export function runMarketLexiconBenchmark() {
  const cases=[
