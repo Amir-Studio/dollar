@@ -5,12 +5,16 @@ import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION
 test("multilingual engine exposes a versioned, auditable benchmark", () => {
   assert.match(MULTILINGUAL_VERSION, /^dollar-multilingual-news-/);
   const result = runMultilingualBenchmark();
-  assert.equal(result.total, 32);
+  assert.equal(result.total, 42);
   assert.equal(result.failed, 0, JSON.stringify(result.failures, null, 2));
-  assert.equal(result.passed, 32);
+  assert.equal(result.passed, 42);
   for (const lang of ["ar","zh","de","fr"]) {
     assert.equal(result.by_language[lang].total, 8);
     assert.equal(result.by_language[lang].failed, 0);
+  }
+  for (const lang of ["ru","ja","ko","hi","es","it","pt","tr","nl","pl"]) {
+    assert.equal(result.by_language[lang].total, 1);
+    assert.equal(result.by_language[lang].failed, 0, JSON.stringify(result.failures.filter(x=>x.language===lang)));
   }
 });
 

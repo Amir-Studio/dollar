@@ -1,11 +1,11 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest, runCalibrationSelfTest, runComponentCalibrationSelfTest } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
-import { runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
+import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
-import { NEWS_SOURCES as CURATED_NEWS_SOURCES } from "./news-sources.js";
+import { COUNTRY_NEWS_SOURCES as CURATED_NEWS_SOURCES, validateCountryNewsSources } from "./country-news-sources.js";
 import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
 import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
@@ -115,7 +115,7 @@ function googleNewsUrl(query, locale) {
 }
 const NEWS_SOURCES = CURATED_NEWS_SOURCES;
 const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
-  .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
+  .map(({source_id,country_code,country_name,language_code,feed_url}) => ({source_id,country_code,country_name,language_code,url:feed_url}));
 function isMarketNews(title) { return isMarketRelevantHeadline(title); }
 function rssTag(block, tag) {
   const safe = tag.replace(/[.*+?^$()|[\]\\]/g,"\\$&");
@@ -285,12 +285,12 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
       lead.article_chars=currentText.length;
     }
   }
-  console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
+  console.log("News feed parsed:",feed.source_id,"country",feed.country_code||"unknown","language",feed.language_code||"unknown","http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
 async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
-  // Rotate through four feed batches to keep 50-source collection within Worker limits.
-  // Every feed is probed once per hour when the scheduled refresh runs at least every 15 minutes.
+  // Rotate 30 country feeds through four batches to keep each scheduled run bounded.
+  // Each country feed is probed once per hour when refresh runs every 15 minutes.
   const batchIndex=Math.floor(Date.now()/(15*60*1000))%4;
   const selectedFeeds=NEWS_FEEDS.filter((_,index)=>index%4===batchIndex);
   const results=await Promise.allSettled(selectedFeeds.map(feed => readNewsFeed(feed,maxAgeHours)));
@@ -301,7 +301,7 @@ async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
       console.error("News feed failed:",sourceId,String(result.reason?.message || result.reason).slice(0,180));
       return;
     }
-    console.log("News feed completed:",sourceId,"items",result.value.length);
+    console.log("News feed completed:",sourceId,"country",selectedFeeds[index].country_code||"unknown","items",result.value.length);
     for(const item of result.value){
       const urlKey=item.url.toLowerCase().replace(/[?#].*$/,"");
       const titleKey=item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
@@ -311,7 +311,7 @@ async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
     }
   });
   const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,Math.max(1,Math.min(200,Number(limit)||50)));
-  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"batch",batchIndex+1,"of",4,"unique",sorted.length);
+  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"batch",batchIndex+1,"of",4,"countries",selectedFeeds.map(x=>x.country_code),"unique",sorted.length);
   return sorted;
 }
 function newsTopics(items) {
@@ -336,6 +336,47 @@ function newsTopics(items) {
       evidence:matches.slice(0,2).map(x=>x.title).join("؛ "),count:matches.length};
   }).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
 }
+function analyzeSupportedLanguageNews(items) {
+  const analyzed=(Array.isArray(items)?items:[]).slice(0,30).map(item=>{
+    const result=analyzeMultilingualNews(item.title||"",item.original_text||"",item.language_code||null);
+    if(result.reading_status!=="parsed_linguistic_features") return null;
+    return {
+      source_id:item.source_id||null,
+      language:result.language,
+      language_name:result.language_name||result.language,
+      sentence_count:result.summary?.sentence_count||0,
+      action_concepts:result.summary?.action_concepts||[],
+      actor_candidates:result.summary?.actor_candidates||[],
+      conditional_count:result.summary?.conditional_count||0,
+      modal_or_forecast_count:result.summary?.modal_or_forecast_count||0,
+      negated_count:result.summary?.negated_count||0,
+      attributed_count:result.summary?.attributed_count||0,
+      causal_count:result.summary?.causal_count||0,
+      contrast_count:result.summary?.contrast_count||0,
+      comparison_count:result.summary?.comparison_count||0,
+      verification_state:"linguistic_features_only_not_fact_checked"
+    };
+  }).filter(Boolean);
+  const byLanguage={};
+  for(const item of analyzed) byLanguage[item.language]=(byLanguage[item.language]||0)+1;
+  return {
+    version:MULTILINGUAL_VERSION,
+    processed_articles:analyzed.length,
+    by_language:byLanguage,
+    action_concepts:[...new Set(analyzed.flatMap(x=>x.action_concepts))],
+    actor_candidates:[...new Set(analyzed.flatMap(x=>x.actor_candidates))],
+    conditional_claim_frames:analyzed.reduce((n,x)=>n+x.conditional_count,0),
+    forecast_or_uncertain_frames:analyzed.reduce((n,x)=>n+x.modal_or_forecast_count,0),
+    negated_frames:analyzed.reduce((n,x)=>n+x.negated_count,0),
+    attributed_frames:analyzed.reduce((n,x)=>n+x.attributed_count,0),
+    causal_frames:analyzed.reduce((n,x)=>n+x.causal_count,0),
+    contrast_frames:analyzed.reduce((n,x)=>n+x.contrast_count,0),
+    comparison_frames:analyzed.reduce((n,x)=>n+x.comparison_count,0),
+    article_diagnostics:analyzed,
+    limitation:"This is rule-based linguistic parsing. It identifies wording and claim structure; it does not translate the article, verify facts, or establish causation."
+  };
+}
+
 async function makeFreeAnalysis(env, asset) {
   if (!ANALYSIS_ASSETS.has(asset)) return reply({error:"تاریخچهٔ معتبر این دارایی هنوز بررسی نشده؛ فقط قیمت آن در کاتالوگ ثبت می‌شود."},424);
   const [cachedMarket, rawHistory, cachedNews] = await Promise.all([
@@ -359,24 +400,26 @@ async function makeFreeAnalysis(env, asset) {
   const uncertainty = Math.max(2.5,Math.min(18,model.sigma*Math.sqrt(7)*100*1.5));
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
   const languageAnalysis = analyzeMarketLanguage(news, rows);
+  const multilingualNewsAnalysis = analyzeSupportedLanguageNews(news);
+  const enrichedLanguageAnalysis = {...languageAnalysis,multilingual_news:multilingualNewsAnalysis};
   const topics = languageAnalysis.themes;
   const decisionBrief = buildDecisionBrief({
     asset,
     quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown")},
     history:{rows,summary:{observations:model.count,last_price:model.last_price,daily_trend_pct:model.daily_pct,momentum_7d_pct:model.momentum_7d_pct,momentum_14d_pct:model.momentum_14d_pct,momentum_30d_pct:model.momentum_30d_pct,daily_volatility_pct:model.daily_volatility_pct,max_drawdown_30d_pct:model.max_drawdown_30d_pct}},
-    news,languageAnalysis
+    news,languageAnalysis:enrichedLanguageAnalysis
   });
   const direction = expected>0.35?"up":expected< -0.35?"down":"sideways";
   const directionFa = direction==="up"?"تمایل آماری صعودی":direction==="down"?"تمایل آماری نزولی":"روند آماری کم‌جهت";
   const summary = "بر پایهٔ رگرسیون لگاریتمی " + model.count + " مشاهدهٔ اخیر، روند روزانه حدود " +
     model.daily_pct.toFixed(2) + "٪ و تغییر ۷روزهٔ گذشته " +
     (model.momentum_7d_pct===null?"نامشخص":model.momentum_7d_pct.toFixed(2)+"٪") +
-    " بوده است. برآورد آماری ۷روزه " + directionFa + " را نشان می‌دهد. این گزارش از مدل زبانی استفاده نمی‌کند؛ خبرها فقط گردآوری و بر اساس موضوع دسته‌بندی شده‌اند.";
+    " بوده است. برآورد آماری ۷روزه " + directionFa + " را نشان می‌دهد. متن خبرهای پشتیبانی‌شده با قواعد زبانی چندزبانه برای استخراج ساختار ادعا پردازش شده‌اند؛ این پردازش ترجمه یا راستی‌آزمایی خبر نیست.";
   const risks = [];
   if (recent.length < 3) risks.push("پوشش خبرهای دارای تاریخ در ۲۴ ساعت اخیر محدود است؛ ممکن است رویداد مهمی از دست رفته باشد.");
   if (rows.length < 30) risks.push("تاریخچه کمتر از ۳۰ مشاهده دارد؛ برآورد آماری ناپایدارتر است.");
   if (model.daily_volatility_pct > 2) risks.push("نوسان روزانهٔ تاریخی بالاست؛ محدودهٔ سناریو را با احتیاط بخوان.");
-  risks.push("هستهٔ زبانی نسخهٔ ۰.۱ تیترها را تحلیل می‌کند، نه متن کامل مقاله‌ها؛ جهت اثر خبر بدون شواهد تکمیلی قطعی نیست.");
+  risks.push("تحلیل چندزبانهٔ جدید، متن‌های در دسترس RSS را به‌صورت قاعده‌محور می‌خواند؛ این کار ترجمه یا راستی‌آزمایی خبر نیست و اثر علّی خبر را ثابت نمی‌کند.");
   if (languageAnalysis.possible_conflicts.length) risks.push("چند تیتر با چارچوب رویدادی متفاوت شناسایی شد؛ این موارد تناقض قطعی نیستند و نیاز به بررسی متن کامل دارند.");
   return reply({
     mode:"free-algorithmic",asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
@@ -387,7 +430,8 @@ async function makeFreeAnalysis(env, asset) {
       confidence:null,uncertainty_pct:Number(uncertainty.toFixed(2))},
     drivers:topics,risks_fa:risks,sources:news,
     decision_brief:decisionBrief,
-    language_analysis:languageAnalysis,
+    language_analysis:enrichedLanguageAnalysis,
+    multilingual_news_analysis:multilingualNewsAnalysis,
     news_sources_count:news.length,recent_sources_count:recent.length,news_window_hours:72,
     coverage_score:Math.min(100,recent.length*12),
     baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),
@@ -397,7 +441,7 @@ async function makeFreeAnalysis(env, asset) {
       daily_volatility_pct:Number(model.daily_volatility_pct.toFixed(3)),
       max_drawdown_30d_pct:Number(model.max_drawdown_30d_pct.toFixed(3)),
       regression_target:Math.round(model.baseline7),observations:model.count},
-    note_fa:"تحلیل نسخهٔ نخست هستهٔ پردازش زبان تخصصی فارسی و انگلیسی به‌همراه تاریخچهٔ قیمت است؛ هنوز مدل زبانی مولد نیست و توصیهٔ خریدوفروش ارائه نمی‌کند."
+    note_fa:"هستهٔ تحلیل از NLP تخصصی فارسی و انگلیسی و پردازش قاعده‌محور خبر به ۱۴ زبان دیگر استفاده می‌کند؛ مدل زبانی مولد یا مترجم نیست و تحلیل زبانی را نباید راستی‌آزمایی واقعیت خبر دانست."
   },200,{"cache-control":"public, max-age=300","vary":"Origin"});
 }
 
@@ -1245,8 +1289,8 @@ export default {
           name: "Dollar Domain NLP",
           version: LANGUAGE_ENGINE_VERSION,
           mode: "deterministic_domain_nlp_not_llm",
-          languages: ["fa", "en", "ar", "zh", "de", "fr"],
-          multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})()},
+          languages: ["fa", "en", "ar", "zh", "de", "fr", "ru", "ja", "ko", "hi", "es", "it", "pt", "tr", "nl", "pl"],
+          multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})()},
           news_input: "rss_excerpt_or_headline",
           history_analysis: true,
           pragmatics: {
@@ -1265,6 +1309,7 @@ export default {
         continuous_learning_ready: learningStorageReady,
         news_storage_enabled: newsStorageReady,
         news_pipeline_schema_ready: newsPipelineSchemaReady,
+        country_news_sources: {...validateCountryNewsSources(),refresh_batches:4,feeds_per_batch:[8,8,7,7],runtime_health:"check per-country ingestion logs"},
         forecast_ledger_table: "market_forecast_runs",
         news_store_table: "market_news_items",
         kv_binding_present: kvBindingPresent,

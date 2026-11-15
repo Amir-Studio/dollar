@@ -1,6 +1,6 @@
 // Dollar multilingual market-news comprehension engine v1.0
 // Deterministic, auditable linguistic feature extraction; not a generative model or a translation engine.
-export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.0.0";
+export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.1.0";
 
 const LANGS = {
   ar: {
@@ -114,6 +114,166 @@ const LANGS = {
       ["oil", /(?:pétrole|pétrolier|brut|brent)/i],
     ],
     actors: [["central_bank", /(?:banque centrale|banque centrale européenne|bce)/i],["government", /(?:gouvernement|ministère|ministre)/i],["opec", /\bopep\b|\bopec\b/i],["imf", /(?:fonds monétaire international|fmi)/i],["us", /(?:états-unis|états unis|réserve fédérale)/i],["france", /(?:france|français)/i]]
+  },
+  ru: {
+    name:"Russian",script:/[А-Яа-яЁё]/g,
+    cues:["экономика","центробанк","цены","правительство","нефть","золото","доллар","рубль","вырос","снизился","ожидается","возможно","если","однако","не","процент","ставка"],
+    modality:/(?:возможно|вероятно|может|ожидается|прогнозируется|предполагается|вероятнее всего)/i,
+    conditional:/(?:если|при условии|в случае если|при условии что|за исключением)/i,
+    negation:/(?:не\s|ни\s|никогда|отрицает|опроверг|не подтвердил|не одобрил|не будет)/i,
+    attribution:/(?:сообщил|сообщила|заявил|заявила|по данным|согласно|отметил|предупредил|по сообщению)/i,
+    causal:/(?:из-за|в результате|привело к|по причине|вследствие|поэтому)/i,
+    contrast:/(?:однако|но|тем не менее|несмотря на|в то время как|напротив)/i,
+    comparison:/(?:по сравнению с|выше чем|ниже чем|больше чем|меньше чем)/i,
+    forecast:/(?:прогноз|ожидается|предполагается|прогнозирует|ожидает|может вырасти|может снизиться)/i,
+    past:/(?:вчера|на прошлой неделе|в прошлом месяце|в прошлом году|вырос|снизился|объявил|одобрил)/i,
+    future:/(?:завтра|на следующей неделе|в следующем месяце|в следующем году|будет|предстоит|ожидается)/i,
+    actions:[["increase",/(?:вырос|выросла|увеличил|увеличилось|повысил|поднялся|рост)/i],["decrease",/(?:снизил|снизился|упал|сократил|уменьшил|спад)/i],["hold",/(?:без изменений|оставил без изменений|стабильн|сохранил на прежнем уровне)/i],["deny",/(?:отрицает|опроверг|отказался|не подтвердил)/i],["approve",/(?:одобрил|утвердил|согласовал)/i],["sanction",/(?:санкци|ограничени)/i],["negotiate",/(?:переговор|соглашени)/i],["invest",/(?:инвестиц|вложени)/i],["export",/(?:экспорт|поставки за рубеж)/i],["oil",/(?:нефть|нефтян|брент)/i]],
+    actors:[["central_bank",/(?:центральный банк|центробанк)/i],["government",/(?:правительств|министерств)/i],["opec",/(?:опек|opec)/i],["imf",/(?:мвф|международный валютный фонд)/i],["us",/(?:сша|соединенные штаты|фрс)/i],["russia",/(?:росси|российск)/i]]
+  },
+  ja: {
+    name:"Japanese",script:/[\u3040-\u30ff\u4e00-\u9fff]/g,
+    cues:["経済","中央銀行","政府","価格","原油","金価格","ドル","円","上昇","下落","予想","可能性","しかし","発表","金利"],
+    modality:/(?:可能性がある|可能性|見通し|予想|とみられる|おそれ)/,
+    conditional:/(?:もし|場合|条件|ならば|なければ)/,
+    negation:/(?:ない|ません|否定|未定|未確認|承認していない|発表していない)/,
+    attribution:/(?:発表した|発表によると|述べた|によると|報じた|警告した|明らかにした)/,
+    causal:/(?:ため|によって|結果として|につながった|原因で)/,
+    contrast:/(?:しかし|一方|にもかかわらず|ただし|反面|が、)/,
+    comparison:/(?:と比べて|より高い|より低い|前年比|前月比)/,
+    forecast:/(?:予測|見通し|予想|見込まれる|可能性がある)/,
+    past:/(?:昨日|先週|先月|昨年|上昇した|下落した|発表した)/,
+    future:/(?:明日|来週|来月|来年|する見通し|見込まれる)/,
+    actions:[["increase",/(?:上昇|値上がり|増加|引き上げ|拡大)/],["decrease",/(?:下落|値下がり|減少|引き下げ|縮小)/],["hold",/(?:据え置き|変わらない|横ばい|維持)/],["deny",/(?:否定|否認|反論)/],["approve",/(?:承認|可決|認可)/],["sanction",/(?:制裁|制裁措置)/],["negotiate",/(?:交渉|協議|合意)/],["invest",/(?:投資|出資)/],["export",/(?:輸出)/],["oil",/(?:原油|石油|ブレント)/]],
+    actors:[["central_bank",/(?:中央銀行|日銀|日本銀行)/],["government",/(?:政府|財務省|経済産業省)/],["opec",/(?:OPEC|石油輸出国機構)/],["imf",/(?:国際通貨基金)/],["us",/(?:米国|アメリカ|FRB)/],["japan",/(?:日本|日銀)/]]
+  },
+  ko: {
+    name:"Korean",script:/[\uac00-\ud7af]/g,
+    cues:["경제","중앙은행","정부","가격","원유","금값","달러","원화","상승","하락","전망","가능성","그러나","발표","금리"],
+    modality:/(?:가능성이|전망이다|예상된다|수도 있다|것으로 보인다)/,
+    conditional:/(?:만약|경우|조건으로|라면|하지 않는 한)/,
+    negation:/(?:않았다|않을|아니다|없다|부인|미확인|승인하지 않았)/,
+    attribution:/(?:밝혔다|발표했|말했다|보도에 따르면|경고했다|전했다)/,
+    causal:/(?:때문에|결과로|초래했다|따라서|원인으로)/,
+    contrast:/(?:그러나|하지만|반면|에도 불구하고|한편|지만)/,
+    comparison:/(?:와 비교해|보다 높|보다 낮|전년 대비|전월 대비)/,
+    forecast:/(?:전망|예상|예측|가능성이|것으로 보인다)/,
+    past:/(?:어제|지난주|지난달|지난해|상승했다|하락했다|발표했다)/,
+    future:/(?:내일|다음 주|다음 달|내년|할 예정이다|전망이다)/,
+    actions:[["increase",/(?:상승|증가|인상|올랐|확대)/],["decrease",/(?:하락|감소|인하|내렸|축소)/],["hold",/(?:동결|변동 없|유지)/],["deny",/(?:부인|반박|否認)/],["approve",/(?:승인|통과|가결)/],["sanction",/(?:제재|제재 조치)/],["negotiate",/(?:협상|회담|합의)/],["invest",/(?:투자|출자)/],["export",/(?:수출)/],["oil",/(?:원유|석유|브렌트)/]],
+    actors:[["central_bank",/(?:중앙은행|한국은행)/],["government",/(?:정부|기획재정부)/],["opec",/(?:OPEC|석유수출국기구)/],["imf",/(?:국제통화기금)/],["us",/(?:미국|연방준비제도)/],["south_korea",/(?:한국|대한민국)/]]
+  },
+  hi: {
+    name:"Hindi",script:/[\u0900-\u097f]/g,
+    cues:["अर्थव्यवस्था","केंद्रीय बैंक","सरकार","कीमत","तेल","सोना","डॉलर","रुपया","बढ़ा","गिरावट","अनुमान","संभावना","लेकिन","नहीं","ब्याज"],
+    modality:/(?:संभावना|हो सकता है|अनुमान है|उम्मीद है|संभवतः)/,
+    conditional:/(?:यदि|अगर|शर्त|जब तक)/,
+    negation:/(?:नहीं|न तो|इनकार|अस्वीकार|पुष्टि नहीं|मंजूरी नहीं)/,
+    attribution:/(?:कहा|बताया|घोषणा की|रिपोर्ट के अनुसार|चेतावनी दी|के मुताबिक)/,
+    causal:/(?:के कारण|की वजह से|जिससे|परिणामस्वरूप|इसलिए)/,
+    contrast:/(?:लेकिन|हालांकि|जबकि|इसके बावजूद|दूसरी ओर)/,
+    comparison:/(?:की तुलना में|से अधिक|से कम|पिछले साल के मुकाबले)/,
+    forecast:/(?:अनुमान|पूर्वानुमान|उम्मीद|संभावना|आशंका)/,
+    past:/(?:कल|पिछले सप्ताह|पिछले महीने|पिछले साल|बढ़ा|गिरा|घोषणा की)/,
+    future:/(?:कल|अगले सप्ताह|अगले महीने|अगले साल|होगा|होने की उम्मीद)/,
+    actions:[["increase",/(?:बढ़ा|बढ़ी|बढ़ोतरी|वृद्धि|ऊपर गया|इजाफा)/],["decrease",/(?:गिरा|गिरावट|कमी|घटा|नीचे आया)/],["hold",/(?:स्थिर|अपरिवर्तित|कोई बदलाव नहीं)/],["deny",/(?:इनकार|खंडन|अस्वीकार)/],["approve",/(?:मंजूरी|स्वीकृति|अनुमोदन)/],["sanction",/(?:प्रतिबंध|पाबंदी)/],["negotiate",/(?:बातचीत|वार्ता|समझौता)/],["invest",/(?:निवेश)/],["export",/(?:निर्यात)/],["oil",/(?:तेल|कच्चा तेल)/]],
+    actors:[["central_bank",/(?:केंद्रीय बैंक|भारतीय रिजर्व बैंक|आरबीआई)/],["government",/(?:सरकार|वित्त मंत्रालय)/],["opec",/(?:ओपेक|OPEC)/],["imf",/(?:अंतरराष्ट्रीय मुद्रा कोष)/],["us",/(?:अमेरिका|अमेरिकी फेडरल रिजर्व)/],["india",/(?:भारत|भारतीय)/]]
+  },
+  es: {
+    name:"Spanish",script:/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g,
+    cues:["economía","banco central","gobierno","precios","petróleo","oro","dólar","subió","bajó","previsión","posible","aunque","según","no","tipos","inflación"],
+    modality:/(?:podría|podrían|posiblemente|probablemente|se espera|es probable|previsiblemente)/i,
+    conditional:/(?:\bsi\b|en caso de|a condición de|salvo que|siempre que)/i,
+    negation:/(?:\bno\b|nunca|ni siquiera|negó|desmintió|no confirmó|no aprobó)/i,
+    attribution:/(?:según|declaró|anunció|afirmó|advirtió|informó|de acuerdo con)/i,
+    causal:/(?:debido a|a causa de|provocó|condujo a|por lo tanto|como resultado)/i,
+    contrast:/(?:sin embargo|aunque|pero|mientras que|a pesar de|por el contrario)/i,
+    comparison:/(?:en comparación con|frente a|más que|menos que|por encima de|por debajo de)/i,
+    forecast:/(?:previsión|pronóstico|se espera|prevé|estima|podría subir|podría caer)/i,
+    past:/(?:ayer|la semana pasada|el mes pasado|el año pasado|subió|bajó|anunció)/i,
+    future:/(?:mañana|la próxima semana|el próximo mes|el próximo año|subirá|bajará|será)/i,
+    actions:[["increase",/(?:subió|subida|aumentó|aumento|creció|alza|incrementó)/i],["decrease",/(?:bajó|bajar|caer|caída|cayó|descendió|disminuyó|retroceso)/i],["hold",/(?:sin cambios|se mantuvo|estable|estancado)/i],["deny",/(?:negó|desmintió|rechazó)/i],["approve",/(?:aprobó|autorizó|ratificó)/i],["sanction",/(?:sanciones|sancionó|levantó las sanciones)/i],["negotiate",/(?:negociaciones|negoció|acuerdo)/i],["invest",/(?:inversión|invirtió)/i],["export",/(?:exportación|exportaciones|exportó)/i],["oil",/(?:petróleo|crudo|brent)/i]],
+    actors:[["central_bank",/(?:banco central|banco central europeo)/i],["government",/(?:gobierno|ministro|ministerio)/i],["opec",/\bopec\b/i],["imf",/(?:fondo monetario internacional|fmi)/i],["us",/(?:estados unidos|reserva federal|fed)/i],["spain",/(?:españa|español)/i]]
+  },
+  it: {
+    name:"Italian",script:/[A-Za-zÀÈÉÌÒÙàèéìòù]/g,
+    cues:["economia","banca centrale","governo","prezzi","petrolio","oro","dollaro","aumento","calo","prevede","potrebbe","tuttavia","secondo","non","tassi"],
+    modality:/(?:potrebbe|potrebbero|probabilmente|possibilmente|si prevede|è probabile)/i,
+    conditional:/(?:\bse\b|a condizione che|nel caso in cui|salvo che)/i,
+    negation:/(?:\bnon\b|mai|nessun|ha negato|non ha confermato|non ha approvato)/i,
+    attribution:/(?:secondo|ha dichiarato|ha annunciato|ha affermato|ha avvertito|stando a)/i,
+    causal:/(?:a causa di|per effetto di|ha provocato|ha portato a|pertanto)/i,
+    contrast:/(?:tuttavia|però|sebbene|mentre|nonostante|al contrario)/i,
+    comparison:/(?:rispetto a|in confronto a|più di|meno di|superiore a|inferiore a)/i,
+    forecast:/(?:previsione|prevede|si attende|stima|potrebbe salire|potrebbe scendere)/i,
+    past:/(?:ieri|la settimana scorsa|il mese scorso|l'anno scorso|è aumentato|è calato)/i,
+    future:/(?:domani|la prossima settimana|il prossimo mese|il prossimo anno|sarà|aumenterà)/i,
+    actions:[["increase",/(?:aumento|aumentato|crescita|salita|rialzo|incremento)/i],["decrease",/(?:calo|diminuzione|diminuire|scendere|calare|discesa|riduzione|ribasso|scende)/i],["hold",/(?:stabile|invariato|senza variazioni)/i],["deny",/(?:negato|smentito|respinto)/i],["approve",/(?:approvato|autorizzato|ratificato)/i],["sanction",/(?:sanzioni|sanzionato)/i],["negotiate",/(?:negoziati|trattative|accordo)/i],["invest",/(?:investimento|investimenti)/i],["export",/(?:esportazione|esportazioni)/i],["oil",/(?:petrolio|greggio|brent)/i]],
+    actors:[["central_bank",/(?:banca centrale|banca centrale europea|bce)/i],["government",/(?:governo|ministero)/i],["opec",/\bopec\b/i],["imf",/(?:fondo monetario internazionale|fmi)/i],["us",/(?:stati uniti|federal reserve)/i],["italy",/(?:italia|italiano)/i]]
+  },
+  pt: {
+    name:"Portuguese",script:/[A-Za-zÁÂÃÀÇÉÊÍÓÔÕÚÜáâãàçéêíóôõúü]/g,
+    cues:["economia","banco central","governo","preços","petróleo","ouro","dólar","aumentou","queda","previsão","poderia","segundo","não","juros","inflação"],
+    modality:/(?:poderia|poderão|possivelmente|provavelmente|espera-se|é provável)/i,
+    conditional:/(?:\bse\b|caso|desde que|a menos que)/i,
+    negation:/(?:\bnão\b|nunca|nenhum|negou|não confirmou|não aprovou)/i,
+    attribution:/(?:segundo|afirmou|declarou|anunciou|alertou|de acordo com)/i,
+    causal:/(?:devido a|por causa de|levou a|provocou|portanto|em consequência)/i,
+    contrast:/(?:porém|contudo|embora|mas|enquanto|apesar de)/i,
+    comparison:/(?:em comparação com|em relação a|mais do que|menos do que|acima de|abaixo de)/i,
+    forecast:/(?:previsão|projeção|espera-se|prevê|estima|poderia subir|poderia cair)/i,
+    past:/(?:ontem|na semana passada|no mês passado|no ano passado|subiu|caiu|anunciou)/i,
+    future:/(?:amanhã|na próxima semana|no próximo mês|no próximo ano|será|deverá)/i,
+    actions:[["increase",/(?:aumentou|alta|crescimento|subida|elevação|avançou)/i],["decrease",/(?:queda|caiu|cair|recuou|recuar|redução|diminuiu|diminuir|baixa)/i],["hold",/(?:estável|sem alterações|manteve|inalterado)/i],["deny",/(?:negou|desmentiu|rejeitou)/i],["approve",/(?:aprovou|autorizou|ratificou)/i],["sanction",/(?:sanções|sancionou)/i],["negotiate",/(?:negociações|negociou|acordo)/i],["invest",/(?:investimento|investiu)/i],["export",/(?:exportação|exportações)/i],["oil",/(?:petróleo|brent|crude)/i]],
+    actors:[["central_bank",/(?:banco central|banco central do brasil)/i],["government",/(?:governo|ministério)/i],["opec",/\bopec\b/i],["imf",/(?:fundo monetário internacional|fmi)/i],["us",/(?:estados unidos|fed)/i],["brazil",/(?:brasil|brasileiro)/i]]
+  },
+  tr: {
+    name:"Turkish",script:/[A-Za-zÇĞİÖŞÜçğıöşü]/g,
+    cues:["ekonomi","merkez bankası","hükümet","fiyatlar","petrol","altın","dolar","yükseldi","düştü","beklenti","olabilir","ancak","göre","değil","faiz"],
+    modality:/(?:olabilir|bekleniyor|muhtemelen|öngörülüyor|ihtimali|düşebilir|artabilir)/i,
+    conditional:/(?:\beğer\b|\bise\b|şartıyla|durumunda|olmadıkça)/i,
+    negation:/(?:değil|yok|hayır|reddetti|doğrulamadı|onaylamadı)/i,
+    attribution:/(?:açıklamasına göre|açıkladı|dedi|belirtti|duyurdu|uyardı|raporuna göre)/i,
+    causal:/(?:nedeniyle|sonucunda|yol açtı|sebebiyle|bu nedenle)/i,
+    contrast:/(?:ancak|fakat|oysa|rağmen|buna karşın|öte yandan)/i,
+    comparison:/(?:karşılaştırıldığında|göre daha|daha yüksek|daha düşük|geçen yıla göre)/i,
+    forecast:/(?:beklenti|tahmin|öngörü|bekleniyor|olabilir)/i,
+    past:/(?:dün|geçen hafta|geçen ay|geçen yıl|yükseldi|düştü|açıkladı)/i,
+    future:/(?:yarın|gelecek hafta|gelecek ay|gelecek yıl|olacak|artacak)/i,
+    actions:[["increase",/(?:yükseldi|arttı|artış|yükseliş|çoğaldı)/i],["decrease",/(?:düştü|düşebilir|azaldı|azalmak|düşüş|geriledi|gerilemek|daraldı)/i],["hold",/(?:sabit|değişmedi|aynı kaldı|istikrarlı)/i],["deny",/(?:reddetti|yalanladı|inkâr etti)/i],["approve",/(?:onayladı|kabul etti|yetkilendirdi)/i],["sanction",/(?:yaptırım|ambargo)/i],["negotiate",/(?:müzakere|görüşme|anlaşma)/i],["invest",/(?:yatırım|yatırdı)/i],["export",/(?:ihracat|dış satım)/i],["oil",/(?:petrol|ham petrol|brent)/i]],
+    actors:[["central_bank",/(?:merkez bankası|tcmb)/i],["government",/(?:hükümet|bakanlık)/i],["opec",/\bopec\b/i],["imf",/(?:uluslararası para fonu|imf)/i],["us",/(?:abd|amerikan merkez bankası|fed)/i],["turkey",/(?:türkiye|türk)/i]]
+  },
+  nl: {
+    name:"Dutch",script:/[A-Za-zÀ-ÿ]/g,
+    cues:["economie","centrale bank","regering","prijzen","olie","goud","dollar","steeg","daalde","verwacht","mogelijk","maar","volgens","niet","rente"],
+    modality:/(?:mogelijk|waarschijnlijk|naar verwachting|kan stijgen|zou kunnen)/i,
+    conditional:/(?:\bals\b|indien|mits|op voorwaarde dat|tenzij)/i,
+    negation:/(?:\bniet\b|geen|nooit|ontkende|niet bevestigd|niet goedgekeurd)/i,
+    attribution:/(?:volgens|verklaarde|kondigde aan|meldde|waarschuwde|aldus)/i,
+    causal:/(?:door|vanwege|leidde tot|als gevolg van|daarom)/i,
+    contrast:/(?:maar|echter|hoewel|terwijl|desondanks|daarentegen)/i,
+    comparison:/(?:vergeleken met|hoger dan|lager dan|meer dan|minder dan)/i,
+    forecast:/(?:verwachting|voorspelling|verwacht|vooruitzicht|mogelijk)/i,
+    past:/(?:gisteren|vorige week|vorige maand|vorig jaar|steeg|daalde|kondigde aan)/i,
+    future:/(?:morgen|volgende week|volgende maand|volgend jaar|zal|zullen)/i,
+    actions:[["increase",/(?:steeg|stijging|toename|verhoogde|groei)/i],["decrease",/(?:daalde|dalen|daling|afname|afnemen|verlaagde|terugval|terugvallen)/i],["hold",/(?:stabiel|ongewijzigd|bleef gelijk)/i],["deny",/(?:ontkende|weersprak|afgewezen)/i],["approve",/(?:goedgekeurd|keurde goed|aangenomen)/i],["sanction",/(?:sancties|sanctioneerde)/i],["negotiate",/(?:onderhandelingen|overleg|akkoord)/i],["invest",/(?:investering|investeerde)/i],["export",/(?:export|uitvoer)/i],["oil",/(?:olie|ruwe olie|brent)/i]],
+    actors:[["central_bank",/(?:centrale bank|europese centrale bank|ecb)/i],["government",/(?:regering|ministerie)/i],["opec",/\bopec\b/i],["imf",/(?:internationaal monetair fonds|imf)/i],["us",/(?:verenigde staten|fed)/i],["netherlands",/(?:nederland|nederlands)/i]]
+  },
+  pl: {
+    name:"Polish",script:/[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/g,
+    cues:["gospodarka","bank centralny","rząd","ceny","ropa","złoto","dolar","wzrosła","spadła","prognoza","może","jednak","według","nie","stopy"],
+    modality:/(?:może|mogą|prawdopodobnie|oczekuje się|przewiduje|jest możliwe)/i,
+    conditional:/(?:\bjeśli\b|\bgdyby\b|pod warunkiem|chyba że)/i,
+    negation:/(?:\bnie\b|nigdy|zaprzeczył|nie potwierdził|nie zatwierdził)/i,
+    attribution:/(?:według|powiedział|ogłosił|poinformował|ostrzegł|jak wynika z)/i,
+    causal:/(?:z powodu|w wyniku|doprowadził do|dlatego|na skutek)/i,
+    contrast:/(?:jednak|ale|chociaż|mimo że|natomiast|z kolei)/i,
+    comparison:/(?:w porównaniu z|wyższy niż|niższy niż|więcej niż|mniej niż)/i,
+    forecast:/(?:prognoza|przewiduje|oczekuje|perspektywy|może wzrosnąć)/i,
+    past:/(?:wczoraj|w zeszłym tygodniu|w zeszłym miesiącu|w ubiegłym roku|wzrosła|spadła)/i,
+    future:/(?:jutro|w przyszłym tygodniu|w przyszłym miesiącu|w przyszłym roku|będzie)/i,
+    actions:[["increase",/(?:wzrosła|wzrosły|wzrost|zwiększył|podwyższył|zwyżka)/i],["decrease",/(?:spadła|spaść|spadek|obniżył|obniżyć się|zmniejszył|zmniejszyć się|zniżka)/i],["hold",/(?:bez zmian|stabilny|pozostał bez zmian)/i],["deny",/(?:zaprzeczył|zdementował|odrzucił)/i],["approve",/(?:zatwierdził|zaakceptował|przyjął)/i],["sanction",/(?:sankcje|sankcjonował)/i],["negotiate",/(?:negocjacje|rozmowy|porozumienie)/i],["invest",/(?:inwestycja|inwestował)/i],["export",/(?:eksport|wywóz)/i],["oil",/(?:rop|brent)/i]],
+    actors:[["central_bank",/(?:bank centralny|nbp|europejski bank centralny)/i],["government",/(?:rząd|ministerstwo)/i],["opec",/\bopec\b/i],["imf",/(?:międzynarodowy fundusz walutowy|mfw)/i],["us",/(?:stany zjednoczone|fed)/i],["poland",/(?:polska|polski)/i]]
   }
 };
 
@@ -125,21 +285,28 @@ const normalize = (value, lang) => {
 };
 
 function detectMultilingualLanguage(text, hint) {
-  if (["ar","zh","de","fr"].includes(hint)) return {language:hint,confidence:0.98,method:"source_language_metadata"};
+  if (Object.hasOwn(LANGS,hint)) return {language:hint,confidence:0.98,method:"source_language_metadata"};
   const s=String(text ?? "");
   const ar=(s.match(/[\u0600-\u06ff]/g)||[]).length;
   const zh=(s.match(/[\u4e00-\u9fff]/g)||[]).length;
+  const ru=(s.match(/[\u0400-\u04ff]/g)||[]).length;
+  const ja=(s.match(/[\u3040-\u30ff]/g)||[]).length;
+  const ko=(s.match(/[\uac00-\ud7af]/g)||[]).length;
+  const hi=(s.match(/[\u0900-\u097f]/g)||[]).length;
+  if (hi>=2 && hi>s.length*0.04) return {language:"hi",confidence:Math.min(0.99,0.65+hi/Math.max(1,s.length)),method:"script_detection"};
+  if (ko>=2 && ko>s.length*0.04) return {language:"ko",confidence:Math.min(0.99,0.65+ko/Math.max(1,s.length)),method:"script_detection"};
+  if (ja>=2 && ja>s.length*0.04) return {language:"ja",confidence:Math.min(0.99,0.65+ja/Math.max(1,s.length)),method:"script_detection"};
   if (zh>=2 && zh>s.length*0.04) return {language:"zh",confidence:Math.min(0.99,0.65+zh/Math.max(1,s.length)),method:"script_detection"};
+  if (ru>=2 && ru>s.length*0.04) return {language:"ru",confidence:Math.min(0.99,0.65+ru/Math.max(1,s.length)),method:"script_detection"};
   if (ar>=3 && ar>s.length*0.08) return {language:"ar",confidence:Math.min(0.99,0.65+ar/Math.max(1,s.length)),method:"script_detection"};
-  const words=(s.toLowerCase().match(/[a-zäöüßàâçéèêëîïôûùüÿæœ]+/g)||[]);
-  const scores={de:0,fr:0};
-  for (const w of words) {
-    if (LANGS.de.cues.includes(w)) scores.de++;
-    if (LANGS.fr.cues.includes(w)) scores.fr++;
-  }
-  if (scores.de===scores.fr || Math.max(scores.de,scores.fr)<2) return {language:"und",confidence:0,method:"insufficient_language_evidence"};
-  const language=scores.de>scores.fr?"de":"fr";
-  return {language,confidence:Number((Math.min(0.96,0.58+Math.max(scores.de,scores.fr)*0.06)).toFixed(2)),method:"lexical_cue_detection"};
+  const words=(s.toLowerCase().match(/[A-Za-zÀ-žİı]+/g)||[]);
+  const lexicalLanguages=["de","fr","es","it","pt","tr","nl","pl"];
+  const scores=Object.fromEntries(lexicalLanguages.map(code=>[code,0]));
+  for (const w of words) for (const code of lexicalLanguages) if (LANGS[code].cues.includes(w)) scores[code]++;
+  const ranked=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  if (ranked[0][1]<2 || ranked[0][1]===ranked[1][1]) return {language:"und",confidence:0,method:"insufficient_language_evidence"};
+  const language=ranked[0][0];
+  return {language,confidence:Number((Math.min(0.96,0.58+ranked[0][1]*0.06)).toFixed(2)),method:"lexical_cue_detection"};
 }
 
 function splitSentences(text) {
@@ -265,7 +432,17 @@ const BENCHMARK_CASES = [
   {lang:"fr",text:"Par rapport à l'année dernière, les exportations ont augmenté de 5 %, tandis que les importations ont reculé.",checks:{comparison:true,contrast:true,actions:["increase","decrease","export"],quantities:1}},
   {lang:"fr",text:"La banque centrale a maintenu le taux d'intérêt inchangé.",checks:{actions:["hold"],actors:["central_bank"]}},
   {lang:"fr",text:"Le gouvernement a annoncé un nouvel investissement dans le secteur pétrolier.",checks:{attributed:true,actions:["invest","oil"]}},
-  {lang:"fr",text:"Bien que la demande augmente, les prix restent stables.",checks:{contrast:true,actions:["increase","hold"]}}
+  {lang:"fr",text:"Bien que la demande augmente, les prix restent stables.",checks:{contrast:true,actions:["increase","hold"]}},
+  {lang:"ru",text:"Центральный банк заявил, что цены на нефть выросли на 3%, однако прогноз может измениться.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","oil"],actors:["central_bank"]}},
+  {lang:"ja",text:"中央銀行は原油価格が上昇したと発表したが、来週は下落する可能性がある。",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"ko",text:"한국은행은 원유 가격이 상승했다고 발표했지만 다음 주 하락할 가능성이 있다.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"hi",text:"केंद्रीय बैंक ने कहा कि तेल की कीमत बढ़ी, लेकिन अगले सप्ताह गिरावट की संभावना है।",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"es",text:"El banco central anunció que el precio del petróleo subió un 3%, pero podría caer la próxima semana.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"it",text:"La banca centrale ha annunciato che il prezzo del petrolio è aumentato, tuttavia potrebbe diminuire la prossima settimana.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"pt",text:"O banco central anunciou que o preço do petróleo aumentou, mas poderia cair na próxima semana.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"tr",text:"Merkez bankası petrol fiyatının yükseldiğini açıkladı, ancak gelecek hafta düşebilir.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"nl",text:"De centrale bank meldde dat de olieprijs steeg, maar volgende week mogelijk kan dalen.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"pl",text:"Bank centralny ogłosił, że ceny ropy wzrosły, jednak w przyszłym tygodniu mogą spaść.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}}
 ];
 
 export function runMultilingualBenchmark() {
@@ -283,7 +460,7 @@ export function runMultilingualBenchmark() {
     return {id:index+1,language:item.lang,passed:checks.every(x=>x.passed),checks,text:item.text};
   });
   const byLanguage={};
-  for (const lang of ["ar","zh","de","fr"]) {
+  for (const lang of ["ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"]) {
     const subset=results.filter(x=>x.language===lang);
     byLanguage[lang]={total:subset.length,passed:subset.filter(x=>x.passed).length,failed:subset.filter(x=>!x.passed).length};
   }
