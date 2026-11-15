@@ -20,7 +20,7 @@
 
 ## Supabase retention
 
-- Pending or quarantined articles are not deleted automatically.
+- Pending articles are processed in small batches. Low-confidence items enter quarantine rather than being deleted immediately; low-score quarantined items are reconsidered after 14 days.
 - Discard decisions wait seven days, then only a compact audit record is written to `market_news_triage_archive` before the full news row is deleted.
 - Kept/summarized records retain their summary and metadata. After 30 days, full original/translated article text is removed and the compact summary is preserved in the archive table.
 - Every cycle is recorded in `market_news_triage_cycles`.
