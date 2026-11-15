@@ -2,6 +2,7 @@
 // Deterministic, auditable linguistic feature extraction; not a generative model or a translation engine.
 import { analyzeArabicText, ARABIC_ENGINE_VERSION } from "./arabic-academic-engine.js";
 import { analyzeMarketLexicon, MARKET_LEXICON_VERSION } from "./market-lexicon-ontology.js";
+import { findChineseNewsVocabularyMatches } from "./news-vocabulary-zh.js";
 export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.5.0";
 
 const LANGS = {
@@ -446,6 +447,7 @@ export function analyzeMultilingualNews(title, body="", languageHint=null) {
     language_detection:detection,reading_status:text.length>0?"parsed_linguistic_features":"insufficient_text",
     sentence_frames:frames,claims,extracted_quantities:frames.flatMap(f=>f.quantities),
     market_lexicon:analyzeMarketLexicon(text,language),market_lexicon_version:MARKET_LEXICON_VERSION,
+    domain_vocabulary:language==="zh"?findChineseNewsVocabularyMatches(text,{limit:40}):[],
     ...(language==="ar"?{arabic_academic_analysis:analyzeArabicText(text),arabic_engine_version:ARABIC_ENGINE_VERSION}:{}),
     summary:{
       sentence_count:frames.length,
