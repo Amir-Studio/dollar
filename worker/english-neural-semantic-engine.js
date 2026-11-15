@@ -70,7 +70,7 @@ export async function analyzeEnglishNewsNeurally(text,env,options={}) {
     matches:rankMatches(queries[i+1],8),
     model:MODEL,semantic_mode:"cross_lingual_embedding_against_english_market_ontology"
   }));
-  const unknown=extractUnknownVocabularyCandidates(source,"en",{limit:Math.max(1,Math.min(12,Number(options.unknownLimit)||8))});
+  const unknown=options.extractUnknown===false?[]:extractUnknownVocabularyCandidates(source,"en",{limit:Math.max(1,Math.min(12,Number(options.unknownLimit)||8))});
   const termResearch = options.researchUnknown
     ? await Promise.all(unknown.slice(0,Math.max(0,Math.min(3,Number(options.researchLimit)||2))).map(x=>researchEnglishTerm(x.term,source,env)))
     : [];
