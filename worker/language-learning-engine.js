@@ -5,7 +5,7 @@ import { analyzeMarketLexicon, getMarketLexicon } from "./market-lexicon-ontolog
 import { getGermanNewsVocabulary } from "./news-vocabulary-de.js";
 import { getChineseNewsVocabulary } from "./news-vocabulary-zh.js";
 
-export const LANGUAGE_LEARNER_VERSION = "dollar-language-learner-1.0.0";
+export const LANGUAGE_LEARNER_VERSION = "dollar-language-learner-1.1.0";
 export const LEARNER_LANGUAGES = ["fa","en","ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"];
 const LANGUAGE_NAMES = {fa:"Persian",en:"English",ar:"Arabic",zh:"Chinese",de:"German",fr:"French",ru:"Russian",ja:"Japanese",ko:"Korean",hi:"Hindi",es:"Spanish",it:"Italian",pt:"Portuguese",tr:"Turkish",nl:"Dutch",pl:"Polish"};
 const STOP = {
@@ -123,7 +123,7 @@ export function extractUnknownVocabularyCandidates(text, language, options={}) {
    const contextual=knowledge.signals?.includes("market_domain_context");
    const long=knowledge.signals?.includes("long_lexical_form");
    // A single long/technical term can be surfaced, but a short unrecognized token needs repeated/contextual evidence.
-   const eligible=CJK.has(lang)?v.count>=2:(repeated || (long&&(morphology||contextual)) || (morphology&&contextual));
+   const eligible=CJK.has(lang)?v.count>=2:(repeated || (long&&(morphology||contextual)) || (morphology&&contextual) || (knowledge.signals?.includes("compound_or_multiword_expression")&&contextual));
    if(!eligible || knowledge.knowledge_state==="known_in_internal_lexicon") continue;
    const score=Math.min(0.97,knowledge.confidence+(repeated?0.12:0)+(morphology?0.06:0));
    rows.push({term:v.term,normalized_term:normalized,occurrences:v.count,language:lang,knowledge_state:score>=0.72?"likely_unknown":"uncertain",confidence_hint:Number(score.toFixed(2)),signals:[...(knowledge.signals||[]),...(repeated?["repeated_in_document"]:[])]});
