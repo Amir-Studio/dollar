@@ -163,7 +163,7 @@ function normalizeNews(news) {
   return (Array.isArray(news)?news:[]).slice(0,16).map((x,i)=>{
     const text=clean(x.translated_text_fa||x.original_text,2200);
     return {id:x.id||String(i),title:clean(x.title||x.original_title,260),text,
-      source_text_available:normalizeEvidenceText(text).length>=60,
+      source_text_available:normalizeEvidenceText(text).length>0,
       text_characters:normalizeEvidenceText(text).length,
       language:x.language_code||"und",source:clean(x.domain||x.source_id,120),url:clean(x.url,500),
       published_at:x.published_at||null};
