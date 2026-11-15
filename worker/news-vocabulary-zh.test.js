@@ -8,8 +8,8 @@ import {
 
 test("Chinese news vocabulary has 120 unique specialist entries", () => {
   assert.equal(CHINESE_NEWS_VOCABULARY.length, 120);
-  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 100);
-  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 100);
+  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 120);
+  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 120);
 });
 
 test("all vocabulary entries have Chinese, pinyin, English and Persian fields", () => {
