@@ -14,13 +14,13 @@ fa:["تورم منفی","کاهش سطح عمومی قیمت‌ها"],ar:["ال�
 C("disinflation","disinflation","A slowing rate of inflation; prices may still be rising, but more slowly.",{
 fa:["کاهش نرخ تورم"],ar:["تباطؤ التضخم"],de:["Disinflation","nachlassende Inflation"],fr:["désinflation"],ru:["дезинфляция"],zh:["通胀放缓"],ja:["ディスインフレーション","インフレ鈍化"],ko:["디스인플레이션","물가 상승률 둔화"],hi:["मुद्रास्फीति में कमी"],es:["desinflación"],it:["disinflazione"],pt:["desinflação"],tr:[" dezenflasyon","enflasyonun yavaşlaması"],nl:["desinflatie"],pl:["dezinflacja"]},{near_miss:{en:["deflation"]},note:"Disinflation is not deflation."}),
 C("interest_rate","interest rate","The price paid for borrowing money or the return received for lending or depositing it.",{
-fa:["نرخ بهره","نرخ سود"],ar:["سعر الفائدة","سعر العائد"],de:["Zinssatz","Zins"],fr:["taux d’intérêt"],ru:["процентная ставка","процентную ставку"],zh:["利率"],ja:["金利"],ko:["금리"],hi:["ब्याज दर"],es:["tipo de interés","tipos de interés","tasa de interés"],it:["tasso d’interesse"],pt:["taxa de juros"],tr:["faiz oranı","faiz oranını"],nl:["rente","rentetarief"],pl:["stopa procentowa"]}),
+fa:["نرخ بهره","نرخ سود"],ar:["سعر الفائدة","سعر العائد"],de:["Zinssatz","Zins"],fr:["taux d’intérêt"],ru:["процентная ставка","процентную ставку"],zh:["利率"],ja:["金利"],ko:["금리"],hi:["ब्याज दर"],es:["tipo de interés","tipos de interés","tasa de interés"],it:["tasso d’interesse"],pt:["taxa de juros"],tr:["faiz oranı","faiz oranını"],nl:["rente","rentetarief"],pl:["stopa procentowa","stopę procentową"]}),
 C("policy_rate","policy interest rate","The benchmark rate set by a central bank to influence financial conditions.",{
 fa:["نرخ سیاستی","نرخ بهره سیاستی"],ar:["سعر الفائدة الأساسي","سعر السياسة النقدية"],de:["Leitzins"],fr:["taux directeur"],ru:["ключевая ставка"],zh:["政策利率"],ja:["政策金利"],ko:["기준금리"],hi:["नीतिगत ब्याज दर"],es:["tipo de interés oficial","tasa de política monetaria"],it:["tasso ufficiale"],pt:["taxa básica de juros"],tr:["politika faizi"],nl:["beleidsrente"],pl:["stopa referencyjna"]}),
 C("rate_hike","interest rate hike","A decision to increase a benchmark or other interest rate.",{
-fa:["افزایش نرخ بهره","افزایش نرخ سود"],ar:["رفع سعر الفائدة","زيادة سعر الفائدة"],de:["Zinserhöhung"],fr:["hausse des taux d’intérêt"],ru:["повышение процентной ставки","повысил процентную ставку","повысила процентную ставку"],zh:["加息"],ja:["利上げ"],ko:["금리 인상"],hi:["ब्याज दर में वृद्धि"],es:["subida de los tipos de interés"],it:["aumento dei tassi d’interesse"],pt:["alta da taxa de juros"],tr:["faiz artırımı","faiz oranını artırdı","faiz oranını artırmak"],nl:["renteverhoging"],pl:["podwyżka stóp procentowych"]}),
+fa:["افزایش نرخ بهره","افزایش نرخ سود"],ar:["رفع سعر الفائدة","زيادة سعر الفائدة"],de:["Zinserhöhung"],fr:["hausse des taux d’intérêt"],ru:["повышение процентной ставки","повысил процентную ставку","повысила процентную ставку"],zh:["加息"],ja:["利上げ"],ko:["금리 인상"],hi:["ब्याज दर में वृद्धि","ब्याज दर बढ़ाई"],es:["subida de los tipos de interés"],it:["aumento dei tassi d’interesse","ha aumentato i tassi d’interesse"],pt:["alta da taxa de juros","aumentou a taxa de juros"],tr:["faiz artırımı","faiz oranını artırdı","faiz oranını artırmak"],nl:["renteverhoging","verhoogde de rente"],pl:["podwyżka stóp procentowych","podniósł stopę procentową"]}),
 C("rate_cut","interest rate cut","A decision to reduce a benchmark or other interest rate.",{
-fa:["کاهش نرخ بهره","کاهش نرخ سود"],ar:["خفض سعر الفائدة"],de:["Zinssenkung"],fr:["baisse des taux d’intérêt"],ru:["снижение процентной ставки"],zh:["降息"],ja:["利下げ"],ko:["금리 인하"],hi:["ब्याज दर में कटौती"],es:["bajada de los tipos de interés"],it:["riduzione dei tassi d’interesse"],pt:["corte da taxa de juros"],tr:["faiz indirimi","faiz oranını düşürdü","faiz oranını düşürmek"],nl:["renteverlaging"],pl:["obniżka stóp procentowych"]}),
+fa:["کاهش نرخ بهره","کاهش نرخ سود"],ar:["خفض سعر الفائدة"],de:["Zinssenkung"],fr:["baisse des taux d’intérêt"],ru:["снижение процентной ставки"],zh:["降息"],ja:["利下げ"],ko:["금리 인하"],hi:["ब्याज दर में कटौती"],es:["bajada de los tipos de interés"],it:["riduzione dei tassi d’interesse","ha tagliato i tassi d’interesse"],pt:["corte da taxa de juros","reduziu a taxa de juros"],tr:["faiz indirimi","faiz oranını düşürdü","faiz oranını düşürmek"],nl:["renteverlaging"],pl:["obniżka stóp procentowych"]}),
 C("exchange_rate","exchange rate","The price of one currency expressed in units of another currency.",{
 fa:["نرخ ارز","نرخ تبدیل ارز"],ar:["سعر الصرف"],de:["Wechselkurs"],fr:["taux de change"],ru:["обменный курс"],zh:["汇率"],ja:["為替レート"],ko:["환율"],hi:["विनिमय दर"],es:["tipo de cambio"],it:["tasso di cambio"],pt:["taxa de câmbio"],tr:["döviz kuru"],nl:["wisselkoers"],pl:["kurs walutowy"]}),
 C("currency_depreciation","currency depreciation","A market-driven fall in a currency's value relative to another currency.",{
@@ -148,10 +148,17 @@ export function runMarketLexiconBenchmark() {
   {lang:"ar",text:"أعلن البنك المركزي رفع سعر الفائدة لمواجهة التضخم.",expected:["central_bank","rate_hike","interest_rate","inflation"]},
   {lang:"de",text:"Die Zentralbank senkte den Leitzins.",expected:["central_bank","policy_rate"]},
   {lang:"fr",text:"La banque centrale a annoncé une hausse des taux d’intérêt.",expected:["central_bank","rate_hike","interest_rate"]},
-  {lang:"zh",text:"央行宣布降息以应对通货膨胀。",expected:["central_bank","rate_cut","inflation"]},
   {lang:"ru",text:"Центральный банк повысил процентную ставку.",expected:["central_bank","interest_rate"]},
+  {lang:"zh",text:"央行宣布降息以应对通货膨胀。",expected:["central_bank","rate_cut","inflation"]},
+  {lang:"ja",text:"中央銀行は政策金利を引き上げた。",expected:["central_bank","policy_rate"]},
+  {lang:"ko",text:"중앙은행이 금리를 인상했다.",expected:["central_bank","interest_rate","rate_hike"]},
+  {lang:"hi",text:"केंद्रीय बैंक ने ब्याज दर बढ़ाई।",expected:["central_bank","interest_rate","rate_hike"]},
   {lang:"es",text:"El banco central anunció una subida de los tipos de interés.",expected:["central_bank","rate_hike","interest_rate"]},
-  {lang:"tr",text:"Merkez bankası faiz oranını artırdı.",expected:["central_bank","interest_rate"]}
+  {lang:"it",text:"La banca centrale ha tagliato i tassi d’interesse.",expected:["central_bank","rate_cut","interest_rate"]},
+  {lang:"pt",text:"O banco central reduziu a taxa de juros.",expected:["central_bank","rate_cut","interest_rate"]},
+  {lang:"tr",text:"Merkez bankası faiz oranını artırdı.",expected:["central_bank","rate_hike","interest_rate"]},
+  {lang:"nl",text:"De centrale bank verhoogde de rente.",expected:["central_bank","rate_hike"]},
+  {lang:"pl",text:"Bank centralny podniósł stopę procentową.",expected:["central_bank","rate_hike","interest_rate"]}
  ];
  const results=cases.map(c=>{const a=analyzeMarketLexicon(c.text,c.lang);const found=new Set(a.matched_concept_ids);return {language:c.lang,passed:c.expected.every(x=>found.has(x)),expected:c.expected,found:[...found]};});
  const passed=results.filter(x=>x.passed).length;
