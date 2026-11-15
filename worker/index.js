@@ -12,7 +12,7 @@ import { MARKET_LEXICON_VERSION, MARKET_CONCEPTS, SUPPORTED_LEXICON_LANGUAGES, g
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
-import { COUNTRY_NEWS_SOURCES as CURATED_NEWS_SOURCES, validateCountryNewsSources } from "./country-news-sources.js";
+import { COUNTRY_NEWS_SOURCES as CURATED_NEWS_SOURCES, NEWS_DAILY_QUOTAS, validateCountryNewsSources } from "./country-news-sources.js";
 import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
 import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.js";
 import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_CONTRADICTION_VERSION } from "./news-contradiction-engine.js";
@@ -334,7 +334,7 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
     try { domain=new URL(sourceUrl || link).hostname.replace(/^www\./,""); } catch {}
     items.push({
       title,url:link,domain,published_at:new Date(published).toISOString(),
-      source_id:feed.source_id,language_code:feed.language_code,original_title:title,
+      source_id:feed.source_id,country_code:feed.country_code||null,language_code:feed.language_code,original_title:title,
       original_text:articleText,
       article_status:articleText.length?"extracted":"headline_only",
       extraction_method:articleText.length?"rss_excerpt":"headline_only",
@@ -367,30 +367,67 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
   console.log("News feed parsed:",feed.source_id,"country",feed.country_code||"unknown","language",feed.language_code||"unknown","http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
-async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
-  // Rotate 30 country feeds through four batches to keep each scheduled run bounded.
-  // Each country feed is probed once per hour when refresh runs every 15 minutes.
+async function readDailyNewsUsage(env) {
+  const base=String(env.SUPABASE_URL||"").replace(/\/+$/,"");
+  const key=env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!base||!key) throw Error("Daily news quotas require Supabase persistence; collection is paused fail-closed.");
+  const start=new Date(); start.setUTCHours(0,0,0,0);
+  const params=new URLSearchParams({select:"source_id",fetched_at:"gte."+start.toISOString(),limit:"1000"});
+  const response=await fetch(base+"/rest/v1/market_news_items?"+params.toString(),{
+    headers:{apikey:key,authorization:"Bearer "+key,accept:"application/json",range:"0-999"},
+    signal:AbortSignal.timeout(12000)
+  });
+  if(!response.ok) throw Error("Daily news quota read HTTP "+response.status+": "+(await response.text()).slice(0,160));
+  const rows=await response.json();
+  const sourceCountry=new Map(NEWS_SOURCES.map(source=>[source.source_id,source.country_code]));
+  const usedByCountry={};
+  for(const row of rows||[]){
+    const country=sourceCountry.get(row.source_id);
+    if(country) usedByCountry[country]=(usedByCountry[country]||0)+1;
+  }
+  return {day_start:start.toISOString(),used_by_country:usedByCountry,rows_count:(rows||[]).length};
+}
+async function collectNews({env,maxAgeHours=72,limit=72}={}) {
+  // Check persisted UTC-day usage before polling. Four rotating batches bound feed requests.
+  const usage=await readDailyNewsUsage(env);
+  const remainingByCountry={};
+  for(const [country,quota] of Object.entries(NEWS_DAILY_QUOTAS)){
+    remainingByCountry[country]=Math.max(0,quota-(usage.used_by_country[country]||0));
+  }
   const batchIndex=Math.floor(Date.now()/(15*60*1000))%4;
-  const selectedFeeds=NEWS_FEEDS.filter((_,index)=>index%4===batchIndex);
-  const results=await Promise.allSettled(selectedFeeds.map(feed => readNewsFeed(feed,maxAgeHours)));
+  const selectedFeeds=NEWS_FEEDS.filter((_,index)=>index%4===batchIndex)
+    .filter(feed=>(remainingByCountry[feed.country_code]||0)>0);
+  if(!selectedFeeds.length){
+    console.log("News collection skipped: all countries in this batch reached their daily quotas.",JSON.stringify(usage.used_by_country));
+    return [];
+  }
+  const results=await Promise.allSettled(selectedFeeds.map(feed=>readNewsFeed(feed,maxAgeHours)));
   const seenUrls=new Set(),items=[];
   results.forEach((result,index)=>{
-    const sourceId=selectedFeeds[index].source_id;
+    const feed=selectedFeeds[index];
     if(result.status!=="fulfilled"){
-      console.error("News feed failed:",sourceId,String(result.reason?.message || result.reason).slice(0,180));
+      console.error("News feed failed:",feed.source_id,String(result.reason?.message||result.reason).slice(0,180));
       return;
     }
-    console.log("News feed completed:",sourceId,"country",selectedFeeds[index].country_code||"unknown","items",result.value.length);
-    for(const item of result.value){
+    console.log("News feed completed:",feed.source_id,"country",feed.country_code,"items",result.value.length);
+    const ordered=result.value.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at));
+    let acceptedForCountry=0;
+    for(const item of ordered){
       const urlKey=item.url.toLowerCase().replace(/[?#].*$/,"");
       const titleKey=item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
-      if(!urlKey || seenUrls.has(urlKey) || !titleKey) continue;
-      // Preserve the same event reported by different publishers; only exact URLs are deduplicated.
-      seenUrls.add(urlKey);items.push(item);
+      if(!urlKey||seenUrls.has(urlKey)||!titleKey) continue;
+      if(acceptedForCountry>=remainingByCountry[feed.country_code]) break;
+      seenUrls.add(urlKey);
+      items.push({...item,country_code:feed.country_code});
+      acceptedForCountry++;
     }
   });
-  const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,Math.max(1,Math.min(200,Number(limit)||50)));
-  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"batch",batchIndex+1,"of",4,"countries",selectedFeeds.map(x=>x.country_code),"unique",sorted.length);
+  const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at))
+    .slice(0,Math.max(1,Math.min(72,Number(limit)||72)));
+  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,
+    "failed",results.filter(x=>x.status==="rejected").length,"batch",batchIndex+1,"of",4,
+    "countries",selectedFeeds.map(x=>x.country_code),"daily_usage",JSON.stringify(usage.used_by_country),
+    "remaining",JSON.stringify(remainingByCountry),"unique",sorted.length);
   return sorted;
 }
 function newsTopics(items) {
@@ -950,7 +987,7 @@ async function syncNewsToSupabase(env) {
     body:JSON.stringify(NEWS_SOURCES),signal:AbortSignal.timeout(12000)
   });
   if (!sourceResponse.ok) throw Error("Supabase news source registry HTTP " + sourceResponse.status + ": " + (await sourceResponse.text()).slice(0,180));
-  // Keep the database registry aligned with the exact 50 curated feeds.
+  // Keep the database registry aligned with the exact 18 priority-country feeds.
   // Older legacy rows remain stored for history but are no longer polled.
   const curatedIds = NEWS_SOURCES.map(source => source.source_id);
   const staleSources = await fetch(
@@ -968,7 +1005,7 @@ async function syncNewsToSupabase(env) {
     return { enabled:true, refreshed:false, items:await readNewsFromSupabase(env) };
   }
 
-  const items = await collectNews({maxAgeHours:30*24,limit:100});
+  const items = await collectNews({env,maxAgeHours:72,limit:72});
   const fetchedAt = new Date().toISOString();
   if (items.length) {
     const rows = items.map(item => ({
@@ -1244,7 +1281,7 @@ export async function refreshBackground(env) {
     }),{expirationTtl:3600});
     const cachedNews = await readFreshCache(env,"news:latest",15*60*1000);
     if (!cachedNews) {
-      const items = backgroundNews || await collectNews();
+      const items = backgroundNews || await collectNews({env});
       await env.MARKET_CACHE.put("news:latest",JSON.stringify({
         fetched_at:new Date().toISOString(),items
       }),{expirationTtl:3600});
@@ -1712,7 +1749,7 @@ export default {
         continuous_learning_ready: learningStorageReady,
         news_storage_enabled: newsStorageReady,
         news_pipeline_schema_ready: newsPipelineSchemaReady,
-        country_news_sources: {...validateCountryNewsSources(),refresh_batches:4,feeds_per_batch:[8,8,7,7],runtime_health:"check per-country ingestion logs"},
+        country_news_sources: {...validateCountryNewsSources(),refresh_batches:4,daily_quotas:NEWS_DAILY_QUOTAS,total_daily_quota:Object.values(NEWS_DAILY_QUOTAS).reduce((sum,value)=>sum+value,0),runtime_health:"check per-country ingestion logs"},
         forecast_ledger_table: "market_forecast_runs",
         news_store_table: "market_news_items",
         kv_binding_present: kvBindingPresent,
