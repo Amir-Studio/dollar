@@ -104,17 +104,8 @@ function forward(net,x) {
 function zerosLike(value) {
   return Array.isArray(value)?value.map(zerosLike):0;
 }
-function adamUpdate(parameter,gradient,state,step,decay=false) {
-  if(Array.isArray(parameter)) {
-    for(let i=0;i<parameter.length;i++) adamUpdate(parameter[i],gradient[i],state[i],step,decay);
-    return;
-  }
-  const g=clamp(gradient+(decay?WEIGHT_DECAY*parameter:0),-GRADIENT_LIMIT,GRADIENT_LIMIT);
-  state.m=0.9*state.m+0.1*g;
-  state.v=0.999*state.v+0.001*g*g;
-  const mHat=state.m/(1-Math.pow(0.9,step));
-  const vHat=state.v/(1-Math.pow(0.999,step));
-  return;
+function makeAdamState(value) {
+  return Array.isArray(value)?value.map(makeAdamState):{m:0,v:0};
 }
 function applyAdam(parameter,gradient,state,step,decay=false) {
   if(Array.isArray(parameter)) {
@@ -131,10 +122,13 @@ function applyAdam(parameter,gradient,state,step,decay=false) {
   const vHat=state.v/(1-Math.pow(0.999,step));
   return parameter-LEARNING_RATE*mHat/(Math.sqrt(vHat)+1e-8);
 }
-
 function huber(error) {
   const a=Math.abs(error);
   return a<=1?0.5*error*error:a-0.5;
+}
+function makeOptimizer(net) {
+  return {w1:makeAdamState(net.w1),b1:makeAdamState(net.b1),w2:makeAdamState(net.w2),b2:makeAdamState(net.b2),
+    w3:makeAdamState(net.w3),b3:{m:0,v:0}};
 }
 function trainOneEpoch(net,x,labels,optimizer,step) {
   const g={w1:zerosLike(net.w1),b1:zerosLike(net.b1),w2:zerosLike(net.w2),b2:zerosLike(net.b2),
@@ -149,19 +143,17 @@ function trainOneEpoch(net,x,labels,optimizer,step) {
       g.w3[k]+=delta3*hidden2[k];
       const delta2=delta3*net.w3[k]*(1-hidden2[k]*hidden2[k]);
       g.b2[k]+=delta2;
-      for(let h=0;h<HIDDEN;h++) {
-        g.w2[k][h]+=delta2*hidden1[h];
-        const delta1=delta2*net.w2[k][h]*(1-hidden1[h]*hidden1[h]);
-        g.b1[h]+=delta1;
-        for(let j=0;j<INPUTS;j++) g.w1[h][j]+=delta1*x[i][j];
+      for(let j=0;j<HIDDEN;j++) {
+        g.w2[k][j]+=delta2*hidden1[j];
+        const delta1=delta2*net.w2[k][j]*(1-hidden1[j]*hidden1[j]);
+        g.b1[j]+=delta1;
+        for(let f=0;f<INPUTS;f++) g.w1[j][f]+=delta1*x[i][f];
       }
     }
   }
   const inv=1/Math.max(1,x.length);
-  for(const key of ["w1","b1","w2","b2","w3","b3"]) {
-    const scaleGradient=value=>Array.isArray(value)?value.map(scaleGradient):value*inv;
-    g[key]=scaleGradient(g[key]);
-  }
+  const scale=value=>Array.isArray(value)?value.map(scale):value*inv;
+  for(const key of ["w1","b1","w2","b2","w3","b3"]) g[key]=scale(g[key]);
   net.w1=applyAdam(net.w1,g.w1,optimizer.w1,step,true);
   net.b1=applyAdam(net.b1,g.b1,optimizer.b1,step);
   net.w2=applyAdam(net.w2,g.w2,optimizer.w2,step,true);
@@ -170,14 +162,10 @@ function trainOneEpoch(net,x,labels,optimizer,step) {
   net.b3=applyAdam(net.b3,g.b3,optimizer.b3,step);
   return loss/Math.max(1,x.length);
 }
-function makeOptimizer(net) {
-  return {w1:zerosLike(net.w1),b1:zerosLike(net.b1),w2:zerosLike(net.w2),b2:zerosLike(net.b2),
-    w3:zerosLike(net.w3),b3:{m:0,v:0}};
-}
 function fitCore(rows,labels,epochs,seed=0x6d2b79f5) {
-  const scaler=fitScaler(rows),x=rows.map(scaler.apply),net=makeNetwork(seed);
+  const scaler=fitScaler(rows),x=rows.map(scaler.apply),net=makeNetwork(seed),optimizer=makeOptimizer(net);
   let loss=0;
-  for(let epoch=0;epoch<epochs;epoch++) loss=trainOneEpoch(net,x,labels);
+  for(let epoch=0;epoch<epochs;epoch++) loss=trainOneEpoch(net,x,labels,optimizer,epoch+1);
   return {net,scaler,loss};
 }
 function validationLoss(net,scaler,rows,labels) {
@@ -186,9 +174,7 @@ function validationLoss(net,scaler,rows,labels) {
   return total/Math.max(1,rows.length);
 }
 function chooseEpochs(examples,labels,horizonDays) {
-  // Three expanding-window folds. Every fold purges examples whose target
-  // realization reaches into its validation period.
-  const fractions=[0.60,0.72,0.84], folds=[];
+  const fractions=[0.60,0.72,0.84],folds=[];
   for(let fold=0;fold<fractions.length;fold++) {
     const split=Math.floor(examples.length*fractions[fold]);
     const end=fold===fractions.length-1?examples.length:Math.floor(examples.length*fractions[fold+1]);
@@ -196,35 +182,35 @@ function chooseEpochs(examples,labels,horizonDays) {
     const trainIndices=examples.slice(0,split).map((item,index)=>({item,index}))
       .filter(x=>x.item.target_time<validStart).map(x=>x.index);
     const validIndices=Array.from({length:Math.max(0,end-split)},(_,i)=>split+i);
-    const trainRows=trainIndices.map(i=>examples[i].features);
-    const trainLabels=trainIndices.map(i=>labels[i]);
-    const validRows=validIndices.map(i=>examples[i].features);
-    const validLabels=validIndices.map(i=>labels[i]);
+    const trainRows=trainIndices.map(i=>examples[i].features),trainLabels=trainIndices.map(i=>labels[i]);
+    const validRows=validIndices.map(i=>examples[i].features),validLabels=validIndices.map(i=>labels[i]);
     if(trainRows.length<35||validRows.length<10) continue;
-    const scaler=fitScaler(trainRows),x=trainRows.map(scaler.apply),net=makeNetwork((0x6d2b79f5+Math.imul(fold+1,0x9e3779b9))>>>0);
-    let best=Infinity,bestEpoch=1,stale=0;
+    const scaler=fitScaler(trainRows),x=trainRows.map(scaler.apply);
+    const net=makeNetwork((0x6d2b79f5+Math.imul(fold+1,0x9e3779b9))>>>0);
+    const optimizer=makeOptimizer(net);
+    let best=Infinity,bestEpoch=1,stale=0,bestNet=null;
     for(let epoch=1;epoch<=MAX_EPOCHS;epoch++) {
-      trainOneEpoch(net,x,trainLabels);
+      trainOneEpoch(net,x,trainLabels,optimizer,epoch);
       const score=validationLoss(net,scaler,validRows,validLabels);
-      if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;} else stale++;
+      if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;bestNet=structuredClone(net);} else stale++;
       if(stale>=PATIENCE) break;
     }
     const baseline=validLabels.reduce((sum,y)=>sum+huber(y),0)/validLabels.length;
     folds.push({epochs:bestEpoch,loss:best,baseline,samples:validRows.length,
-      purged_training_samples:trainRows.length});
+      purged_training_samples:trainRows.length,checkpoint_restored:Boolean(bestNet)});
   }
   if(!folds.length) return {epochs:Math.min(12,MAX_EPOCHS),validation_loss:null,
-    baseline_loss:null,validation_skill:null,purged_training_samples:0,validation_samples:0,
-    validation_folds:0};
+    baseline_loss:null,validation_skill:null,purged_training_samples:0,validation_samples:0,validation_folds:0};
   const orderedEpochs=folds.map(x=>x.epochs).sort((a,b)=>a-b);
   const epochs=orderedEpochs[Math.floor(orderedEpochs.length/2)];
-  const loss=folds.reduce((sum,x)=>sum+x.loss*x.samples,0)/folds.reduce((sum,x)=>sum+x.samples,0);
-  const baseline=folds.reduce((sum,x)=>sum+x.baseline*x.samples,0)/folds.reduce((sum,x)=>sum+x.samples,0);
+  const totalSamples=folds.reduce((sum,x)=>sum+x.samples,0);
+  const loss=folds.reduce((sum,x)=>sum+x.loss*x.samples,0)/totalSamples;
+  const baseline=folds.reduce((sum,x)=>sum+x.baseline*x.samples,0)/totalSamples;
   return {epochs,validation_loss:Number(loss.toFixed(8)),baseline_loss:Number(baseline.toFixed(8)),
     validation_skill:Number((baseline>0?1-loss/baseline:0).toFixed(6)),
     purged_training_samples:Math.min(...folds.map(x=>x.purged_training_samples)),
-    validation_samples:folds.reduce((sum,x)=>sum+x.samples,0),
-    validation_folds:folds.length};
+    validation_samples:totalSamples,validation_folds:folds.length,
+    checkpoint_restored_folds:folds.filter(x=>x.checkpoint_restored).length};
 }
 function targetScale(labels) {
   const sorted=labels.map(Math.abs).sort((a,b)=>a-b);
