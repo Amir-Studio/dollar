@@ -175,3 +175,16 @@ export function runChineseNewsVocabularySelfTest() {
     scope:"Structural and deduplication checks only; translations and pinyin require native-speaker review before high-stakes use."
   };
 }
+
+export function findChineseNewsVocabularyMatches(text, { limit = 30 } = {}) {
+  const source = String(text || "").normalize("NFKC");
+  if (!source) return [];
+  const safeLimit = Math.max(1, Math.min(100, Number(limit) || 30));
+  return CHINESE_NEWS_VOCABULARY
+    .filter(row => source.includes(row[3]))
+    .slice(0, safeLimit)
+    .map(([id, category, english, zh, pinyin, fa]) => ({
+      id, category, english, zh, pinyin, fa,
+      match_type: "exact_specialist_term"
+    }));
+}
