@@ -2,37 +2,37 @@ TAP version 13
 # Subtest: Arabic normalization removes diacritics and standardizes Arabic numerals
 ok 1 - Arabic normalization removes diacritics and standardizes Arabic numerals
   ---
-  duration_ms: 3.021251
+  duration_ms: 3.325109
   type: 'test'
   ...
 # Subtest: MSA analysis identifies finance domain, attribution and discourse markers
 ok 2 - MSA analysis identifies finance domain, attribution and discourse markers
   ---
-  duration_ms: 6.315852
+  duration_ms: 9.130945
   type: 'test'
   ...
 # Subtest: Arabic number extraction preserves decimal values and currency units
 ok 3 - Arabic number extraction preserves decimal values and currency units
   ---
-  duration_ms: 1.909246
+  duration_ms: 2.892448
   type: 'test'
   ...
 # Subtest: Egyptian and Maghrebi colloquial markers are not silently treated as MSA
 ok 4 - Egyptian and Maghrebi colloquial markers are not silently treated as MSA
   ---
-  duration_ms: 1.717813
+  duration_ms: 2.704657
   type: 'test'
   ...
 # Subtest: clitic and morphology outputs are explicitly marked as candidates
 ok 5 - clitic and morphology outputs are explicitly marked as candidates
   ---
-  duration_ms: 1.567739
+  duration_ms: 2.530793
   type: 'test'
   ...
 # Subtest: academic benchmark reports its limited scope and exposes all cases
 ok 6 - academic benchmark reports its limited scope and exposes all cases
   ---
-  duration_ms: 11.386746
+  duration_ms: 17.596105
   type: 'test'
   ...
 # file:///home/runner/work/dollar/dollar/worker/market-lexicon-ontology.js:95
@@ -51,7 +51,7 @@ ok 6 - academic benchmark reports its limited scope and exposes all cases
 # Subtest: test/arabic-formal-grammar.test.js
 not ok 2 - test/arabic-formal-grammar.test.js
   ---
-  duration_ms: 41.178711
+  duration_ms: 58.259436
   type: 'test'
   location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:1:1'
   failureType: 'testCodeFailure'
@@ -68,4 +68,4 @@ not ok 2 - test/arabic-formal-grammar.test.js
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 70.113127
+# duration_ms 101.275897
