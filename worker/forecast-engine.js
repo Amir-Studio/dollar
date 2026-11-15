@@ -950,6 +950,14 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
     return {ran:false,error:String(error?.message||error).slice(0,180)};
   }
 }
+export function getMissingForecastHorizons(recentRows,modelVersion=MODEL_VERSION) {
+  const existing=new Set((recentRows||[])
+    .filter(row=>row?.model_version===modelVersion)
+    .map(row=>Number(row.horizon_days))
+    .filter(horizon=>HORIZONS.includes(horizon)));
+  return HORIZONS.filter(horizon=>!existing.has(horizon));
+}
+
 export async function runForecastCycle(env,marketPayload) {
   if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY) return {enabled:false,reason:"database-not-configured"};
   const market=await getMarketSnapshot(env,marketPayload);
@@ -959,9 +967,8 @@ export async function runForecastCycle(env,marketPayload) {
   for(const asset of ASSETS){
     try{
       const since=new Date(Date.now()-6*3600000).toISOString();
-      const recent=await db(env,"market_forecast_runs?select=horizon_days&asset=eq."+asset+"&status=in.(pending,evaluated)&issued_at=gte."+encodeURIComponent(since)+"&limit=10");
-      const existing=new Set((recent||[]).map(x=>Number(x.horizon_days)));
-      const missing=HORIZONS.filter(h=>!existing.has(h));
+      const recent=await db(env,"market_forecast_runs?select=horizon_days,model_version&asset=eq."+asset+"&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&status=in.(pending,evaluated)&issued_at=gte."+encodeURIComponent(since)+"&limit=10");
+      const missing=getMissingForecastHorizons(recent);
       if(!missing.length) continue;
       const input=await fetchInputs(env,asset,market);
       for(const horizon of missing){
