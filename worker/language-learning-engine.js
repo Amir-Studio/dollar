@@ -30,11 +30,9 @@ const norm = (value, lang) => {
  if(lang==="ar") s=s.replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/[\u064b-\u065f\u0670]/g,"").replace(/ـ/g,"");
  return s.trim().replace(/\s+/g," ");
 };
-const safeWord = value => String(value||"").trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu,"");
-export function extractUnknownVocabularyCandidates(text, language, options={}) {
- const lang=String(language||"").toLowerCase();
- if(!LEARNER_LANGUAGES.includes(lang)) return [];
- const source=String(text||"").slice(0,12000);
+const KNOWN_TERMS_CACHE=new Map();
+function getKnownTerms(lang) {
+ if(KNOWN_TERMS_CACHE.has(lang)) return KNOWN_TERMS_CACHE.get(lang);
  const known=new Set(getMarketLexicon({language:lang,limit:200}).concepts.flatMap(c=>[...(c.equivalents?.[lang]||[]),...(lang==="en"?[c.pivot?.term]:[])]).map(x=>norm(x,lang)));
  if(lang==="de") {
    for(const item of getGermanNewsVocabulary({limit:1000}).items) {
@@ -53,6 +51,15 @@ export function extractUnknownVocabularyCandidates(text, language, options={}) {
      for(let n=2;n<=4;n++) for(let i=0;i+n<=chars.length;i++) known.add(chars.slice(i,i+n).join(""));
    }
  }
+ KNOWN_TERMS_CACHE.set(lang,known);
+ return known;
+}
+const safeWord = value => String(value||"").trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu,"");
+export function extractUnknownVocabularyCandidates(text, language, options={}) {
+ const lang=String(language||"").toLowerCase();
+ if(!LEARNER_LANGUAGES.includes(lang)) return [];
+ const source=String(text||"").slice(0,12000);
+ const known=getKnownTerms(lang);
  const counts=new Map();
  const add=raw=>{
    const term=safeWord(raw), key=norm(term,lang);
