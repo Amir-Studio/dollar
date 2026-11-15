@@ -262,10 +262,10 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
       article_chars:articleText.length
     });
   }
-  // Enrich the two newest relevant stories from each feed, not just one lead.
-  // This improves full-text coverage while keeping the per-feed request budget bounded.
-  const leads=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,2);
-  await Promise.allSettled(leads.map(async lead=>{
+  // Enrich only the newest relevant story per feed. Keep the outbound request
+  // budget bounded; the live search route performs a separate on-demand lookup.
+  if(items.length){
+    const lead=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at))[0];
     const currentText=lead.original_text||"";
     if(currentText.length<1200){
       const fullText=await fetchFullArticleText(lead.url);
@@ -284,7 +284,7 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
       lead.extraction_method="rss_content";
       lead.article_chars=currentText.length;
     }
-  }));
+  }
   console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
