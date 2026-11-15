@@ -1,6 +1,6 @@
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION } from "./decision-engine.js";
-import { trainNeuralReturnModel, NEURAL_MODEL_VERSION } from "./neural-forecast-engine.js";
+import { trainNeuralReturnModel } from "./neural-forecast-engine.js";
 
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -396,7 +396,7 @@ function buildForecastPoint(points,price,horizon,newsContext=null) {
     }
     return {...validation,observations:points.length};
   }
-  const {raw,dailyVol}=candidates(points,horizon);
+  const {raw,dailyVol,neural}=candidates(points,horizon);
   // Store the exact component outputs so matured live outcomes can score each expert.
   validation.candidate_predictions_log=raw;
   validation.neural_network=neural;
