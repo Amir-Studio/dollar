@@ -77,12 +77,12 @@ export async function researchEnglishTerm(term,context="",env,fetchImpl=fetch) {
     });
     if(response.ok) {
       const xml=await response.text();
-      const blocks=[...xml.matchAll(/<item(?:\\s[^>]*)?>([\\s\\S]*?)<\\/item>/gi)].slice(0,8);
+      const blocks=[...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].slice(0,8);
       evidence=blocks.map(m=>{
-        const title=m[1].match(/<title>([\\s\\S]*?)<\\/title>/i)?.[1]||"";
-        const link=m[1].match(/<link>([\\s\\S]*?)<\\/link>/i)?.[1]||"";
-        const date=m[1].match(/<pubDate>([\\s\\S]*?)<\\/pubDate>/i)?.[1]||"";
-        const decode=s=>s.replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g,"$1").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&lt;/g,"<").replace(/&gt;/g,">").trim();
+        const title=m[1].match(/<title>([\s\S]*?)<\/title>/i)?.[1]||"";
+        const link=m[1].match(/<link>([\s\S]*?)<\/link>/i)?.[1]||"";
+        const date=m[1].match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1]||"";
+        const decode=s=>s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&lt;/g,"<").replace(/&gt;/g,">").trim();
         return {title:decode(title).replace(/<[^>]*>/g,"").slice(0,260),url:decode(link).slice(0,1000),published_at:Date.parse(decode(date))?new Date(Date.parse(decode(date))).toISOString():null};
       }).filter(x=>x.title&&x.url);
     }
