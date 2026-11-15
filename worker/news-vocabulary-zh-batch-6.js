@@ -5,7 +5,7 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_6 = [
 ["zh502","international_trade","current account deficit","经常账户赤字","jīngcháng zhànghù chìzì","کسری حساب جاری"],
 ["zh503","international_trade","current account surplus","经常账户盈余","jīngcháng zhànghù yíngyú","مازاد حساب جاری"],
 ["zh504","international_trade","terms of trade","贸易条件","màoyì tiáojiàn","رابطه مبادله"],
-["zh505","international_trade","real effective exchange rate","实际有效汇率指数","shíjì yǒuxiào huìlǜ zhǐshù","شاخص نرخ ارز مؤثر واقعی"],
+["zh505","international_trade","currency misalignment","汇率失调","huìlǜ shītiáo","عدم‌تعادل نرخ ارز"],
 ["zh506","international_trade","customs tariff","海关关税","hǎiguān guānshuì","تعرفه گمرکی"],
 ["zh507","international_trade","tariff escalation","关税升级","guānshuì shēngjí","افزایش پلکانی تعرفه"],
 ["zh508","international_trade","tariff-rate quota","关税配额","guānshuì pèi'é","سهمیه تعرفه‌ای"],
@@ -100,7 +100,7 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_6 = [
  ["zh597","commodities","critical minerals","关键矿产","guānjiàn kuàngchǎn","مواد معدنی حیاتی"],
  ["zh598","geopolitical_risk","sanctions relief","制裁解除","zhìcái jiěchú","لغو یا کاهش تحریم‌ها"],
  ["zh599","geopolitical_risk","diplomatic breakthrough","外交突破","wàijiāo tūpò","پیشرفت مهم دیپلماتیک"],
- ["zh600","geopolitical_risk","strategic dialogue","战略对话","zhànlüè duìhuà","گفت‌وگوی راهبردی"]
+["zh600","geopolitical_risk","strategic consultation","战略磋商","zhànlüè cuōshāng","رایزنی راهبردی"],
 ];
 
 export function runChineseVocabularyBatch6SelfTest() {
