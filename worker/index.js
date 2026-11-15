@@ -3,7 +3,7 @@ import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./lan
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { ARABIC_ENGINE_VERSION, runArabicAcademicBenchmark } from "./arabic-academic-engine.js";
-import { ARABIC_FORMAL_GRAMMAR_VERSION, runArabicFormalGrammarBenchmark } from "./arabic-formal-grammar.js";
+import { ARABIC_FORMAL_GRAMMAR_VERSION, ARABIC_FORMAL_CURRICULUM, runArabicFormalGrammarBenchmark } from "./arabic-formal-grammar.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
@@ -1313,6 +1313,10 @@ export default {
       },200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance" || url.pathname === "/forecast/learning" || url.pathname === "/forecast/diagnostics") return handleForecastApi(url,env);
+    if (url.pathname === "/language/arabic/curriculum") {
+      if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+      return reply({version:ARABIC_FORMAL_GRAMMAR_VERSION,language:"العربية الفصحى المعاصرة",levels:4,rule_count:ARABIC_FORMAL_CURRICULUM.length,lessons:ARABIC_FORMAL_CURRICULUM},200,{"cache-control":"public, max-age=3600"});
+    }
     if (url.pathname === "/health") {
       const databaseConfigured = Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
       const tableChecks = databaseConfigured ? await Promise.all([
