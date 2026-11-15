@@ -61,7 +61,7 @@ test('news intelligence backend uses source-linked RSS context and a no-key fore
   assert.match(worker, /const NEWS_SOURCES/);
   assert.ok(worker.includes('url.pathname === "/news"'));
   assert.ok(worker.includes('async function readNewsFromSupabase(env)'), 'news reads use the persisted article store');
-  assert.match(worker, /RSS ingestion runs only in the\\s+scheduled refresh path/, 'public news requests do not trigger ingestion');
+  assert.match(worker, /RSS ingestion runs only in the\s+scheduled refresh path/, 'public news requests do not trigger ingestion');
   assert.ok(worker.includes('const stored = await readNewsFromSupabase(env)'), 'news endpoint reads persisted articles');
   assert.ok(worker.includes('await runNewsLearningCycle(env)'), 'scheduled refresh evaluates news-learning feedback');
   assert.ok(worker.includes('await runForecastCycle(env,market)'), 'scheduled refresh evaluates forecast maturity');
