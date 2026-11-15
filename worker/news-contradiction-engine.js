@@ -12,7 +12,7 @@ const normalize = value => String(value ?? "")
   .replace(/\s+/g, " ").trim();
 
 const TOPICS = [
-  {id:"interest_rate", terms:["interest rate","policy rate","rates","rate hike","rate cut","نرخ بهره","نرخ سود","نرخ سیاستی"]},
+  {id:"interest_rate", terms:["interest rate","policy rate","rate","rates","rate hike","rate cut","نرخ بهره","نرخ سود","نرخ سیاستی"]},
   {id:"fx_rate", terms:["exchange rate","currency rate","dollar rate","usd irr","نرخ ارز","نرخ دلار","قیمت دلار","دلار آزاد"]},
   {id:"oil_price", terms:["oil price","crude price","brent","wti","قیمت نفت","نفت برنت","نفت خام"]},
   {id:"oil_export", terms:["oil exports","crude exports","oil shipment","صادرات نفت","صادرات نفت خام","محموله نفتی"]},
@@ -93,7 +93,9 @@ function extractClaims(article, articleIndex) {
     const raw = sentences[i], text = normalize(raw);
     const topic = firstMatch(text, TOPICS);
     const actor = firstMatch(text, ACTORS);
-    const direction = firstMatch(text, DIRECTIONS);
+    const quantities = extractNumbers(text);
+    const detectedDirection = firstMatch(text, DIRECTIONS);
+    const direction = detectedDirection || (quantities.length ? "report_value" : null);
     if (!topic || !direction) continue;
     const conditional = CONDITIONAL.test(text);
     const modal = MODAL.test(text);
@@ -110,7 +112,7 @@ function extractClaims(article, articleIndex) {
       negated,
       certainty: conditional ? "conditional" : modal ? "possible_or_forecast" : "asserted",
       years,
-      quantities: extractNumbers(text),
+      quantities,
       domain,
       source_id: article.source_id || null,
       source: article.domain || article.source_id || domain || "unknown",
@@ -119,7 +121,12 @@ function extractClaims(article, articleIndex) {
       published_ms: Number.isFinite(publishedAt) ? publishedAt : null
     });
   }
-  return claims;
+  const unique = new Map();
+  for (const claim of claims) {
+    const key = [claim.actor,claim.topic,claim.direction,claim.negated,normalize(claim.text)].join("|");
+    if (!unique.has(key)) unique.set(key,claim);
+  }
+  return [...unique.values()];
 }
 function timeCompatible(a, b) {
   if (a.years.length && b.years.length && !a.years.some(y => b.years.includes(y))) return false;
@@ -140,6 +147,13 @@ function pairClassification(a, b) {
   if (!differentPublishers) return null;
   if (a.certainty !== "asserted" || b.certainty !== "asserted") {
     return {status:"needs_context",kind:"certainty_or_condition_mismatch",reason:"At least one claim is conditional, forecast, or otherwise uncertain; this is not a confirmed factual contradiction."};
+  }
+  if (a.direction === "report_value" && b.direction === "report_value") {
+    const qa = a.quantities.find(x => x.unit), qb = b.quantities.find(x => x.unit);
+    if (qa && qb && qa.unit === qb.unit && qa.value !== qb.value) {
+      return {status:"needs_context",kind:"numeric_discrepancy",reason:"The sources report different values with the same detected unit; period, base, methodology, and later revisions must be checked before calling this a contradiction."};
+    }
+    return null;
   }
   if (oppositeDirections(a, b)) {
     return {status:"potential_contradiction",kind:"opposite_event_directions",reason:"Two distinct publisher domains describe opposing outcomes for the same detected actor, topic, and compatible time scope."};
