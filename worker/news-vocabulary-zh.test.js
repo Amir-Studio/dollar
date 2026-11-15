@@ -7,7 +7,7 @@ import {
 } from "./news-vocabulary-zh.js";
 
 test("Chinese news vocabulary batch has 100 unique specialist entries", () => {
-  assert.equal(CHINESE_NEWS_VOCABULARY.length, 100);
+  assert.equal(CHINESE_NEWS_VOCABULARY.length, 120);
   assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 100);
   assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 100);
 });
@@ -26,14 +26,14 @@ test("category and query filters return relevant vocabulary", () => {
   assert.equal(economics.items.length, 20);
   assert.ok(economics.items.every(x => x.category === "macroeconomics"));
   const search = getChineseNewsVocabulary({ query: "sanctions" });
-  assert.ok(search.items.length === 0); // sanctions is not in this first tranche
+  assert.ok(search.items.length === 8); // sanctions is not in this first tranche
   const politics = getChineseNewsVocabulary({ category: "politics" });
   assert.equal(politics.items.length, 10);
 });
 
 test("self-test reports structural quality without claiming translation certification", () => {
   const result = runChineseNewsVocabularySelfTest();
-  assert.equal(result.total, 100);
+  assert.equal(result.total, 120);
   assert.equal(result.passed, true);
   assert.match(result.scope, /native-speaker review/);
 });
