@@ -185,7 +185,7 @@ async function fetchFullArticleText(url) {
   try {
     const response=await fetch(url,{
       headers:{accept:"text/html,application/xhtml+xml","user-agent":"Mozilla/5.0 (compatible; DollarNewsReader/1.0)"},
-      signal:AbortSignal.timeout(7000)
+      signal:AbortSignal.timeout(6000)
     });
     if(!response.ok || !response.headers.get("content-type")?.includes("text/html")) return "";
     if (typeof HTMLRewriter !== "undefined") {
@@ -796,21 +796,23 @@ async function fetchCountryNewsArticle(country, proxySecret=null) {
       console.warn("Cloudflare country article proxy failed:",country.code,String(error?.message||error).slice(0,140));
     }
   }
-  try {
-    const googleResult=await fetchGoogleNewsCountryArticle(country);
-    if(googleResult) return googleResult;
-  } catch(error) {
-    console.warn("Google News country fallback failed:",country.code,String(error?.message||error).slice(0,120));
+  if (typeof HTMLRewriter === "undefined") {
+    try {
+      const googleResult=await fetchGoogleNewsCountryArticle(country);
+      if(googleResult) return googleResult;
+    } catch(error) {
+      console.warn("Google News country fallback failed:",country.code,String(error?.message||error).slice(0,120));
+    }
   }
   const query="(economy OR business OR trade OR inflation OR technology OR education OR health OR climate OR policy) sourcecountry:"+country.gdelt;
   const api=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
   api.searchParams.set("query",query);
   api.searchParams.set("mode","ArtList");
   api.searchParams.set("format","json");
-  api.searchParams.set("maxrecords","20");
+  api.searchParams.set("maxrecords","5");
   api.searchParams.set("timespan","30d");
   api.searchParams.set("sort","DateDesc");
-  const response=await fetch(api.toString(),{headers:{accept:"application/json"},signal:AbortSignal.timeout(12000)});
+  const response=await fetch(api.toString(),{headers:{accept:"application/json"},signal:AbortSignal.timeout(15000)});
   if(!response.ok){const detail=(await response.text()).slice(0,180);throw Error("Google News had no full local article; GDELT HTTP "+response.status+": "+detail);}
   const payload=await response.json();
   const articles=Array.isArray(payload?.articles)?payload.articles:[];
