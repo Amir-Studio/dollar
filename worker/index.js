@@ -605,7 +605,22 @@ async function makeFreeAnalysis(env, asset) {
     neuralErrorMemory = {status:"neural_error_memory_failed",matches:[],version:NEURAL_ERROR_MEMORY_VERSION,detail:String(error?.message||error).slice(0,120)};
   }
   multilingualNewsAnalysis.verified_error_memory = neuralErrorMemory;
-  const enrichedLanguageAnalysis = {...languageAnalysis,multilingual_news:multilingualNewsAnalysis,verified_error_memory:neuralErrorMemory};
+  const readingEnrichedPerNews = (languageAnalysis.per_news||[]).map(analysis=>{
+    const matchedArticle=news.find(article=>String(article.title||"").trim()===String(analysis.title||"").trim())
+      ||news.find(article=>String(article.url||"")&&String(article.url)===String(analysis.url||""));
+    if(!matchedArticle) return analysis;
+    const reading=analyzeNewsReading(matchedArticle.title||matchedArticle.original_title||"",
+      matchedArticle.original_text||matchedArticle.translated_text_fa||"",matchedArticle.published_at||null,
+      String(matchedArticle.extraction_method||"").toLowerCase().includes("full"));
+    return {...analysis,reading_analysis:{version:reading.version,language:reading.language,
+      reading_status:reading.reading_status,claim_count:reading.claims.length,
+      complete_claim_count:reading.claims.filter(x=>x.completeness==="partial_structured_claim").length,
+      conditional_count:reading.counts.conditional,negated_count:reading.counts.negated,
+      possible_or_forecast_count:reading.counts.possible_or_forecast,attributed_count:reading.counts.attributed,
+      ambiguity_flags:[...new Set(reading.sentence_frames.flatMap(x=>x.ambiguity_flags||[]))].slice(0,8),
+      verification_state:"linguistic_structure_only_not_fact_checked"}};
+  });
+  const enrichedLanguageAnalysis = {...languageAnalysis,per_news:readingEnrichedPerNews,multilingual_news:multilingualNewsAnalysis,verified_error_memory:neuralErrorMemory};
   const topics = languageAnalysis.themes;
   const decisionBrief = buildDecisionBrief({
     asset,
