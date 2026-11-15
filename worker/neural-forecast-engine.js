@@ -173,8 +173,10 @@ function validationLoss(net,scaler,rows,labels) {
   for(let i=0;i<rows.length;i++) total+=huber(forward(net,scaler.apply(rows[i])).output-labels[i]);
   return total/Math.max(1,rows.length);
 }
-function chooseEpochs(examples,labels,horizonDays) {
-  const fractions=[0.60,0.72,0.84],folds=[];
+function chooseEpochs(examples,labels,horizonDays,options={}) {
+  const fast=options.fast===true;
+  const fractions=fast?[0.65,0.82]:[0.60,0.72,0.84],folds=[];
+  const epochLimit=fast?8:MAX_EPOCHS;
   for(let fold=0;fold<fractions.length;fold++) {
     const split=Math.floor(examples.length*fractions[fold]);
     const end=fold===fractions.length-1?examples.length:Math.floor(examples.length*fractions[fold+1]);
@@ -200,7 +202,7 @@ function chooseEpochs(examples,labels,horizonDays) {
     folds.push({epochs:bestEpoch,loss:best,baseline,samples:validRows.length,
       purged_training_samples:trainRows.length,checkpoint_restored:Boolean(bestNet)});
   }
-  if(!folds.length) return {epochs:Math.min(12,MAX_EPOCHS),validation_loss:null,
+  if(!folds.length) return {epochs:Math.min(fast?6:12,MAX_EPOCHS),validation_loss:null,
     baseline_loss:null,validation_skill:null,purged_training_samples:0,validation_samples:0,validation_folds:0};
   const orderedEpochs=folds.map(x=>x.epochs).sort((a,b)=>a-b);
   const epochs=orderedEpochs[Math.floor(orderedEpochs.length/2)];
@@ -246,9 +248,10 @@ export function trainNeuralReturnModel(points,horizonDays,options={}) {
     training_samples:examples.length,required_samples:MIN_TRAINING_ROWS,version:NEURAL_MODEL_VERSION};
   const rows=examples.map(x=>x.features),rawTargets=examples.map(x=>x.target);
   const scale=targetScale(rawTargets),labels=rawTargets.map(x=>clamp(x/scale,-0.98,0.98));
-  const selection=chooseEpochs(examples,labels,horizon);
+  const selection=chooseEpochs(examples,labels,horizon,{fast});
   const latestFeatures=featuresAt(points,points.length-1);
-  const members=Array.from({length:ENSEMBLE_SIZE},(_,i)=>
+  const memberCount=fast?1:ENSEMBLE_SIZE;
+  const members=Array.from({length:memberCount},(_,i)=>
     fitCore(rows,labels,selection.epochs,(0x6d2b79f5+Math.imul(i+1,0x9e3779b9))>>>0));
   const memberPredictions=members.map(member=>forward(member.net,member.scaler.apply(latestFeatures)).output*scale);
   const ensembleMean=memberPredictions.reduce((sum,x)=>sum+x,0)/memberPredictions.length;
