@@ -98,7 +98,7 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_6 = [
  ["zh595","commodities","refined product inventories","成品油库存","chéngpǐnyóu kùcún","ذخایر فرآورده‌های نفتی"],
  ["zh596","commodities","metals demand","金属需求","jīnshǔ xūqiú","تقاضای فلزات"],
  ["zh597","commodities","critical minerals","关键矿产","guānjiàn kuàngchǎn","مواد معدنی حیاتی"],
- ["zh598","geopolitical_risk","sanctions relief","制裁解除","zhìcái jiěchú","لغو یا کاهش تحریم‌ها"],
+["zh598","geopolitical_risk","diplomatic normalization","外交关系正常化","wàijiāo guānxì zhèngchánghuà","عادی‌سازی روابط دیپلماتیک"],
  ["zh599","geopolitical_risk","diplomatic breakthrough","外交突破","wàijiāo tūpò","پیشرفت مهم دیپلماتیک"],
 ["zh600","geopolitical_risk","strategic consultation","战略磋商","zhànlüè cuōshāng","رایزنی راهبردی"],
 ];
@@ -107,6 +107,20 @@ export function runChineseVocabularyBatch6SelfTest() {
  const ids = new Set(CHINESE_NEWS_VOCABULARY_BATCH_6.map(row => row[0]));
  const terms = new Set(CHINESE_NEWS_VOCABULARY_BATCH_6.map(row => row[3]));
  const categories = new Set(CHINESE_NEWS_VOCABULARY_BATCH_6.map(row => row[1]));
- const valid = CHINESE_NEWS_VOCABULARY_BATCH_6.every(row => row.length === 6 && /^zh\d{3}$/.test(row[0]) && row[2] && /[\u3400-\u9fff]/.test(row[3]) && row[4] && row[5]);
- return {total:CHINESE_NEWS_VOCABULARY_BATCH_6.length,unique_ids:ids.size,unique_chinese_terms:terms.size,category_count:categories.size,passed:valid && ids.size===100 && terms.size===100 && categories.size>=3};
+ const valid = CHINESE_NEWS_VOCABULARY_BATCH_6.every(row =>
+   Array.isArray(row) && row.length === 6 &&
+   typeof row[0] === "string" && row[0].startsWith("zh") && row[0].length === 5 &&
+   [...row[0].slice(2)].every(ch => ch >= "0" && ch <= "9") &&
+   Boolean(row[2]) && typeof row[3] === "string" &&
+   [...row[3]].some(ch => ch.codePointAt(0) >= 0x3400 && ch.codePointAt(0) <= 0x9fff) &&
+   Boolean(row[4]) && Boolean(row[5])
+ );
+ return {
+   total:CHINESE_NEWS_VOCABULARY_BATCH_6.length,
+   unique_ids:ids.size,
+   unique_chinese_terms:terms.size,
+   category_count:categories.size,
+   invalid_rows:CHINESE_NEWS_VOCABULARY_BATCH_6.filter(row => !Array.isArray(row) || row.length !== 6 || !row[2] || !row[3] || !row[4] || !row[5]).map(row => row?.[0] || null),
+   passed:valid && ids.size === 100 && terms.size === 100 && categories.size >= 3
+ };
 }
