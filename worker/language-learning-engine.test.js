@@ -26,3 +26,10 @@ test("unsupported language is rejected instead of guessed",async()=>{
  assert.equal(result.ok,false);
  assert.equal(result.status,"invalid_input");
 });
+
+test("existing specialist German and Chinese vocabularies are not re-flagged as unknown",()=>{
+ const german=extractUnknownVocabularyCandidates("Zinserhöhung Zinserhöhung Zinserhöhung", "de");
+ const chinese=extractUnknownVocabularyCandidates("通胀预期通胀预期通胀预期", "zh");
+ assert.equal(german.some(x=>x.normalized_term==="zinserhöhung"),false);
+ assert.equal(chinese.some(x=>x.normalized_term==="通胀预期"),false);
+});
