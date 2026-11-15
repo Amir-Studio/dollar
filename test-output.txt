@@ -2,43 +2,43 @@ TAP version 13
 # Subtest: Arabic normalization removes diacritics and standardizes Arabic numerals
 ok 1 - Arabic normalization removes diacritics and standardizes Arabic numerals
   ---
-  duration_ms: 3.149064
+  duration_ms: 3.594536
   type: 'test'
   ...
 # Subtest: MSA analysis identifies finance domain, attribution and discourse markers
 ok 2 - MSA analysis identifies finance domain, attribution and discourse markers
   ---
-  duration_ms: 9.266774
+  duration_ms: 9.806805
   type: 'test'
   ...
 # Subtest: Arabic number extraction preserves decimal values and currency units
 ok 3 - Arabic number extraction preserves decimal values and currency units
   ---
-  duration_ms: 3.481651
+  duration_ms: 4.293809
   type: 'test'
   ...
 # Subtest: Egyptian and Maghrebi colloquial markers are not silently treated as MSA
 ok 4 - Egyptian and Maghrebi colloquial markers are not silently treated as MSA
   ---
-  duration_ms: 3.414044
+  duration_ms: 2.550647
   type: 'test'
   ...
 # Subtest: clitic and morphology outputs are explicitly marked as candidates
 ok 5 - clitic and morphology outputs are explicitly marked as candidates
   ---
-  duration_ms: 2.49278
+  duration_ms: 2.52535
   type: 'test'
   ...
 # Subtest: academic benchmark reports its limited scope and exposes all cases
 ok 6 - academic benchmark reports its limited scope and exposes all cases
   ---
-  duration_ms: 17.81693
+  duration_ms: 20.116784
   type: 'test'
   ...
 # file:///home/runner/work/dollar/dollar/worker/news-vocabulary-zh.js:139
 #     throw new Error("Invalid or duplicate Chinese news vocabulary row: " + row[0]);
 #           ^
-# Error: Invalid or duplicate Chinese news vocabulary row: zh432
+# Error: Invalid or duplicate Chinese news vocabulary row: zh505
 #     at file:///home/runner/work/dollar/dollar/worker/news-vocabulary-zh.js:139:11
 #     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
 #     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
@@ -47,7 +47,7 @@ ok 6 - academic benchmark reports its limited scope and exposes all cases
 # Subtest: test/arabic-formal-grammar.test.js
 not ok 2 - test/arabic-formal-grammar.test.js
   ---
-  duration_ms: 64.24512
+  duration_ms: 66.727178
   type: 'test'
   location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:1:1'
   failureType: 'testCodeFailure'
@@ -64,4 +64,4 @@ not ok 2 - test/arabic-formal-grammar.test.js
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 101.588735
+# duration_ms 111.432637
