@@ -225,7 +225,7 @@ async function run(){
   if(!res.ok)throw new Error(data.error||'موتور اختصاصی پاسخ معتبر نداد ('+res.status+').');
   render(data);
   if(data.forecast?.status==='withheld')setStatus('کنترل کیفیت فعال · پیش‌بینی عددی تا تأیید شواهد متوقف است؛ خبرخوان مستقل روشن');
-  else setStatus('موتور اختصاصی تطبیقی فعال · خبرخوان مستقل RSS روشن · بدون API خارجی');
+  else setStatus('موتور اختصاصی تطبیقی فعال · خبرخوان RSS و جست‌وجوی زندهٔ بازار روشن · بدون API خارجی');
  }catch(e){showError(e?.message||'اتصال ناموفق بود.');setStatus('خطای تحلیل')}
  finally{runBtn.disabled=false;runBtn.innerHTML='<span class="ai-spark">✳</span> تهیهٔ گزارش بازار <span>↗</span>'}
 }
@@ -243,7 +243,8 @@ async function checkHealth(){
   const languageStatus=data.language_engine?.enabled===true?'هستهٔ فهم خبر و تاریخچه v'+(data.language_engine.version||'')+' فعال':'هستهٔ فهم زبان هنوز آماده نیست';
   const pragmatics=data.language_engine?.pragmatics;
   const pragmaticsStatus=pragmatics?.enabled===true?'فهم کنایه و منظور ضمنی v'+(pragmatics.version||'')+' · '+new Intl.NumberFormat('fa-IR').format(Number(pragmatics.curated_phrase_count)||0)+' نمونه':'گسترش فهم کاربردی زبان در انتظار فعال‌سازی';
-  setStatus(refreshStatus+' · '+languageStatus+' · '+pragmaticsStatus+' · بدون API خارجی');
+  const searchStatus=data.market_news_search_enabled===true?'جست‌وجوی زندهٔ خبر بازار فعال':'جست‌وجوی زندهٔ خبر بازار در دسترس نیست';
+  setStatus(refreshStatus+' · '+languageStatus+' · '+pragmaticsStatus+' · '+searchStatus+' · بدون API خارجی');
  }catch{setStatus('سرویس در دسترس نیست')}
 }
 const saved=endpoint();if(endpointInput&&saved)endpointInput.value=saved;
