@@ -91,7 +91,16 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_6 = [
 ["zh588","geopolitical_risk","diplomatic recognition","外交承认","wàijiāo chéngrèn","شناسایی دیپلماتیک"],
 ["zh589","geopolitical_risk","economic coercion","经济胁迫","jīngjì xiépò","اجبار اقتصادی"],
 ["zh590","geopolitical_risk","strategic autonomy","战略自主","zhànlüè zìzhǔ","خودمختاری راهبردی"],
-["zh591","geopolitical_risk","foreign interference allegation","外国干涉指控","wàiguó gānshè zhǐkòng","اتهام مداخله خارجی"]
+["zh591","geopolitical_risk","foreign interference allegation","外国干涉指控","wàiguó gānshè zhǐkòng","اتهام مداخله خارجی"],
+ ["zh592","international_trade","bilateral trade volume","双边贸易额","shuāngbiān màoyì é","حجم تجارت دوجانبه"],
+ ["zh593","international_trade","trade policy uncertainty","贸易政策不确定性","màoyì zhèngcè bù quèdìngxìng","عدم‌قطعیت سیاست تجاری"],
+ ["zh594","commodities","oil price benchmark","石油价格基准","shíyóu jiàgé jīzhǔn","شاخص مرجع قیمت نفت"],
+ ["zh595","commodities","refined product inventories","成品油库存","chéngpǐnyóu kùcún","ذخایر فرآورده‌های نفتی"],
+ ["zh596","commodities","metals demand","金属需求","jīnshǔ xūqiú","تقاضای فلزات"],
+ ["zh597","commodities","critical minerals","关键矿产","guānjiàn kuàngchǎn","مواد معدنی حیاتی"],
+ ["zh598","geopolitical_risk","sanctions relief","制裁解除","zhìcái jiěchú","لغو یا کاهش تحریم‌ها"],
+ ["zh599","geopolitical_risk","diplomatic breakthrough","外交突破","wàijiāo tūpò","پیشرفت مهم دیپلماتیک"],
+ ["zh600","geopolitical_risk","strategic dialogue","战略对话","zhànlüè duìhuà","گفت‌وگوی راهبردی"]
 ];
 
 export function runChineseVocabularyBatch6SelfTest() {
