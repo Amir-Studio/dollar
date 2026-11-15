@@ -45,7 +45,7 @@ test('walk-forward ensemble can qualify on a stable synthetic trend and returns 
   assert.ok(result.upper_price > result.predicted_price);
   assert.ok(result.validation.samples >= 30);
   assert.ok(result.validation.skill_vs_no_change_pct >= 2);
-  assert.equal(result.validation.evaluation_method, 'non_overlapping_rolling_origin_maturity_guard');
+  assert.equal(result.validation.evaluation_method, 'non_overlapping_rolling_origin_maturity_guard_sparse_neural');
   assert.equal(result.validation.overlapping_test_windows, false);
   assert.ok(result.validation.effective_horizon_days.min >= 7);
   assert.ok(result.validation.effective_horizon_days.max <= 8.5);
@@ -60,6 +60,13 @@ test('walk-forward forecast exposes a regime-aware expert and directional qualit
   assert.ok(Number.isFinite(result.validation.candidate_predictions_log.regime_ewma_5));
   assert.equal(result.validation.directional_gate_passed, true);
   assert.equal(result.validation.directional_gate_min_samples, 20);
+});
+
+test('sparse neural expert cannot receive weight before 40 matured samples', () => {
+  const keys=['no_change','neural_mlp'];
+  const weights=selectWeightsFromErrorSums(keys,80,8,{no_change:8,neural_mlp:1},{no_change:80,neural_mlp:39});
+  assert.equal(weights.no_change,1);
+  assert.equal(weights.neural_mlp,0);
 });
 
 test('news relevance filter keeps market headlines and rejects unrelated or incident-only headlines', () => {
