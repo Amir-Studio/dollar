@@ -55,6 +55,12 @@ Deno.serve(async (request: Request) => {
   const url = new URL(request.url);
   const route = routePath(url);
 
+  if (route === "/news/global-test/verify") {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    if (!(await verifyRefreshSecret(request))) return json({ error: "Unauthorized" }, 401);
+    return json({ ok: true, service: "global-country-news-test-auth" });
+  }
+
   if (route === "/news/global-test/reanalyze") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     try {
@@ -71,7 +77,7 @@ Deno.serve(async (request: Request) => {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     try {
       if (!(await verifyRefreshSecret(request))) return json({ error: "Unauthorized" }, 401);
-      const result = await collectGlobalCountryTestBatch(env);
+      const result = await collectGlobalCountryTestBatch(env, request.headers.get("x-cron-secret") || "");
       return json({ ok: Boolean(result.ran || result.complete), service: "global-country-news-test", ...result });
     } catch (error) {
       console.error("Global country news test refresh failed:", error);
