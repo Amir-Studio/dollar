@@ -58,3 +58,5 @@
 - The model's self-reported confidence is capped by a conservative evidence-strength heuristic. This is explicitly not a statistically calibrated probability.
 - Draft and pending-review History material remains context-only unless actual source content is separately retrieved and quoted. Source metadata alone cannot substantiate a claim.
 - Regression tests cover fabricated quotes, unknown source IDs, reference-only claims and directly contradictory quotations.
+
+- Version `1.2.2` adds numeric-token fidelity checks between claims and exact cited quotations. A mismatch blocks evidence support even if the semantic verifier mistakenly labels the quote as supporting. Causal hypotheses now require an explicit mechanism, temporal order, confounders, and a falsification test.
