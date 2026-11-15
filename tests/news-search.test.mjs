@@ -54,6 +54,11 @@ test('short market aliases expand precisely without broadening unrelated searche
   }
 });
 
+test('market search rejects common non-market homonyms',()=>{
+  assert.equal(normalizeMarketNewsSearchQuery('oil spill').ok,false);
+  assert.equal(normalizeMarketNewsSearchQuery('dollar tree').ok,false);
+});
+
 test('Google News URL encodes the query and applies the selected locale',()=>{
   const url=new URL(buildGoogleNewsSearchUrl('قیمت دلار','fa'));
   assert.equal(url.hostname,'news.google.com');
