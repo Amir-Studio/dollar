@@ -493,8 +493,8 @@ async function makeFreeAnalysis(env, asset) {
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
   const languageAnalysis = analyzeMarketLanguage(news, rows);
   const multilingualNewsAnalysis = analyzeSupportedLanguageNews(news);
-  const chineseNewsText = news.filter(x => /[\\u4e00-\\u9fff]/.test(String(x.title||"")+" "+String(x.original_text||"")))
-    .slice(0,4).map(x => String(x.title||"")+" "+String(x.original_text||"")).join("\\n").slice(0,6000);
+  const chineseNewsText = news.filter(x => /[\u4e00-\u9fff]/.test(String(x.title||"")+" "+String(x.original_text||"")))
+    .slice(0,4).map(x => String(x.title||"")+" "+String(x.original_text||"")).join("\n").slice(0,6000);
   let chineseNeuralAnalysis = null;
   if (chineseNewsText && env.AI?.run) {
     try {
