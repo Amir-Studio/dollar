@@ -296,7 +296,7 @@ function detectMultilingualLanguage(text, hint) {
   if (zh>=2 && zh>s.length*0.04) return {language:"zh",confidence:Math.min(0.99,0.65+zh/Math.max(1,s.length)),method:"script_detection"};
   if (ru>=2 && ru>s.length*0.04) return {language:"ru",confidence:Math.min(0.99,0.65+ru/Math.max(1,s.length)),method:"script_detection"};
   if (ar>=3 && ar>s.length*0.08) return {language:"ar",confidence:Math.min(0.99,0.65+ar/Math.max(1,s.length)),method:"script_detection"};
-  const words=(s.toLowerCase().match(/[a-zäöüßàâçéèêëîïôûùüÿæœ]+/g)||[]);
+  const words=(s.toLowerCase().match(/[A-Za-zÀ-žİı]+/g)||[]);
   const lexicalLanguages=["de","fr","es","it","pt","tr","nl","pl"];
   const scores=Object.fromEntries(lexicalLanguages.map(code=>[code,0]));
   for (const w of words) for (const code of lexicalLanguages) if (LANGS[code].cues.includes(w)) scores[code]++;
