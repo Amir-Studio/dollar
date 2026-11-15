@@ -176,7 +176,7 @@ test("fabricated quote does not pass source evidence verification",async()=>{
 });
 
 test("evidence quote must refer to a declared source id",async()=>{
-  const output={comprehension:{event:"خبر"},facts:[{statement:"ادعا",source_ids:[],
+  const output={comprehension:{event:"خبر"},facts:[{statement:"ادعا",source_ids:["news:999"],
     evidence:[{source_id:"news:999",quote:"یک نقل قول فرضی با طول کافی برای بررسی تطبیق متن."}]}],
     claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.8,abstain:false};
