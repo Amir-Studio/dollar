@@ -1543,9 +1543,11 @@ export default {
       await runNewsLearningCycle(env);
       const triage = await runNewsTriageCycle(env);
       console.log("Autonomous news triage cycle:",JSON.stringify(triage));
-      const reasoning = await runNewsReasoningCycle(env);
-      console.log("Autonomous evidence reasoning cycle:",JSON.stringify(reasoning));
     }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
+    // Evidence reasoning is independent from price-refresh and triage success.
+    ctx.waitUntil(runNewsReasoningCycle(env).then(result => {
+      console.log("Autonomous evidence reasoning cycle:",JSON.stringify(result));
+    }).catch(error => console.error("Evidence reasoning cycle crashed:",error?.message||error)));
     // Vocabulary discovery is isolated from market refresh/forecast failures.
     ctx.waitUntil(runVocabularyLearningCycle(env).then(result => {
       console.log("Autonomous vocabulary learning cycle:",JSON.stringify(result));
