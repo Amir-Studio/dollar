@@ -101,7 +101,8 @@ async function searchEvidence(queries, fetchImpl=fetch) {
   const selected=[...new Set((Array.isArray(queries)?queries:[]).map(x=>clean(x,160)).filter(x=>x.length>=8))].slice(0,3);
   const batches=await Promise.all(selected.map(async query=>{
     try {
-      const persian=/[\\u0600-\\u06ff]/.test(query);\n      const params=new URLSearchParams({q:query,hl:persian?"fa":"en-US",gl:persian?"IR":"US",ceid:persian?"IR:fa":"US:en"});
+      const persian=/[\u0600-\u06ff]/.test(query);
+      const params=new URLSearchParams({q:query,hl:persian?"fa":"en-US",gl:persian?"IR":"US",ceid:persian?"IR:fa":"US:en"});
       const response=await fetchImpl("https://news.google.com/rss/search?"+params.toString(),{
         headers:{accept:"application/rss+xml, application/xml, text/xml"},signal:AbortSignal.timeout(6500)});
       if(!response.ok) return [];
