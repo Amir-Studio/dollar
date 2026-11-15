@@ -715,8 +715,82 @@ function parseGdeltDate(value) {
   const parsed=Date.parse(s);
   return Number.isFinite(parsed)?new Date(parsed).toISOString():null;
 }
+const COUNTRY_LANGUAGE_HINTS = {
+  AT:"de",DE:"de",CH:"de",
+  FR:"fr",BE:"fr",CA:"fr",CI:"fr",SN:"fr",MA:"fr",TN:"fr",DZ:"fr",
+  CN:"zh",TW:"zh",HK:"zh",
+  SA:"ar",AE:"ar",EG:"ar",IQ:"ar",JO:"ar",KW:"ar",BH:"ar",OM:"ar",QA:"ar",LB:"ar",SY:"ar",YE:"ar",PS:"ar",SD:"ar",LY:"ar",
+  IR:"fa"
+};
+const COUNTRY_TLD_OVERRIDES = {GB:"uk",US:"us",KR:"kr",GR:"gr",CZ:"cz",CD:"cd",CG:"cg",CI:"ci",MK:"mk",PS:"ps"};
+const COUNTRY_QUERY_TERMS = {
+  en:"economy OR business OR trade OR inflation OR technology OR health OR policy",
+  fa:"اقتصاد OR تجارت OR تورم OR فناوری OR سلامت OR سیاست",
+  ar:"اقتصاد OR تجارة OR تضخم OR تقنية OR صحة OR سياسة",
+  zh:"经济 OR 商业 OR 贸易 OR 通胀 OR 科技 OR 健康 OR 政策",
+  de:"Wirtschaft OR Handel OR Inflation OR Technologie OR Gesundheit OR Politik",
+  fr:"économie OR commerce OR inflation OR technologie OR santé OR politique"
+};
+function countryNewsLocale(country) {
+  const language=COUNTRY_LANGUAGE_HINTS[country.code]||"en";
+  const tld=COUNTRY_TLD_OVERRIDES[country.code]||String(country.code).toLowerCase();
+  const hl={en:"en-US",fa:"fa",ar:"ar",zh:"zh-CN",de:"de",fr:"fr"}[language];
+  const ceidLanguage={en:"en",fa:"fa",ar:"ar",zh:"zh-Hans",de:"de",fr:"fr"}[language];
+  return {language,tld,hl,gl:country.code,ceid:country.code+":"+ceidLanguage};
+}
+function countryPublisherMatches(domain,tld,countryCode) {
+  const host=String(domain||"").toLowerCase().replace(/^www\./,"");
+  if(host===tld||host.endsWith("."+tld)) return true;
+  return countryCode==="US" && (host.endsWith(".gov")||host.endsWith(".mil"));
+}
+async function fetchGoogleNewsCountryArticle(country) {
+  const locale=countryNewsLocale(country);
+  const query="site:."+locale.tld+" ("+COUNTRY_QUERY_TERMS[locale.language]+") when:30d";
+  const params=new URLSearchParams({q:query,hl:locale.hl,gl:locale.gl,ceid:locale.ceid});
+  const feedUrl="https://news.google.com/rss/search?"+params.toString();
+  const response=await fetch(feedUrl,{
+    headers:{accept:"application/rss+xml,application/xml,text/xml","user-agent":"Mozilla/5.0 (compatible; DollarNewsReader/1.0)"},
+    signal:AbortSignal.timeout(10000)
+  });
+  if(!response.ok) throw Error("Google News RSS HTTP "+response.status);
+  const xml=await response.text();
+  const blocks=[...xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)].map(match=>match[0]);
+  for(const block of blocks.slice(0,8)){
+    const title=rssTag(block,"title");
+    const url=rssLink(block,feedUrl);
+    const sourceMatch=block.match(/<source\b([^>]*)>([\s\S]*?)<\/source>/i);
+    const sourceUrl=sourceMatch?.[1]?.match(/\burl=["']([^"']+)["']/i)?.[1]||"";
+    let domain="";
+    try{domain=new URL(xmlText(sourceUrl)).hostname.replace(/^www\./,"");}catch{}
+    if(!title||!url||!countryPublisherMatches(domain,locale.tld,country.code)) continue;
+    const fullText=await fetchFullArticleText(url);
+    if(fullText.length<1000) continue;
+    const publishedAt=parseGdeltDate(rssTag(block,"pubDate"));
+    const analyzed=analyzeMarketLanguage([{
+      title,original_title:title,original_text:fullText,full_text_mode:true,
+      language_code:locale.language,url,published_at:publishedAt,domain
+    }]).per_news?.[0]||null;
+    return {
+      country_code:country.code,country_name:country.name,gdelt_country:country.gdelt,
+      language_code:locale.language,publisher_domain:domain.slice(0,200),
+      article_url:url,title:title.slice(0,500),published_at:publishedAt,
+      article_text:fullText.slice(0,15000),article_chars:fullText.length,
+      extraction_status:"full_article_extracted",collection_provider:"google_news_rss",
+      source_country_verified:true,model_version:LANGUAGE_ENGINE_VERSION,
+      model_output:analyzed,evaluation_status:"pending_review",evaluation_notes:null,
+      collected_at:new Date().toISOString(),updated_at:new Date().toISOString()
+    };
+  }
+  return null;
+}
 async function fetchCountryNewsArticle(country) {
-  const query=`(economy OR business OR trade OR inflation OR technology OR education OR health OR climate OR policy) sourcecountry:${country.gdelt}`;
+  try {
+    const googleResult=await fetchGoogleNewsCountryArticle(country);
+    if(googleResult) return googleResult;
+  } catch(error) {
+    console.warn("Google News country fallback failed:",country.code,String(error?.message||error).slice(0,120));
+  }
+  const query=\`(economy OR business OR trade OR inflation OR technology OR education OR health OR climate OR policy) sourcecountry:\${country.gdelt}\`;
   const api=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
   api.searchParams.set("query",query);
   api.searchParams.set("mode","ArtList");
@@ -725,7 +799,7 @@ async function fetchCountryNewsArticle(country) {
   api.searchParams.set("timespan","30d");
   api.searchParams.set("sort","DateDesc");
   const response=await fetch(api.toString(),{headers:{accept:"application/json"},signal:AbortSignal.timeout(12000)});
-  if(!response.ok){const detail=(await response.text()).slice(0,180);throw Error("GDELT HTTP "+response.status+(response.headers.get("retry-after")?" retry-after "+response.headers.get("retry-after"):"")+": "+detail);}
+  if(!response.ok){const detail=(await response.text()).slice(0,180);throw Error("Google News had no full local article; GDELT HTTP "+response.status+": "+detail);}
   const payload=await response.json();
   const articles=Array.isArray(payload?.articles)?payload.articles:[];
   for(const article of articles.slice(0,2)){
@@ -744,7 +818,8 @@ async function fetchCountryNewsArticle(country) {
       language_code:language,publisher_domain:String(article.domain||"").slice(0,200),
       article_url:url,title,published_at:parseGdeltDate(article.seendate),
       article_text:fullText.slice(0,15000),article_chars:fullText.length,
-      extraction_status:"full_article_extracted",model_version:LANGUAGE_ENGINE_VERSION,
+      extraction_status:"full_article_extracted",collection_provider:"gdelt",
+      source_country_verified:true,model_version:LANGUAGE_ENGINE_VERSION,
       model_output:analyzed,evaluation_status:"pending_review",evaluation_notes:null,
       collected_at:new Date().toISOString(),updated_at:new Date().toISOString()
     };
