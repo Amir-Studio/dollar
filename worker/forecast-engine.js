@@ -227,7 +227,7 @@ function candidates(points,h,options={}) {
     regimeWeighted+=regimeSample[i].value*weight;regimeTotal+=weight;
   }
   raw.regime_ewma_5=clamp((regimeTotal?regimeWeighted/regimeTotal:0)*h*regimeShrink,cap);
-  const neural=options.includeNeural===false?{available:false,reason:"sparse_walk_forward_schedule"}:trainNeuralReturnModel(p,h);
+  const neural=options.includeNeural===false?{available:false,reason:"sparse_walk_forward_schedule"}:trainNeuralReturnModel(p,h,{fast:options.fastNeural===true});
   if(neural.available) raw.neural_mlp=neural.predicted_log_return;
   return {raw,dailyVol,neural};
 }
@@ -296,7 +296,7 @@ function backtest(points,h) {
     // Neural retraining is expensive. Score it every 14 days, while lightweight
     // statistical experts remain evaluated at every non-overlapping origin.
     const includeNeural=origin.t-lastNeuralOrigin>=14*DAY;
-    const preds=candidates(points.slice(0,i+1),h,{includeNeural}).raw;
+    const preds=candidates(points.slice(0,i+1),h,{includeNeural,fastNeural:true}).raw;
     if(Number.isFinite(preds.neural_mlp)) lastNeuralOrigin=origin.t;
     records.push({originTime:origin.t,targetTime,actualTime:points[j].t,
       effectiveHorizonDays:(points[j].t-origin.t)/DAY,actual,preds});
