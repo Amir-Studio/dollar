@@ -192,7 +192,7 @@ const LANGS = {
     forecast:/(?:previsión|pronóstico|se espera|prevé|estima|podría subir|podría caer)/i,
     past:/(?:ayer|la semana pasada|el mes pasado|el año pasado|subió|bajó|anunció)/i,
     future:/(?:mañana|la próxima semana|el próximo mes|el próximo año|subirá|bajará|será)/i,
-    actions:[["increase",/(?:subió|subida|aumentó|aumento|creció|alza|incrementó)/i],["decrease",/(?:bajó|caída|cayó|descendió|disminuyó|retroceso)/i],["hold",/(?:sin cambios|se mantuvo|estable|estancado)/i],["deny",/(?:negó|desmintió|rechazó)/i],["approve",/(?:aprobó|autorizó|ratificó)/i],["sanction",/(?:sanciones|sancionó|levantó las sanciones)/i],["negotiate",/(?:negociaciones|negoció|acuerdo)/i],["invest",/(?:inversión|invirtió)/i],["export",/(?:exportación|exportaciones|exportó)/i],["oil",/(?:petróleo|crudo|brent)/i]],
+    actions:[["increase",/(?:subió|subida|aumentó|aumento|creció|alza|incrementó)/i],["decrease",/(?:bajó|bajar|caer|caída|cayó|descendió|disminuyó|retroceso)/i],["hold",/(?:sin cambios|se mantuvo|estable|estancado)/i],["deny",/(?:negó|desmintió|rechazó)/i],["approve",/(?:aprobó|autorizó|ratificó)/i],["sanction",/(?:sanciones|sancionó|levantó las sanciones)/i],["negotiate",/(?:negociaciones|negoció|acuerdo)/i],["invest",/(?:inversión|invirtió)/i],["export",/(?:exportación|exportaciones|exportó)/i],["oil",/(?:petróleo|crudo|brent)/i]],
     actors:[["central_bank",/(?:banco central|banco central europeo)/i],["government",/(?:gobierno|ministro|ministerio)/i],["opec",/\bopec\b/i],["imf",/(?:fondo monetario internacional|fmi)/i],["us",/(?:estados unidos|reserva federal|fed)/i],["spain",/(?:españa|español)/i]]
   },
   it: {
@@ -208,7 +208,7 @@ const LANGS = {
     forecast:/(?:previsione|prevede|si attende|stima|potrebbe salire|potrebbe scendere)/i,
     past:/(?:ieri|la settimana scorsa|il mese scorso|l'anno scorso|è aumentato|è calato)/i,
     future:/(?:domani|la prossima settimana|il prossimo mese|il prossimo anno|sarà|aumenterà)/i,
-    actions:[["increase",/(?:aumento|aumentato|crescita|salita|rialzo|incremento)/i],["decrease",/(?:calo|diminuzione|discesa|riduzione|ribasso|scende)/i],["hold",/(?:stabile|invariato|senza variazioni)/i],["deny",/(?:negato|smentito|respinto)/i],["approve",/(?:approvato|autorizzato|ratificato)/i],["sanction",/(?:sanzioni|sanzionato)/i],["negotiate",/(?:negoziati|trattative|accordo)/i],["invest",/(?:investimento|investimenti)/i],["export",/(?:esportazione|esportazioni)/i],["oil",/(?:petrolio|greggio|brent)/i]],
+    actions:[["increase",/(?:aumento|aumentato|crescita|salita|rialzo|incremento)/i],["decrease",/(?:calo|diminuzione|diminuire|scendere|calare|discesa|riduzione|ribasso|scende)/i],["hold",/(?:stabile|invariato|senza variazioni)/i],["deny",/(?:negato|smentito|respinto)/i],["approve",/(?:approvato|autorizzato|ratificato)/i],["sanction",/(?:sanzioni|sanzionato)/i],["negotiate",/(?:negoziati|trattative|accordo)/i],["invest",/(?:investimento|investimenti)/i],["export",/(?:esportazione|esportazioni)/i],["oil",/(?:petrolio|greggio|brent)/i]],
     actors:[["central_bank",/(?:banca centrale|banca centrale europea|bce)/i],["government",/(?:governo|ministero)/i],["opec",/\bopec\b/i],["imf",/(?:fondo monetario internazionale|fmi)/i],["us",/(?:stati uniti|federal reserve)/i],["italy",/(?:italia|italiano)/i]]
   },
   pt: {
@@ -224,7 +224,7 @@ const LANGS = {
     forecast:/(?:previsão|projeção|espera-se|prevê|estima|poderia subir|poderia cair)/i,
     past:/(?:ontem|na semana passada|no mês passado|no ano passado|subiu|caiu|anunciou)/i,
     future:/(?:amanhã|na próxima semana|no próximo mês|no próximo ano|será|deverá)/i,
-    actions:[["increase",/(?:aumentou|alta|crescimento|subida|elevação|avançou)/i],["decrease",/(?:queda|caiu|recuou|redução|diminuiu|baixa)/i],["hold",/(?:estável|sem alterações|manteve|inalterado)/i],["deny",/(?:negou|desmentiu|rejeitou)/i],["approve",/(?:aprovou|autorizou|ratificou)/i],["sanction",/(?:sanções|sancionou)/i],["negotiate",/(?:negociações|negociou|acordo)/i],["invest",/(?:investimento|investiu)/i],["export",/(?:exportação|exportações)/i],["oil",/(?:petróleo|brent|crude)/i]],
+    actions:[["increase",/(?:aumentou|alta|crescimento|subida|elevação|avançou)/i],["decrease",/(?:queda|caiu|cair|recuou|recuar|redução|diminuiu|diminuir|baixa)/i],["hold",/(?:estável|sem alterações|manteve|inalterado)/i],["deny",/(?:negou|desmentiu|rejeitou)/i],["approve",/(?:aprovou|autorizou|ratificou)/i],["sanction",/(?:sanções|sancionou)/i],["negotiate",/(?:negociações|negociou|acordo)/i],["invest",/(?:investimento|investiu)/i],["export",/(?:exportação|exportações)/i],["oil",/(?:petróleo|brent|crude)/i]],
     actors:[["central_bank",/(?:banco central|banco central do brasil)/i],["government",/(?:governo|ministério)/i],["opec",/\bopec\b/i],["imf",/(?:fundo monetário internacional|fmi)/i],["us",/(?:estados unidos|fed)/i],["brazil",/(?:brasil|brasileiro)/i]]
   },
   tr: {
@@ -240,7 +240,7 @@ const LANGS = {
     forecast:/(?:beklenti|tahmin|öngörü|bekleniyor|olabilir)/i,
     past:/(?:dün|geçen hafta|geçen ay|geçen yıl|yükseldi|düştü|açıkladı)/i,
     future:/(?:yarın|gelecek hafta|gelecek ay|gelecek yıl|olacak|artacak)/i,
-    actions:[["increase",/(?:yükseldi|arttı|artış|yükseliş|çoğaldı)/i],["decrease",/(?:düştü|azaldı|düşüş|geriledi|daraldı)/i],["hold",/(?:sabit|değişmedi|aynı kaldı|istikrarlı)/i],["deny",/(?:reddetti|yalanladı|inkâr etti)/i],["approve",/(?:onayladı|kabul etti|yetkilendirdi)/i],["sanction",/(?:yaptırım|ambargo)/i],["negotiate",/(?:müzakere|görüşme|anlaşma)/i],["invest",/(?:yatırım|yatırdı)/i],["export",/(?:ihracat|dış satım)/i],["oil",/(?:petrol|ham petrol|brent)/i]],
+    actions:[["increase",/(?:yükseldi|arttı|artış|yükseliş|çoğaldı)/i],["decrease",/(?:düştü|düşebilir|azaldı|azalmak|düşüş|geriledi|gerilemek|daraldı)/i],["hold",/(?:sabit|değişmedi|aynı kaldı|istikrarlı)/i],["deny",/(?:reddetti|yalanladı|inkâr etti)/i],["approve",/(?:onayladı|kabul etti|yetkilendirdi)/i],["sanction",/(?:yaptırım|ambargo)/i],["negotiate",/(?:müzakere|görüşme|anlaşma)/i],["invest",/(?:yatırım|yatırdı)/i],["export",/(?:ihracat|dış satım)/i],["oil",/(?:petrol|ham petrol|brent)/i]],
     actors:[["central_bank",/(?:merkez bankası|tcmb)/i],["government",/(?:hükümet|bakanlık)/i],["opec",/\bopec\b/i],["imf",/(?:uluslararası para fonu|imf)/i],["us",/(?:abd|amerikan merkez bankası|fed)/i],["turkey",/(?:türkiye|türk)/i]]
   },
   nl: {
@@ -256,7 +256,7 @@ const LANGS = {
     forecast:/(?:verwachting|voorspelling|verwacht|vooruitzicht|mogelijk)/i,
     past:/(?:gisteren|vorige week|vorige maand|vorig jaar|steeg|daalde|kondigde aan)/i,
     future:/(?:morgen|volgende week|volgende maand|volgend jaar|zal|zullen)/i,
-    actions:[["increase",/(?:steeg|stijging|toename|verhoogde|groei)/i],["decrease",/(?:daalde|daling|afname|verlaagde|terugval)/i],["hold",/(?:stabiel|ongewijzigd|bleef gelijk)/i],["deny",/(?:ontkende|weersprak|afgewezen)/i],["approve",/(?:goedgekeurd|keurde goed|aangenomen)/i],["sanction",/(?:sancties|sanctioneerde)/i],["negotiate",/(?:onderhandelingen|overleg|akkoord)/i],["invest",/(?:investering|investeerde)/i],["export",/(?:export|uitvoer)/i],["oil",/(?:olie|ruwe olie|brent)/i]],
+    actions:[["increase",/(?:steeg|stijging|toename|verhoogde|groei)/i],["decrease",/(?:daalde|dalen|daling|afname|afnemen|verlaagde|terugval|terugvallen)/i],["hold",/(?:stabiel|ongewijzigd|bleef gelijk)/i],["deny",/(?:ontkende|weersprak|afgewezen)/i],["approve",/(?:goedgekeurd|keurde goed|aangenomen)/i],["sanction",/(?:sancties|sanctioneerde)/i],["negotiate",/(?:onderhandelingen|overleg|akkoord)/i],["invest",/(?:investering|investeerde)/i],["export",/(?:export|uitvoer)/i],["oil",/(?:olie|ruwe olie|brent)/i]],
     actors:[["central_bank",/(?:centrale bank|europese centrale bank|ecb)/i],["government",/(?:regering|ministerie)/i],["opec",/\bopec\b/i],["imf",/(?:internationaal monetair fonds|imf)/i],["us",/(?:verenigde staten|fed)/i],["netherlands",/(?:nederland|nederlands)/i]]
   },
   pl: {
@@ -272,7 +272,7 @@ const LANGS = {
     forecast:/(?:prognoza|przewiduje|oczekuje|perspektywy|może wzrosnąć)/i,
     past:/(?:wczoraj|w zeszłym tygodniu|w zeszłym miesiącu|w ubiegłym roku|wzrosła|spadła)/i,
     future:/(?:jutro|w przyszłym tygodniu|w przyszłym miesiącu|w przyszłym roku|będzie)/i,
-    actions:[["increase",/(?:wzrosła|wzrost|zwiększył|podwyższył|zwyżka)/i],["decrease",/(?:spadła|spadek|obniżył|zmniejszył|zniżka)/i],["hold",/(?:bez zmian|stabilny|pozostał bez zmian)/i],["deny",/(?:zaprzeczył|zdementował|odrzucił)/i],["approve",/(?:zatwierdził|zaakceptował|przyjął)/i],["sanction",/(?:sankcje|sankcjonował)/i],["negotiate",/(?:negocjacje|rozmowy|porozumienie)/i],["invest",/(?:inwestycja|inwestował)/i],["export",/(?:eksport|wywóz)/i],["oil",/(?:ropa|ropa naftowa|brent)/i]],
+    actions:[["increase",/(?:wzrosła|wzrosły|wzrost|zwiększył|podwyższył|zwyżka)/i],["decrease",/(?:spadła|spaść|spadek|obniżył|obniżyć się|zmniejszył|zmniejszyć się|zniżka)/i],["hold",/(?:bez zmian|stabilny|pozostał bez zmian)/i],["deny",/(?:zaprzeczył|zdementował|odrzucił)/i],["approve",/(?:zatwierdził|zaakceptował|przyjął)/i],["sanction",/(?:sankcje|sankcjonował)/i],["negotiate",/(?:negocjacje|rozmowy|porozumienie)/i],["invest",/(?:inwestycja|inwestował)/i],["export",/(?:eksport|wywóz)/i],["oil",/(?:ropa|ropa naftowa|brent)/i]],
     actors:[["central_bank",/(?:bank centralny|nbp|europejski bank centralny)/i],["government",/(?:rząd|ministerstwo)/i],["opec",/\bopec\b/i],["imf",/(?:międzynarodowy fundusz walutowy|mfw)/i],["us",/(?:stany zjednoczone|fed)/i],["poland",/(?:polska|polski)/i]]
   }
 };
