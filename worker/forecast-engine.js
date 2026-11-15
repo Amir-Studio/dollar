@@ -735,14 +735,33 @@ async function issueForecast(env,asset,horizon,input) {
     news_context:input.newsContext
   };
   const quoteAgeHours=Math.max(0,(Date.parse(issuedAt)-input.stamp)/3600000);
-  const calibration=result.forecast_mode==="baseline_only"?{samples:0,applied:false,log_bias:0,reason:"baseline-only forecasts are not directionally adjusted"}:await liveBiasCalibration(env,asset,horizon);
+  const baselineOnly=result.forecast_mode==="baseline_only";
+  const componentCalibration=baselineOnly?{samples:0,applied:false,reason:"baseline_only_forecasts_do_not_train_directional_components"}:
+    await liveComponentWeightCalibration(env,asset,horizon,result.model_weights||result.validation?.weights||{});
+  if(componentCalibration.applied){
+    const raw=result.validation?.candidate_predictions_log||{};
+    const weights=componentCalibration.weights;
+    const keys=Object.keys(weights);
+    const logChange=weightedLogPrediction(raw,weights,keys);
+    const band=Math.max(0,Number(result.uncertainty_pct)||0)/100;
+    result.predicted_price=input.price*Math.exp(logChange);
+    result.lower_price=input.price*Math.exp(logChange-band);
+    result.upper_price=input.price*Math.exp(logChange+band);
+    result.predicted_change_pct=(result.predicted_price/input.price-1)*100;
+    result.direction=result.predicted_change_pct>0.1?"up":result.predicted_change_pct< -0.1?"down":"sideways";
+    result.model_weights=weights;
+    result.validation.weights=weights;
+  }
+  const calibration=baselineOnly?{samples:0,applied:false,log_bias:0,reason:"baseline-only forecasts are not directionally adjusted"}:
+    await liveBiasCalibration(env,asset,horizon);
   if(calibration.applied) {
     const shift=calibration.adjustment_log;
     result.predicted_price*=Math.exp(shift);result.lower_price*=Math.exp(shift);result.upper_price*=Math.exp(shift);
     result.predicted_change_pct=(result.predicted_price/input.price-1)*100;
     result.direction=result.predicted_change_pct>0.1?"up":result.predicted_change_pct< -0.1?"down":"sideways";
   }
-  const validation={...result.validation,forecast_mode:result.forecast_mode||"adaptive_directional",live_error_feedback:calibration,quote_quality:input.provider_meta?{provider:input.provider_meta.provider||"unknown",method:input.provider_meta.method||null,source_count:input.provider_meta.source_count??null,spread_pct:input.provider_meta.spread_pct??null,unit:input.provider_meta.unit||null}:null,history_provider:input.history_provider||"unknown",quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
+  const validation={...result.validation,forecast_mode:result.forecast_mode||"adaptive_directional",
+    live_component_feedback:componentCalibration,live_error_feedback:calibration,quote_quality:input.provider_meta?{provider:input.provider_meta.provider||"unknown",method:input.provider_meta.method||null,source_count:input.provider_meta.source_count??null,spread_pct:input.provider_meta.spread_pct??null,unit:input.provider_meta.unit||null}:null,history_provider:input.history_provider||"unknown",quote_age_hours:Number(quoteAgeHours.toFixed(2)),reference_quote_stale:quoteAgeHours>24,news_context:{
     event_risk_score:input.newsContext?.event_risk_score??0,
     headline_count:input.newsContext?.headline_count??0,
     source_count:input.newsContext?.source_count??0,
