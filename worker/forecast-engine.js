@@ -805,7 +805,7 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
     const lastCycleAt=Date.parse(latestCycle?.[0]?.cycle_at||"");
     const dueByTime=!Number.isFinite(lastCycleAt)||Date.now()-lastCycleAt>=15*60*1000;
     if(!newEvaluations.length&&!dueByTime) return {ran:false,reason:"15-minute-learning-interval-not-reached",next_cycle_in_seconds:Math.max(0,Math.ceil((15*60*1000-(Date.now()-lastCycleAt))/1000))};
-    let diagnosticCount=0;
+    let diagnosticCount=0,diagnosticPersistError=null,diagnosticReadError=null;
     try {
       const diagnostics=newEvaluations.map(buildForecastErrorDiagnostic).filter(Boolean);
       if(diagnostics.length) {
@@ -815,17 +815,30 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
         diagnosticCount=diagnostics.length;
       }
     } catch(error) {
-      console.error("Forecast diagnostic persistence failed:",error?.message||error);
+      diagnosticPersistError=String(error?.message||error).slice(0,160);
+      console.error("Forecast diagnostic persistence failed:",diagnosticPersistError);
     }
     const rows=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&order=actual_at.desc&limit=1500");
-    const diagnosticRows=await db(env,"market_forecast_error_diagnostics?select=asset,horizon_days,model_version,root_cause_candidates,diagnosed_at&order=diagnosed_at.desc&limit=1000").catch(()=>[]);
+    let diagnosticRows=[];
+    try {
+      diagnosticRows=await db(env,"market_forecast_error_diagnostics?select=asset,horizon_days,model_version,root_cause_candidates,diagnosed_at&order=diagnosed_at.desc&limit=1000");
+    } catch(error) {
+      diagnosticReadError=String(error?.message||error).slice(0,160);
+      console.error("Forecast diagnostic read failed:",diagnosticReadError);
+    }
     const evidence=summarizeLearningEvidence(rows,diagnosticRows);
     const assetMetrics=evidence.asset_metrics,actions=evidence.learning_actions;
+    if(diagnosticPersistError||diagnosticReadError) actions.push({
+      action:"diagnostic_pipeline_degraded",persist_error:diagnosticPersistError,read_error:diagnosticReadError,
+      reason:"Learning metrics are available, but diagnostic persistence or retrieval needs attention."
+    });
     await db(env,"market_learning_cycles",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify({
       model_version:MODEL_VERSION,evaluated_count:newEvaluations.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,trigger:newEvaluations.length?"new_evaluations":"15_minute_interval",evaluated:newEvaluations.length,diagnostics:diagnosticCount,groups:evidence.model_lanes,actions:actions.length};
+    return {ran:true,trigger:newEvaluations.length?"new_evaluations":"15_minute_interval",evaluated:newEvaluations.length,
+      diagnostics:diagnosticCount,diagnostic_persistence_ok:!diagnosticPersistError,
+      diagnostic_read_ok:!diagnosticReadError,groups:evidence.model_lanes,actions:actions.length};
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};
