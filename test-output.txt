@@ -2,231 +2,175 @@ TAP version 13
 # Subtest: Arabic normalization removes diacritics and standardizes Arabic numerals
 ok 1 - Arabic normalization removes diacritics and standardizes Arabic numerals
   ---
-  duration_ms: 3.182404
+  duration_ms: 15.06303
   type: 'test'
   ...
 # Subtest: MSA analysis identifies finance domain, attribution and discourse markers
 ok 2 - MSA analysis identifies finance domain, attribution and discourse markers
   ---
-  duration_ms: 9.081465
+  duration_ms: 9.306001
   type: 'test'
   ...
 # Subtest: Arabic number extraction preserves decimal values and currency units
 ok 3 - Arabic number extraction preserves decimal values and currency units
   ---
-  duration_ms: 2.843357
+  duration_ms: 2.775995
   type: 'test'
   ...
 # Subtest: Egyptian and Maghrebi colloquial markers are not silently treated as MSA
 ok 4 - Egyptian and Maghrebi colloquial markers are not silently treated as MSA
   ---
-  duration_ms: 2.672174
+  duration_ms: 2.552207
   type: 'test'
   ...
 # Subtest: clitic and morphology outputs are explicitly marked as candidates
 ok 5 - clitic and morphology outputs are explicitly marked as candidates
   ---
-  duration_ms: 2.490533
+  duration_ms: 2.253675
   type: 'test'
   ...
 # Subtest: academic benchmark reports its limited scope and exposes all cases
 ok 6 - academic benchmark reports its limited scope and exposes all cases
   ---
-  duration_ms: 18.138213
+  duration_ms: 16.70791
   type: 'test'
   ...
 # Subtest: formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
 ok 7 - formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
   ---
-  duration_ms: 1.218871
+  duration_ms: 1.056008
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics detect إن وأخواتها
 ok 8 - formal Arabic diagnostics detect إن وأخواتها
   ---
-  duration_ms: 1.591052
+  duration_ms: 1.651898
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics detect كان وأخواتها
 ok 9 - formal Arabic diagnostics detect كان وأخواتها
   ---
-  duration_ms: 0.66501
+  duration_ms: 0.603576
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics distinguish subjunctive and jussive triggers
 ok 10 - formal Arabic diagnostics distinguish subjunctive and jussive triggers
   ---
-  duration_ms: 0.552709
+  duration_ms: 0.485811
   type: 'test'
   ...
 # Subtest: formal Arabic diagnostics detect idafa, prepositions, condition and exception
 ok 11 - formal Arabic diagnostics detect idafa, prepositions, condition and exception
   ---
-  duration_ms: 0.354547
+  duration_ms: 0.32682
   type: 'test'
   ...
 # Subtest: formal grammar benchmark passes all curated rule triggers
 ok 12 - formal grammar benchmark passes all curated rule triggers
   ---
-  duration_ms: 2.559362
+  duration_ms: 2.497279
   type: 'test'
   ...
 # Subtest: official Arabic monetary-policy news preserves actor, direction, rates and basis points
 ok 13 - official Arabic monetary-policy news preserves actor, direction, rates and basis points
   ---
-  duration_ms: 97.47397
+  duration_ms: 116.717015
   type: 'test'
   ...
 # Subtest: Persian inflation news preserves monthly and annual rates
 ok 14 - Persian inflation news preserves monthly and annual rates
   ---
-  duration_ms: 406.50018
+  duration_ms: 395.881938
   type: 'test'
   ...
 # Subtest: Persian and Arabic versions of the CBE rate decision retain the same numeric facts
 ok 15 - Persian and Arabic versions of the CBE rate decision retain the same numeric facts
   ---
-  duration_ms: 185.636272
+  duration_ms: 158.482371
   type: 'test'
   ...
 # Subtest: Arabic article analysis exposes grammar candidates but never claims final i'rab
 ok 16 - Arabic article analysis exposes grammar candidates but never claims final i'rab
   ---
-  duration_ms: 1.833226
+  duration_ms: 1.858958
   type: 'test'
   ...
 # Subtest: formal Arabic register is separated from colloquial dialect
 ok 17 - formal Arabic register is separated from colloquial dialect
   ---
-  duration_ms: 0.429327
+  duration_ms: 0.373144
   type: 'test'
   ...
 # Subtest: English-pivot market lexicon has broad language coverage and stable sense IDs
 ok 18 - English-pivot market lexicon has broad language coverage and stable sense IDs
   ---
-  duration_ms: 0.170951
+  duration_ms: 0.143574
   type: 'test'
   ...
 # Subtest: English synonyms and inflections map to canonical concepts
-not ok 19 - English synonyms and inflections map to canonical concepts
+ok 19 - English synonyms and inflections map to canonical concepts
   ---
-  duration_ms: 58.81858
+  duration_ms: 54.722807
   type: 'test'
-  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:108:1'
-  failureType: 'testCodeFailure'
-  error: |-
-    The expression evaluated to a falsy value:
-    
-      assert.ok(result.matched_concept_ids.includes("inflation"))
-    
-  code: 'ERR_ASSERTION'
-  name: 'AssertionError'
-  expected: true
-  actual: false
-  operator: '=='
-  stack: |-
-    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:110:10)
-    Test.runInAsyncScope (node:async_hooks:214:14)
-    Test.run (node:internal/test_runner/test:1047:25)
-    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
-    Test.postRun (node:internal/test_runner/test:1173:19)
-    Test.run (node:internal/test_runner/test:1101:12)
-    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
 # Subtest: Persian financial terms map to canonical English senses
 ok 20 - Persian financial terms map to canonical English senses
   ---
-  duration_ms: 0.530057
+  duration_ms: 0.622721
   type: 'test'
   ...
 # Subtest: Arabic official news terms map to canonical English senses
 ok 21 - Arabic official news terms map to canonical English senses
   ---
-  duration_ms: 0.503868
+  duration_ms: 0.529807
   type: 'test'
   ...
 # Subtest: Chinese and Russian rate policy terms are recognized
 ok 22 - Chinese and Russian rate policy terms are recognized
   ---
-  duration_ms: 62.349208
+  duration_ms: 74.55089
   type: 'test'
   ...
 # Subtest: Turkish and Spanish inflected/plural rate phrases are recognized
-not ok 23 - Turkish and Spanish inflected/plural rate phrases are recognized
+ok 23 - Turkish and Spanish inflected/plural rate phrases are recognized
   ---
-  duration_ms: 64.169772
+  duration_ms: 92.488401
   type: 'test'
-  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:131:1'
-  failureType: 'testCodeFailure'
-  error: 'rate_hike'
-  code: 'ERR_ASSERTION'
-  name: 'AssertionError'
-  expected: true
-  actual: false
-  operator: '=='
-  stack: |-
-    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:133:72)
-    Test.runInAsyncScope (node:async_hooks:214:14)
-    Test.run (node:internal/test_runner/test:1047:25)
-    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
-    Test.postRun (node:internal/test_runner/test:1173:19)
-    Test.run (node:internal/test_runner/test:1101:12)
-    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
 # Subtest: Disinflation and deflation are kept as distinct concepts
 ok 24 - Disinflation and deflation are kept as distinct concepts
   ---
-  duration_ms: 0.199875
+  duration_ms: 0.241993
   type: 'test'
   ...
 # Subtest: Curated multilingual lexicon benchmark has no misses
-not ok 25 - Curated multilingual lexicon benchmark has no misses
+ok 25 - Curated multilingual lexicon benchmark has no misses
   ---
-  duration_ms: 316.780299
+  duration_ms: 345.498364
   type: 'test'
-  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:146:1'
-  failureType: 'testCodeFailure'
-  error: |-
-    [{"language":"en","passed":false,"expected":["inflation","interest_rate"],"found":["interest_rate"]},{"language":"fr","passed":false,"expected":["central_bank","rate_hike","interest_rate"],"found":[]},{"language":"es","passed":false,"expected":["central_bank","rate_hike","interest_rate"],"found":["interest_rate"]},{"language":"it","passed":false,"expected":["central_bank","rate_cut","interest_rate"],"found":["interest_rate","rate_cut"]},{"language":"pt","passed":false,"expected":["central_bank","rate_cut","interest_rate"],"found":[]},{"language":"tr","passed":false,"expected":["central_bank","rate_hike","interest_rate"],"found":["central_bank"]},{"language":"nl","passed":false,"expected":["central_bank","rate_hike"],"found":["interest_rate","rate_hike"]},{"language":"pl","passed":false,"expected":["central_bank","rate_hike","interest_rate"],"found":[]}]
-    
-    8 !== 0
-    
-  code: 'ERR_ASSERTION'
-  name: 'AssertionError'
-  expected: 0
-  actual: 8
-  operator: 'strictEqual'
-  stack: |-
-    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:148:10)
-    Test.runInAsyncScope (node:async_hooks:214:14)
-    Test.run (node:internal/test_runner/test:1047:25)
-    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
-    Test.postRun (node:internal/test_runner/test:1173:19)
-    Test.run (node:internal/test_runner/test:1101:12)
-    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
 # Subtest: previously defined English market synonyms map to canonical action concepts
 ok 26 - previously defined English market synonyms map to canonical action concepts
   ---
-  duration_ms: 1.41447
+  duration_ms: 1.319145
   type: 'test'
   ...
 # Subtest: lexicon output distinguishes English synonyms from cross-language equivalents
 ok 27 - lexicon output distinguishes English synonyms from cross-language equivalents
   ---
-  duration_ms: 0.843616
+  duration_ms: 0.856834
   type: 'test'
   ...
 # Subtest: expanded English-pivot ontology covers conflict, diplomacy, humanitarian law, energy and trade
 ok 28 - expanded English-pivot ontology covers conflict, diplomacy, humanitarian law, energy and trade
   ---
-  duration_ms: 0.26107
+  duration_ms: 0.21862
   type: 'test'
   ...
 # Subtest: Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to English concepts
 not ok 29 - Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to English concepts
   ---
-  duration_ms: 0.799764
+  duration_ms: 2.52989
   type: 'test'
   location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:175:1'
   failureType: 'testCodeFailure'
@@ -246,39 +190,23 @@ not ok 29 - Persian, Arabic, Russian and Chinese conflict-news vocabulary maps t
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
 # Subtest: English geopolitical and economic news maps to distinct concepts
-not ok 30 - English geopolitical and economic news maps to distinct concepts
+ok 30 - English geopolitical and economic news maps to distinct concepts
   ---
-  duration_ms: 0.586112
+  duration_ms: 0.602801
   type: 'test'
-  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:186:1'
-  failureType: 'testCodeFailure'
-  error: 'ceasefire'
-  code: 'ERR_ASSERTION'
-  name: 'AssertionError'
-  expected: true
-  actual: false
-  operator: '=='
-  stack: |-
-    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:189:12)
-    Test.runInAsyncScope (node:async_hooks:214:14)
-    Test.run (node:internal/test_runner/test:1047:25)
-    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
-    Test.postRun (node:internal/test_runner/test:1173:19)
-    Test.run (node:internal/test_runner/test:1101:12)
-    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
 # Subtest: war-crime and armed-conflict concepts are descriptive, not legal verdicts
 ok 31 - war-crime and armed-conflict concepts are descriptive, not legal verdicts
   ---
-  duration_ms: 0.165632
+  duration_ms: 0.179764
   type: 'test'
   ...
 1..31
 # tests 31
 # suites 0
-# pass 26
-# fail 5
+# pass 30
+# fail 1
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1316.648237
+# duration_ms 1361.581405
