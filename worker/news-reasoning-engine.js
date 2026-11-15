@@ -219,15 +219,20 @@ async function infer(env, system, payload, maxTokens=1500) {
 function validatePass(value,phase) {
   if(!value||typeof value!=="object"||Array.isArray(value)) throw new Error(phase+"_not_object");
   const required=phase==="initial"
-    ? ["comprehension","facts","claims","causal_hypotheses","alternatives","counter_evidence_needed","history_usage","evidence_gaps","search_queries","provisional_conclusion"]
-    : ["comprehension","facts","claims","causal_hypotheses","alternatives","counter_evidence_needed","history_usage","source_assessment","unresolved_questions","conclusion","next_research"];
+    ? ["facts","claims","causal_hypotheses","alternatives","counter_evidence_needed","history_usage","evidence_gaps","search_queries"]
+    : ["facts","claims","causal_hypotheses","alternatives","counter_evidence_needed","history_usage","source_assessment","unresolved_questions","next_research"];
+  for(const key of required) if(!Array.isArray(value[key])) throw new Error(phase+"_invalid_"+key);
+  if((typeof value.comprehension!=="object"&&typeof value.comprehension!=="string")||value.comprehension===null) throw new Error(phase+"_invalid_comprehension");
+  if(phase==="initial"&&typeof value.provisional_conclusion!=="string") throw new Error("initial_missing_provisional_conclusion");
+  if(phase==="final"&&typeof value.conclusion!=="string") throw new Error("final_missing_conclusion");
   for(const key of required) if(!Array.isArray(value[key])) throw new Error(phase+"_invalid_"+key);
   for(const field of ["facts","claims","causal_hypotheses","alternatives"]) {
     for(const item of value[field]) if(!item||typeof item!=="object"||Array.isArray(item)||typeof item.statement!=="string"||!Array.isArray(item.source_ids)||item.source_ids.length>8||item.source_ids.some(x=>typeof x!=="string")) throw new Error(phase+"_invalid_evidence_shape_"+field);
   }
   if(typeof value.confidence!=="number"||!Number.isFinite(value.confidence)||typeof value.abstain!=="boolean")
     throw new Error(phase+"_missing_confidence_or_abstain");
-  if(value.confidence<0||value.confidence>1) throw new Error(phase+"_confidence_out_of_range");\n  if(phase==="initial" && value.search_queries.length>3) value.search_queries=value.search_queries.slice(0,3);
+if(value.confidence<0||value.confidence>1) throw new Error(phase+"_confidence_out_of_range");
+if(phase==="initial" && value.search_queries.length>3) value.search_queries=value.search_queries.slice(0,3);
   return value;
 }
 function evidenceCatalog(articles,history,searched=[]) {
