@@ -1,12 +1,13 @@
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION } from "./decision-engine.js";
+import { trainNeuralReturnModel, NEURAL_MODEL_VERSION } from "./neural-forecast-engine.js";
 
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.8-live-component-feedback";
+const MODEL_VERSION = "iran-ensemble-wf-3.0-neural-mlp";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -210,7 +211,9 @@ function candidates(points,h) {
     const avg=sample.reduce((s,r)=>s+r.value,0)/Math.max(1,sample.length);
     raw["momentum_"+window]=clamp(avg*h,cap);
   }
-  return {raw,dailyVol};
+  const neural=trainNeuralReturnModel(p,h);
+  if(neural.available) raw.neural_mlp=neural.predicted_log_return;
+  return {raw,dailyVol,neural};
 }
 
 function relativeErrorPct(predictedLogReturn,actualLogReturn) {
@@ -367,11 +370,12 @@ function buildForecastPoint(points,price,horizon,newsContext=null) {
     // This creates measurable future feedback without inventing a directional signal.
     if(validation.samples>=30 && Number.isFinite(validation.mae_pct) &&
        Number.isFinite(validation.range_error_p80_pct)) {
-      const {raw,dailyVol}=candidates(points,horizon);
+      const {raw,dailyVol,neural}=candidates(points,horizon);
       const band=Math.max(validation.range_error_p80_pct/100,dailyVol*Math.sqrt(horizon)*1.28,0.003);
       const weights=baselineWeights(Object.keys(validation.weights||{no_change:1}));
       const baselineValidation={
         ...validation,
+        neural_network:neural,
         eligible:false,
         forecast_mode:"baseline_only",
         directional_signal:false,
@@ -395,6 +399,7 @@ function buildForecastPoint(points,price,horizon,newsContext=null) {
   const {raw,dailyVol}=candidates(points,horizon);
   // Store the exact component outputs so matured live outcomes can score each expert.
   validation.candidate_predictions_log=raw;
+  validation.neural_network=neural;
   const logChange=Object.keys(validation.weights).reduce((s,k)=>s+validation.weights[k]*raw[k],0);
   const change=Math.expm1(logChange);
   const eventRisk=Math.max(0,Math.min(100,Number(newsContext?.event_risk_score)||0));
