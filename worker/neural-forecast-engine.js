@@ -195,6 +195,7 @@ function chooseEpochs(examples,labels,horizonDays) {
       if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;bestNet=structuredClone(net);} else stale++;
       if(stale>=PATIENCE) break;
     }
+    if(bestNet) Object.assign(net,bestNet);
     const baseline=validLabels.reduce((sum,y)=>sum+huber(y),0)/validLabels.length;
     folds.push({epochs:bestEpoch,loss:best,baseline,samples:validRows.length,
       purged_training_samples:trainRows.length,checkpoint_restored:Boolean(bestNet)});
