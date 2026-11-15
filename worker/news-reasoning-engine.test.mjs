@@ -37,7 +37,8 @@ test("History retrieval preserves draft status and returns relevant source conte
 test("reasoner searches when first pass identifies an evidence gap and then revises",async()=>{
   const outputs=[
     {comprehension:{event:"تصمیم بانک مرکزی"},facts:[{statement:"دادهٔ رسمی تورم منتشر شده است.",source_ids:["news:1"],evidence:[]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:["داده رسمی کم است"],search_queries:["central bank inflation data policy"],provisional_conclusion:"نامشخص",confidence:.25,abstain:true},
-    {comprehension:{event:"گزارش داده تورم"},facts:[{statement:"یک گزارش مرتبط پیدا شد.",source_ids:["web:1"],evidence:[{source_id:"web:1",quote:"Central bank reports latest inflation and policy data in its official publication for the current reporting period."}]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]}
+    {comprehension:{event:"گزارش داده تورم"},facts:[{statement:"یک گزارش مرتبط پیدا شد.",source_ids:["web:1"],evidence:[{source_id:"web:1",quote:"Central bank reports latest inflation and policy data in its official publication for the current reporting period."}]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]},
+    {items:[{field:"facts",index:0,source_id:"web:1",verdict:"supports",reason:"نقل‌قول دقیقاً ادعای انتشار داده تورم را تأیید می‌کند."}]}
   ];
   const env={AI:{run:async()=>({response:JSON.stringify(outputs.shift())})}};
   const result=await analyzeNewsWithReasoning({
@@ -54,6 +55,9 @@ test("reasoner searches when first pass identifies an evidence gap and then revi
   assert.equal(result.analysis.conclusion,"هنوز برای نتیجه قطعی کافی نیست");
   assert.equal(result.evidence_audit.with_valid_references,1);
   assert.equal(result.evidence_audit.with_verified_quotes,1);
+  assert.equal(result.entailment_audit.status,"completed");
+  assert.equal(result.entailment_audit.supported_claims,1);
+  assert.equal(result.evidence_audit.items[0].support_verified_source_ids[0],"web:1");
   assert.equal(result.evidence_sufficiency.verified_quote_coverage_pct,100);
   assert.equal(result.evidence_sufficiency.source_reference_coverage_pct,100);
 });
@@ -184,4 +188,22 @@ test("evidence quote must refer to a declared source id",async()=>{
   assert.equal(result.ok,true);
   assert.equal(result.abstained,true);
   assert.equal(result.evidence_audit.items[0].evidence_quotes[0].source_exists,false);
+});
+
+test("semantic verifier rejects a quote that contradicts the claim",async()=>{
+  const output={comprehension:{event:"نرخ بهره"},facts:[{statement:"بانک مرکزی نرخ بهره را افزایش داد.",
+    source_ids:["news:1"],evidence:[{source_id:"news:1",quote:"بانک مرکزی اعلام کرد نرخ بهره بدون تغییر باقی می‌ماند و تصمیمی برای افزایش آن اتخاذ نشده است."}]}],
+    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
+  const verifier={items:[{field:"facts",index:0,source_id:"news:1",verdict:"contradicts",reason:"متن منبع صریحاً ثابت ماندن نرخ را اعلام می‌کند."}]};
+  const env={AI:{run:async()=>({response:JSON.stringify(outputs.shift())})}};
+  const outputs=[output,verifier];
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"تصمیم نرخ بهره",original_text:"بانک مرکزی اعلام کرد نرخ بهره بدون تغییر باقی می‌ماند و تصمیمی برای افزایش آن اتخاذ نشده است.",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.entailment_audit.contradicted_claims,1);
+  assert.equal(result.evidence_audit.items[0].support_verified_source_ids.length,0);
+  assert.equal(result.abstained,true);
 });
