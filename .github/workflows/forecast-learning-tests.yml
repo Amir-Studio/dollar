@@ -32,5 +32,7 @@ jobs:
           node-version: 22
       - name: Check forecast engine syntax
         run: node --check worker/forecast-engine.js
+      - name: Check market news search syntax
+        run: node --check worker/news-search.js && node --check worker/index.js && node --check assets/ai.js
       - name: Run full regression suite
         run: node --test
