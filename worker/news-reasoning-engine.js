@@ -123,7 +123,7 @@ export async function readLimitedBody(response,maxBytes=180000) {
   for(const chunk of chunks){merged.set(chunk,offset);offset+=chunk.byteLength;}
   return new TextDecoder().decode(merged);
 }
-async function fetchArticleExcerpt(url,fetchImpl=fetch) {
+export async function fetchArticleExcerpt(url,fetchImpl=fetch) {
   try {
     let current=safePublisherUrl(url),response=null;
     if(!current) return "";
