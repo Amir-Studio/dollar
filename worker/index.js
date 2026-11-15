@@ -1,7 +1,7 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest, runCalibrationSelfTest, runComponentCalibrationSelfTest } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
-import { runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
+import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
@@ -336,6 +336,47 @@ function newsTopics(items) {
       evidence:matches.slice(0,2).map(x=>x.title).join("؛ "),count:matches.length};
   }).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
 }
+function analyzeSupportedLanguageNews(items) {
+  const analyzed=(Array.isArray(items)?items:[]).slice(0,30).map(item=>{
+    const result=analyzeMultilingualNews(item.title||"",item.original_text||"",item.language_code||null);
+    if(result.reading_status!=="parsed_linguistic_features") return null;
+    return {
+      source_id:item.source_id||null,
+      language:result.language,
+      language_name:result.language_name||result.language,
+      sentence_count:result.summary?.sentence_count||0,
+      action_concepts:result.summary?.action_concepts||[],
+      actor_candidates:result.summary?.actor_candidates||[],
+      conditional_count:result.summary?.conditional_count||0,
+      modal_or_forecast_count:result.summary?.modal_or_forecast_count||0,
+      negated_count:result.summary?.negated_count||0,
+      attributed_count:result.summary?.attributed_count||0,
+      causal_count:result.summary?.causal_count||0,
+      contrast_count:result.summary?.contrast_count||0,
+      comparison_count:result.summary?.comparison_count||0,
+      verification_state:"linguistic_features_only_not_fact_checked"
+    };
+  }).filter(Boolean);
+  const byLanguage={};
+  for(const item of analyzed) byLanguage[item.language]=(byLanguage[item.language]||0)+1;
+  return {
+    version:MULTILINGUAL_VERSION,
+    processed_articles:analyzed.length,
+    by_language:byLanguage,
+    action_concepts:[...new Set(analyzed.flatMap(x=>x.action_concepts))],
+    actor_candidates:[...new Set(analyzed.flatMap(x=>x.actor_candidates))],
+    conditional_claim_frames:analyzed.reduce((n,x)=>n+x.conditional_count,0),
+    forecast_or_uncertain_frames:analyzed.reduce((n,x)=>n+x.modal_or_forecast_count,0),
+    negated_frames:analyzed.reduce((n,x)=>n+x.negated_count,0),
+    attributed_frames:analyzed.reduce((n,x)=>n+x.attributed_count,0),
+    causal_frames:analyzed.reduce((n,x)=>n+x.causal_count,0),
+    contrast_frames:analyzed.reduce((n,x)=>n+x.contrast_count,0),
+    comparison_frames:analyzed.reduce((n,x)=>n+x.comparison_count,0),
+    article_diagnostics:analyzed,
+    limitation:"This is rule-based linguistic parsing. It identifies wording and claim structure; it does not translate the article, verify facts, or establish causation."
+  };
+}
+
 async function makeFreeAnalysis(env, asset) {
   if (!ANALYSIS_ASSETS.has(asset)) return reply({error:"تاریخچهٔ معتبر این دارایی هنوز بررسی نشده؛ فقط قیمت آن در کاتالوگ ثبت می‌شود."},424);
   const [cachedMarket, rawHistory, cachedNews] = await Promise.all([
@@ -359,12 +400,14 @@ async function makeFreeAnalysis(env, asset) {
   const uncertainty = Math.max(2.5,Math.min(18,model.sigma*Math.sqrt(7)*100*1.5));
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
   const languageAnalysis = analyzeMarketLanguage(news, rows);
+  const multilingualNewsAnalysis = analyzeSupportedLanguageNews(news);
+  const enrichedLanguageAnalysis = {...languageAnalysis,multilingual_news:multilingualNewsAnalysis};
   const topics = languageAnalysis.themes;
   const decisionBrief = buildDecisionBrief({
     asset,
     quote:{price,source_time:new Date(stamp).toISOString(),source:String(item.source || "unknown")},
     history:{rows,summary:{observations:model.count,last_price:model.last_price,daily_trend_pct:model.daily_pct,momentum_7d_pct:model.momentum_7d_pct,momentum_14d_pct:model.momentum_14d_pct,momentum_30d_pct:model.momentum_30d_pct,daily_volatility_pct:model.daily_volatility_pct,max_drawdown_30d_pct:model.max_drawdown_30d_pct}},
-    news,languageAnalysis
+    news,languageAnalysis:enrichedLanguageAnalysis
   });
   const direction = expected>0.35?"up":expected< -0.35?"down":"sideways";
   const directionFa = direction==="up"?"تمایل آماری صعودی":direction==="down"?"تمایل آماری نزولی":"روند آماری کم‌جهت";
@@ -376,7 +419,7 @@ async function makeFreeAnalysis(env, asset) {
   if (recent.length < 3) risks.push("پوشش خبرهای دارای تاریخ در ۲۴ ساعت اخیر محدود است؛ ممکن است رویداد مهمی از دست رفته باشد.");
   if (rows.length < 30) risks.push("تاریخچه کمتر از ۳۰ مشاهده دارد؛ برآورد آماری ناپایدارتر است.");
   if (model.daily_volatility_pct > 2) risks.push("نوسان روزانهٔ تاریخی بالاست؛ محدودهٔ سناریو را با احتیاط بخوان.");
-  risks.push("هستهٔ زبانی نسخهٔ ۰.۱ تیترها را تحلیل می‌کند، نه متن کامل مقاله‌ها؛ جهت اثر خبر بدون شواهد تکمیلی قطعی نیست.");
+  risks.push("تحلیل چندزبانهٔ جدید، متن‌های در دسترس RSS را به‌صورت قاعده‌محور می‌خواند؛ این کار ترجمه یا راستی‌آزمایی خبر نیست و اثر علّی خبر را ثابت نمی‌کند.");
   if (languageAnalysis.possible_conflicts.length) risks.push("چند تیتر با چارچوب رویدادی متفاوت شناسایی شد؛ این موارد تناقض قطعی نیستند و نیاز به بررسی متن کامل دارند.");
   return reply({
     mode:"free-algorithmic",asset,asset_fa:ASSETS[asset],generated_at:new Date().toISOString(),
@@ -387,7 +430,8 @@ async function makeFreeAnalysis(env, asset) {
       confidence:null,uncertainty_pct:Number(uncertainty.toFixed(2))},
     drivers:topics,risks_fa:risks,sources:news,
     decision_brief:decisionBrief,
-    language_analysis:languageAnalysis,
+    language_analysis:enrichedLanguageAnalysis,
+    multilingual_news_analysis:multilingualNewsAnalysis,
     news_sources_count:news.length,recent_sources_count:recent.length,news_window_hours:72,
     coverage_score:Math.min(100,recent.length*12),
     baseline:{daily_trend_pct:Number(model.daily_pct.toFixed(3)),
