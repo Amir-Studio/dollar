@@ -7,6 +7,11 @@ import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conv
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
 import { NEWS_SOURCES as CURATED_NEWS_SOURCES } from "./news-sources.js";
 import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
+const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
+export function normalizeNewsArticleStatus(status,hasText=false) {
+  const value=String(status??"");
+  return NEWS_ARTICLE_STATUSES.has(value)?value:(hasText?"extracted":"headline_only");
+}
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -261,14 +266,17 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
       const fullText=await fetchFullArticleText(lead.url);
       if(fullText.length>=(lead.original_text||"").length+250){
         lead.original_text=fullText;
-        lead.article_status=fullText.length>=1000?"full_article_extracted":"partial_article_extracted";
+        lead.article_status="extracted";
+        lead.extraction_method="publisher_html_article_paragraphs";
         lead.article_chars=fullText.length;
       } else {
-        lead.article_status="rss_excerpt_only";
+        lead.article_status=lead.original_text?"extracted":"headline_only";
+        lead.extraction_method=lead.original_text?"rss_excerpt":"headline_only";
         lead.article_chars=(lead.original_text||"").length;
       }
     } else {
-      lead.article_status="rss_content";
+      lead.article_status="extracted";
+      lead.extraction_method="rss_content";
       lead.article_chars=lead.original_text.length;
     }
   }
@@ -681,8 +689,8 @@ async function syncNewsToSupabase(env) {
       source_id:item.source_id || null, language_code:item.language_code || null,
       original_title:item.original_title || item.title,
       original_text:String(item.original_text || "").slice(0,15000) || null,
-      article_status:item.article_status || (item.original_text ? "rss_excerpt_only" : "headline_only"),
-      extraction_method:item.article_status?.includes("article_extracted") ? "publisher_html_article_paragraphs" : (item.original_text ? "rss_content" : "headline_only")
+      article_status:normalizeNewsArticleStatus(item.article_status,Boolean(item.original_text)),
+      extraction_method:item.extraction_method || (item.original_text ? "rss_content" : "headline_only")
     }));
     const response = await fetch(base + "/rest/v1/market_news_items?on_conflict=url", {
       method:"POST",
