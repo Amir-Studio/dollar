@@ -317,7 +317,9 @@ const confidence=clamp(final.confidence);
     history_news_archive_items:(history.news_archive||[]).length,
     learning:{reviewed_lessons_considered:reviewedLessons.length,mode:"human_reviewed_retrieval_memory_not_online_weight_updates"},
     search:{attempted:queries.length>0,queries:queries.slice(0,3),results:searched,second_pass:secondPass},
-    analysis:final,evidence_catalog:finalCatalog,source_independence:sourceIndependence(finalCatalog),evidence_audit:evidenceAudit,\n    evidence_sufficiency:{model_confidence:confidence,source_reference_coverage_pct:Math.round(referenceCoverage*100),unique_publisher_domains:sourceIndependence(finalCatalog).unique_publisher_domains,interpretation:"ارجاع معتبر فقط وجود شناسه منبع را نشان می‌دهد؛ تطابق متن منبع با ادعا همچنان نیازمند بررسی است."},\n    confidence,abstained,
+analysis:final,evidence_catalog:finalCatalog,source_independence:sourceIndependence(finalCatalog),evidence_audit:evidenceAudit,
+evidence_sufficiency:{model_confidence:confidence,source_reference_coverage_pct:Math.round(referenceCoverage*100),unique_publisher_domains:sourceIndependence(finalCatalog).unique_publisher_domains,interpretation:"ارجاع معتبر فقط وجود شناسه منبع را نشان می‌دهد؛ تطابق متن منبع با ادعا همچنان نیازمند بررسی است."},
+confidence,abstained,
     safeguards:["تحلیل مدل به‌تنهایی تأیید واقعیت نیست.","فرضیهٔ علّی با رابطهٔ علّی اثبات‌شده یکسان نیست.","اسناد History با وضعیت draft یا pending همچنان تأییدنشده‌اند.","نتایج جست‌وجو سرنخ پژوهش‌اند؛ استقلال و متن اصلی باید بررسی شود."]};
 }
 export function runReasoningSelfTest() {
