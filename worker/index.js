@@ -4,6 +4,7 @@ import { runNeuralForecastSelfTest, NEURAL_MODEL_VERSION } from "./neural-foreca
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { analyzeChineseNewsNeurally, CHINESE_NEURAL_VERSION } from "./chinese-neural-semantic-engine.js";
+import { analyzeEnglishNewsNeurally, researchEnglishTerm, ENGLISH_NEURAL_VERSION } from "./english-neural-semantic-engine.js";
 import { ARABIC_ENGINE_VERSION, runArabicAcademicBenchmark } from "./arabic-academic-engine.js";
 import { ARABIC_FORMAL_GRAMMAR_VERSION, ARABIC_FORMAL_CURRICULUM, runArabicFormalGrammarBenchmark } from "./arabic-formal-grammar.js";
 import { MARKET_LEXICON_VERSION, MARKET_CONCEPTS, SUPPORTED_LEXICON_LANGUAGES, getMarketLexicon, runMarketLexiconBenchmark } from "./market-lexicon-ontology.js";
@@ -493,6 +494,24 @@ async function makeFreeAnalysis(env, asset) {
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
   const languageAnalysis = analyzeMarketLanguage(news, rows);
   const multilingualNewsAnalysis = analyzeSupportedLanguageNews(news);
+  // English is the pivot layer: multilingual reports are semantically embedded,
+  // while English-language reports are prioritized for terminology discovery.
+  const englishNews = news.filter(x => String(x.language_code||x.language||"").toLowerCase().startsWith("en"));
+  const englishLearningText = (englishNews.length ? englishNews : news)
+    .slice(0,6).map(x => [x.title,x.original_title,x.original_text].filter(Boolean).join(" "))
+    .join("\n").slice(0,10000);
+  let englishNeuralAnalysis = null;
+  if (englishLearningText && env.AI?.run) {
+    try {
+      englishNeuralAnalysis = await analyzeEnglishNewsNeurally(englishLearningText,env,{limit:20,unknownLimit:8});
+    } catch(error) {
+      englishNeuralAnalysis = {status:"neural_analysis_unavailable",model:"@cf/baai/bge-m3",detail:String(error?.message||error).slice(0,160)};
+    }
+  }
+  multilingualNewsAnalysis.english_neural_pivot_analysis = englishNeuralAnalysis || {
+    status: env.AI?.run ? "no_news_in_current_learning_window" : "neural_binding_not_configured",
+    model:"@cf/baai/bge-m3",version:ENGLISH_NEURAL_VERSION
+  };
   const chineseNewsText = news.filter(x => /[\u4e00-\u9fff]/.test(String(x.title||"")+" "+String(x.original_text||"")))
     .slice(0,4).map(x => String(x.title||"")+" "+String(x.original_text||"")).join("\n").slice(0,6000);
   let chineseNeuralAnalysis = null;
@@ -1208,6 +1227,39 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
+    if (url.pathname === "/neural/english/research") {
+      if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+      const term=String(url.searchParams.get("q")||"").trim();
+      if(!term || term.length>100) return reply({error:"A term between 1 and 100 characters is required"},400);
+      try {
+        const result=await researchEnglishTerm(term,url.searchParams.get("context")||"",env);
+        return reply(result,200,{"cache-control":"no-store"});
+      } catch(error) {
+        return reply({ok:false,error:"English term research failed",detail:String(error?.message||error).slice(0,160)},502);
+      }
+    }
+    if (url.pathname === "/neural/english") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      if (!env.AI?.run) return reply({error:"Workers AI binding is not configured",model:"@cf/baai/bge-m3",version:ENGLISH_NEURAL_VERSION},503);
+      const contentType=String(request.headers.get("content-type")||"").toLowerCase();
+      if(!contentType.includes("application/json")) return reply({error:"Content-Type must be application/json"},415);
+      const declaredLength=Number(request.headers.get("content-length")||0);
+      if(declaredLength>12000) return reply({error:"Payload too large"},413);
+      let payload;
+      try {
+        const raw=await request.text();
+        if(new TextEncoder().encode(raw).byteLength>12000) return reply({error:"Payload too large"},413);
+        payload=JSON.parse(raw);
+      } catch { return reply({error:"Invalid JSON"},400); }
+      if(!payload || typeof payload.text!=="string" || !payload.text.trim()) return reply({error:"A non-empty text field is required"},400);
+      try {
+        const result=await analyzeEnglishNewsNeurally(payload.text,env,{limit:payload.limit,minimumScore:payload.minimumScore,unknownLimit:payload.unknownLimit});
+        return reply(result,200,{"cache-control":"no-store"});
+      } catch(error) {
+        console.error("English neural analysis failed:",error?.message||error);
+        return reply({error:"English neural analysis failed",detail:String(error?.message||error).slice(0,180)},502);
+      }
+    }
     if (url.pathname === "/neural/chinese") {
       if (request.method !== "POST") return reply({error:"Method not allowed"},405);
       if (!env.AI?.run) return reply({error:"Workers AI binding is not configured",model:"@cf/baai/bge-m3",version:CHINESE_NEURAL_VERSION},503);
