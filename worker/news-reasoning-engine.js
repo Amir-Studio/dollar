@@ -2,7 +2,7 @@
 // Uses Cloudflare Workers AI for structured inference, History for long-term context,
 // and bounded RSS discovery when the evidence graph has gaps. It never self-verifies facts.
 export const REASONING_VERSION = "dollar-evidence-reasoner-1.0.0";
-const MODEL = "@cf/meta/llama-3.1-8b-instruct";
+const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const HISTORY_INDEX = "https://raw.githubusercontent.com/Amir-Studio/History/main/data/index.json";
 const HISTORY_BASE = "https://raw.githubusercontent.com/Amir-Studio/History/main/";
 const clamp = (v, lo=0, hi=1) => Math.max(lo, Math.min(hi, Number(v) || 0));
