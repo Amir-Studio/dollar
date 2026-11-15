@@ -1,6 +1,6 @@
 // Dollar Market Decision Engine v0.2
 // Evidence synthesis with explicit abstention. No fabricated probability or trading signal.
-export const DECISION_ENGINE_VERSION = "0.2.0";
+export const DECISION_ENGINE_VERSION = "0.3.0-deep-evidence";
 
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 const finite=x=>x!==null&&x!==undefined&&x!==""&&Number.isFinite(Number(x));
@@ -165,6 +165,91 @@ function newsMetrics(news,analyses,now){
   event_evidence:evidence.sort((a,b)=>b.weight-a.weight).slice(0,12),
   note_fa:"فشار ریسک خبری با جهت قیمت دارایی یکسان نیست. خبرهای شرطی، احتمالی، تکذیب‌شده یا صرفاً تیتر وزن کمتری می‌گیرند؛ وزن‌ها احتمال آماری نیستند."};
 }
+function buildDeepAnalysis({news,languageAnalysis,priceSignal="unknown",now=Date.now()}={}) {
+ const raw=Array.isArray(news)?news:[], analyses=Array.isArray(languageAnalysis?.per_news)?languageAnalysis.per_news:[];
+ const clusters=clusterStories(raw), evidence=[];
+ const clusterFor=title=>{const i=clusters.findIndex(g=>g.items.some(x=>similarity(x?.title,title)>=0.82));return i<0?null:i;};
+ for(const a of analyses){
+  const title=String(a?.title||"").trim();if(!title)continue;
+  const source=hostOf(a.source||a.domain||""), published=dateMs(a.published_at);
+  const age=published===null?null:Math.max(0,(now-published)/3600000), mode=String(a.input_mode||"headline_only");
+  const simple=a.simple_analysis_fa||{}, status=String(simple.claim_status||a.english_semantics?.assertion||"unclassified");
+  const qualified=!!(a.uncertain||simple.conditional||simple.denied_or_disputed||
+   ["conditional","forecast_or_possibility","negated_or_denied","unconfirmed_or_uncertain","denied_or_disputed"].includes(status));
+  const tier=qualified?"qualified_or_disputed":mode==="full_article"?"full_text_claim_not_independently_verified":
+   mode==="headline_plus_rss_excerpt"&&Number(a.content_chars)>80?"excerpt_claim_not_independently_verified":"headline_only";
+  for(const event of (Array.isArray(a.events)?a.events:[])){
+   if(!event?.id)continue;
+   evidence.push({event_id:String(event.id),title:title.slice(0,240),source_domain:source,story_cluster:clusterFor(title),
+    published_at:a.published_at||null,age_hours:age===null?null:Number(age.toFixed(1)),input_mode:mode,
+    claim_status:status,qualified_or_disputed:qualified,evidence_tier:tier,
+    risk_pressure:event.market_effect==="risk_up"?"higher":event.market_effect==="risk_down"?"lower":"mixed"});
+  }
+ }
+ const grouped=new Map();
+ for(const e of evidence){if(!grouped.has(e.event_id))grouped.set(e.event_id,[]);grouped.get(e.event_id).push(e);}
+ const matrix=[...grouped.entries()].map(([id,items])=>{
+  const up=items.filter(x=>x.risk_pressure==="higher"),down=items.filter(x=>x.risk_pressure==="lower");
+  const domains=[...new Set(items.map(x=>x.source_domain).filter(x=>x!=="unknown"))];
+  const stories=[...new Set(items.map(x=>x.story_cluster).filter(x=>x!==null))];
+  const qualified=items.filter(x=>x.qualified_or_disputed).length;
+  const full=items.filter(x=>x.evidence_tier==="full_text_claim_not_independently_verified").length;
+  const excerpt=items.filter(x=>x.evidence_tier==="excerpt_claim_not_independently_verified").length;
+  const headline=items.filter(x=>x.evidence_tier==="headline_only").length, conflict=up.length>0&&down.length>0;
+  return {event_id:id,label_fa:EVENT_LABELS[id]||id,evidence_count:items.length,publisher_domain_count:domains.length,
+   publisher_domains:domains.slice(0,8),story_cluster_count:stories.length,higher_risk_mentions:up.length,
+   lower_risk_mentions:down.length,qualified_or_disputed_count:qualified,full_text_count:full,
+   excerpt_count:excerpt,headline_only_count:headline,conflict_detected:conflict,
+   status:conflict?"opposing_event_frames":domains.length<2?"single_publisher_domain":
+    qualified===items.length?"all_claims_qualified_or_disputed":full?"full_text_available_but_unverified":excerpt?"excerpt_evidence_only":"headline_evidence_only"};
+ }).sort((a,b)=>(Number(b.conflict_detected)-Number(a.conflict_detected))||b.evidence_count-a.evidence_count);
+ const structured=Array.isArray(languageAnalysis?.structured_claim_conflicts)?languageAnalysis.structured_claim_conflicts:[];
+ const headlineConflicts=Array.isArray(languageAnalysis?.possible_conflicts)?languageAnalysis.possible_conflicts:[];
+ const domains=new Set(evidence.map(x=>x.source_domain).filter(x=>x!=="unknown"));
+ const qualified=evidence.filter(x=>x.qualified_or_disputed).length;
+ const full=evidence.filter(x=>x.input_mode==="full_article").length;
+ const excerpt=evidence.filter(x=>x.input_mode==="headline_plus_rss_excerpt").length;
+ const headline=evidence.filter(x=>x.input_mode==="headline_only").length;
+ const conflictCount=matrix.filter(x=>x.conflict_detected).length;
+ const gaps=[];
+ if(!evidence.length)gaps.push("هیچ رویداد ساختاریافته‌ای از خبرها استخراج نشده است.");
+ if(domains.size<2)gaps.push("برای بررسی چندمنبعی، دست‌کم دو دامنهٔ ناشر لازم است.");
+ if(!full)gaps.push("متن کامل ناشر در شواهد فعلی موجود نیست.");
+ if(qualified)gaps.push("برخی ادعاها مشروط، احتمالی، تکذیب‌شده یا نامطمئن‌اند.");
+ if(conflictCount||structured.length||headlineConflicts.length)gaps.push("چارچوب‌های متعارض وجود دارند و باید متن اصلی، زمان و انتساب مقایسه شوند.");
+ if(evidence.some(x=>x.age_hours===null))gaps.push("زمان انتشار معتبر برای بعضی شواهد در دسترس نیست.");
+ const conclusion=!evidence.length?"insufficient_structured_evidence":
+  conflictCount||structured.length?"conflicting_evidence":domains.size<2?"single_domain_evidence":
+  !full&&!excerpt?"headline_only_evidence":qualified===evidence.length?"qualified_evidence_only":
+  "multi_source_claims_not_independently_verified";
+ const supporting=matrix.filter(x=>x.higher_risk_mentions>x.lower_risk_mentions&&!x.conflict_detected).slice(0,6);
+ const counter=matrix.filter(x=>x.lower_risk_mentions>x.higher_risk_mentions||x.conflict_detected).slice(0,6);
+ const contextual=matrix.filter(x=>x.status==="all_claims_qualified_or_disputed").slice(0,6);
+ return {engine:"dollar_deep_evidence_analysis",version:"0.1.0",conclusion_state:conclusion,
+  review_state:conclusion==="insufficient_structured_evidence"?"abstain":conclusion==="conflicting_evidence"?"hold_for_conflict_resolution":
+   ["single_domain_evidence","headline_only_evidence"].includes(conclusion)?"provisional_only":"evidence_review_required",
+  evidence_summary:{structured_event_mentions:evidence.length,event_types:matrix.length,publisher_domain_count:domains.size,
+   story_cluster_count:clusters.length,full_text_mentions:full,excerpt_mentions:excerpt,headline_only_mentions:headline,
+   qualified_or_disputed_mentions:qualified,event_conflict_count:conflictCount,structured_claim_conflict_count:structured.length,
+   headline_conflict_candidate_count:headlineConflicts.length,publisher_independence_verified:false},
+  evidence_matrix:matrix.slice(0,12),supporting_evidence:supporting,counterevidence:counter,qualified_context:contextual,
+  scenario_branches:[
+   {scenario:"risk_pressure_increases",status:supporting.length?"conditional_context_only":"not_supported_by_current_evidence",
+    evidence_events:supporting.map(x=>x.event_id),interpretation_fa:"این شاخه فقط فشار ریسک خبری را توصیف می‌کند و جهت قیمت را تعیین نمی‌کند."},
+   {scenario:"risk_pressure_eases_or_offsets",status:counter.length?"counterevidence_present":"insufficient_counterevidence",
+    evidence_events:counter.map(x=>x.event_id),interpretation_fa:"شواهد مخالف و متعادل‌کننده حفظ می‌شوند و حذف نمی‌شوند."},
+   {scenario:"claims_remain_unconfirmed",status:qualified?"plausible_data_quality_scenario":"not_prominent",
+    evidence_events:contextual.map(x=>x.event_id),interpretation_fa:"ادعاهای مشروط یا تکذیب‌شده واقعیت قطعی محسوب نمی‌شوند."}
+  ],
+  price_context_separate:{price_signal:priceSignal,interpretation:"price_history_signal_is_not_inferred_from_news"},
+  data_gaps:gaps,next_verification_steps:["متن اصلی ادعا و تاریخ انتشار را بررسی کن.","بازنشرهای یک خبر را شاهد مستقل حساب نکن.",
+   "برای ادعای مهم، منبع اولیه یا دو ناشر مستقل پیدا کن.","شواهد مخالف و تکذیب‌ها را کنار شواهد موافق نگه دار.",
+   "واکنش قیمت را پس از تکمیل افق زمانی، جداگانه و بدون ادعای علیت ارزیابی کن."],
+  guardrails:["این تحلیل احتمال عددی یا توصیهٔ مالی تولید نمی‌کند.","فشار ریسک خبری معادل جهت حرکت قیمت نیست.",
+   "تعداد دامنه‌ها اثبات استقلال تحریریه‌ای ناشران نیست.","هم‌زمانی خبر و تغییر قیمت رابطهٔ علّی را ثابت نمی‌کند.",
+   "ادعای نقل‌شده، مشروط یا تکذیب‌شده واقعیت تأییدشده محسوب نمی‌شود."]
+ };
+}
 export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,now=Date.now()}={}){
  const price=num(quote?.price),quoteStamp=dateMs(quote?.source_time);
  const quoteAge=quoteStamp===null?null:Math.max(0,(now-quoteStamp)/3600000);
@@ -172,6 +257,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  const n=newsMetrics(news,languageAnalysis?.per_news,now);
  const eventReactions=historicalEventReactions(languageAnalysis?.event_price_context);
  const conflicts=Array.isArray(languageAnalysis?.possible_conflicts)?languageAnalysis.possible_conflicts:[];
+  const deepAnalysis=buildDeepAnalysis({news,languageAnalysis,priceSignal:h.signal,now});
  const quoteFresh=quoteAge!==null&&quoteAge<=6;
  const historyFresh=h.last_observation_age_hours===null||h.last_observation_age_hours<=72;
  const quoteHistoryGap=h.last_price&&price>0?((price/h.last_price)-1)*100:null;
@@ -230,6 +316,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
    trend_score_not_probability:h.trend_score_not_probability,price_signal:h.signal},
   news_context:n,
   historical_event_reactions:eventReactions,
+   deep_analysis:deepAnalysis,
   synthesis:{state,explanation_fa:explanation.join(" ")||"شواهد کافی برای جمع‌بندی وجود ندارد.",
    important_distinction_fa:"جهت روند قیمت، فشار ریسک خبرها و پیش‌بینی آینده سه مفهوم جدا هستند؛ این موتور آن‌ها را یکی فرض نمی‌کند."},
   evidence_quality:quality,reasons_fa:explanation,
@@ -257,6 +344,17 @@ export function runDecisionEngineSelfTest(){
   {name:"historical_event_reaction_requires_three_observations",input:{...common,languageAnalysis:{per_news:[],possible_conflicts:[],event_price_context:{observations:[1,2].map((v)=>({event_ids:["conflict"],subsequent_price_observations:{1:{change_pct:v}}}))}}},check:x=>x.historical_event_reactions[0]?.horizons[1]?.median_change_pct===null},
   {name:"contradictory_candidate_is_reported_as_quality_issue",input:{...common,languageAnalysis:{per_news:[],possible_conflicts:[{type:"opposing_event_frames"}]}},check:x=>x.evidence_quality.issues.some(v=>v.includes("ناسازگار"))}
  ];
- const results=tests.map(t=>{try{const out=buildDecisionBrief(t.input);return {name:t.name,passed:!!t.check(out)};}catch(e){return {name:t.name,passed:false,error:String(e?.message||e)};}});
+ const deepBase={asset:"USD_IRR_FREE",quote:{price:120,source_time:new Date(now).toISOString()},history:{rows},
+   news:[],languageAnalysis:{per_news:[],possible_conflicts:[],structured_claim_conflicts:[]},now};
+  tests.push(
+   {name:"deep_analysis_abstains_without_structured_news",input:deepBase,check:x=>x.deep_analysis.conclusion_state==="insufficient_structured_evidence"&&x.deep_analysis.review_state==="abstain"},
+   {name:"one_domain_never_claims_multi_source_confirmation",input:{...deepBase,news:[{title:"Sanctions announced",domain:"one.example"}],languageAnalysis:{per_news:[{title:"Sanctions announced",source:"one.example",input_mode:"headline_only",events:[{id:"sanction_new",market_effect:"risk_up"}]}]}},check:x=>x.deep_analysis.conclusion_state==="single_domain_evidence"&&!x.deep_analysis.evidence_summary.publisher_independence_verified},
+   {name:"opposing_event_frames_are_preserved_as_conflict",input:{...deepBase,news:[{title:"Sanctions announced",domain:"one.example"},{title:"Sanctions relief announced",domain:"two.example"}],languageAnalysis:{per_news:[{title:"Sanctions announced",source:"one.example",input_mode:"full_article",events:[{id:"sanction_new",market_effect:"risk_up"}]},{title:"Sanctions relief announced",source:"two.example",input_mode:"full_article",events:[{id:"sanction_new",market_effect:"risk_down"}]}]}},check:x=>x.deep_analysis.conclusion_state==="conflicting_evidence"&&x.deep_analysis.evidence_matrix[0].conflict_detected},
+   {name:"conditional_and_denied_claims_are_not_verified_facts",input:{...deepBase,news:[{title:"Sanctions may be imposed",domain:"one.example"},{title:"Officials denied sanctions",domain:"two.example"}],languageAnalysis:{per_news:[{title:"Sanctions may be imposed",source:"one.example",input_mode:"headline_plus_rss_excerpt",uncertain:true,simple_analysis_fa:{claim_status:"conditional",conditional:true},events:[{id:"sanction_new",market_effect:"risk_up"}]},{title:"Officials denied sanctions",source:"two.example",input_mode:"full_article",simple_analysis_fa:{claim_status:"denied_or_disputed",denied_or_disputed:true},events:[{id:"sanction_new",market_effect:"risk_down"}]}]}},check:x=>x.deep_analysis.evidence_summary.qualified_or_disputed_mentions===2&&x.deep_analysis.conclusion_state==="conflicting_evidence"},
+   {name:"headline_only_is_separated_from_full_text",input:{...deepBase,news:[{title:"Oil supply report",domain:"one.example"}],languageAnalysis:{per_news:[{title:"Oil supply report",source:"one.example",input_mode:"headline_only",events:[{id:"oil_supply",market_effect:"mixed"}]}]}},check:x=>x.deep_analysis.evidence_matrix[0].headline_only_count===1&&x.deep_analysis.evidence_matrix[0].full_text_count===0},
+   {name:"news_pressure_never_becomes_price_direction",input:{...deepBase,news:[{title:"Conflict escalates",domain:"one.example"},{title:"Conflict escalates elsewhere",domain:"two.example"}],languageAnalysis:{per_news:[{title:"Conflict escalates",source:"one.example",input_mode:"full_article",events:[{id:"conflict",market_effect:"risk_up"}]},{title:"Conflict escalates elsewhere",source:"two.example",input_mode:"full_article",events:[{id:"conflict",market_effect:"risk_up"}]}]}},check:x=>x.deep_analysis.scenario_branches[0].interpretation_fa.includes("جهت قیمت")&&x.deep_analysis.price_context_separate.price_signal==="up"},
+   {name:"deep_analysis_does_not_publish_probability_fields",input:deepBase,check:x=>!Object.keys(x.deep_analysis).some(k=>/probability|confidence_pct/i.test(k))}
+  );
+  const results=tests.map(t=>{try{const out=buildDecisionBrief(t.input);return {name:t.name,passed:!!t.check(out)};}catch(e){return {name:t.name,passed:false,error:String(e?.message||e)};}});
  return {version:DECISION_ENGINE_VERSION,total:results.length,passed:results.filter(x=>x.passed).length,failed:results.filter(x=>!x.passed)};
 }
