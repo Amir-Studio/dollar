@@ -20,7 +20,7 @@ test('market search accepts relevant queries and normalizes Persian variants',()
 });
 
 test('market search rejects non-market and control-character input',()=>{
-  const result=normalizeMarketNewsSearchQuery('\u0000gold price');
+  const result=normalizeMarketNewsSearchQuery(String.fromCharCode(0)+'gold price');
   assert.equal(result.ok,true);
   assert.equal(result.query,'gold price');
   assert.equal(normalizeMarketNewsSearchQuery('celebrity gossip').ok,false);
