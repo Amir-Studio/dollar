@@ -6,8 +6,18 @@ import {
   directionMatches,
   summarizeLearningEvidence,
   evaluateComponentWeightAdjustment,
-  runComponentCalibrationSelfTest
+  runComponentCalibrationSelfTest,
+  getMissingForecastHorizons
 } from "../worker/forecast-engine.js";
+
+test("forecast issuance deduplication is isolated by model version", () => {
+  const missing = getMissingForecastHorizons([
+    { horizon_days: 1, model_version: "iran-ensemble-wf-2.7-maturity-safe-walkforward" },
+    { horizon_days: 3, model_version: "iran-ensemble-wf-2.8-live-component-feedback" },
+    { horizon_days: 7, model_version: "iran-ensemble-wf-2.7-maturity-safe-walkforward" }
+  ]);
+  assert.deepEqual(missing, [1, 7]);
+});
 
 test("robust calibration passes its holdout and minimum-sample regression checks", () => {
   const result = runCalibrationSelfTest();
