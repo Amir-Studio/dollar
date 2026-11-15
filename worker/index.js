@@ -1314,7 +1314,14 @@ export default {
       },200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance" || url.pathname === "/forecast/learning" || url.pathname === "/forecast/diagnostics") return handleForecastApi(url,env);
-    if (url.pathname === "/language/market-lexicon") {\n      if (request.method !== "GET") return reply({error:"Method not allowed"},405);\n      const language=url.searchParams.get("lang")||null;\n      const query=url.searchParams.get("q")||null;\n      const limit=Number(url.searchParams.get("limit")||100);\n      return reply(getMarketLexicon({language,query,limit}),200,{"cache-control":"public, max-age=3600"});\n    }\n    if (url.pathname === "/language/arabic/curriculum") {
+    if (url.pathname === "/language/market-lexicon") { 
+      if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+      const language=url.searchParams.get("lang")||null;
+      const query=url.searchParams.get("q")||null;
+      const limit=Number(url.searchParams.get("limit")||100);
+      return reply(getMarketLexicon({language,query,limit}),200,{"cache-control":"public, max-age=3600"});
+    }
+    if (url.pathname === "/language/arabic/curriculum") {
       if (request.method !== "GET") return reply({error:"Method not allowed"},405);
       return reply({version:ARABIC_FORMAL_GRAMMAR_VERSION,language:"العربية الفصحى المعاصرة",levels:4,rule_count:ARABIC_FORMAL_CURRICULUM.length,lessons:ARABIC_FORMAL_CURRICULUM},200,{"cache-control":"public, max-age=3600"});
     }
