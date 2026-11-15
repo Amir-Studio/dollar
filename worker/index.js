@@ -493,6 +493,20 @@ async function makeFreeAnalysis(env, asset) {
   const recent = news.filter(x=>Date.now()-Date.parse(x.published_at)<=24*60*60*1000);
   const languageAnalysis = analyzeMarketLanguage(news, rows);
   const multilingualNewsAnalysis = analyzeSupportedLanguageNews(news);
+  const chineseNewsText = news.filter(x => /[\\u4e00-\\u9fff]/.test(String(x.title||"")+" "+String(x.original_text||"")))
+    .slice(0,4).map(x => String(x.title||"")+" "+String(x.original_text||"")).join("\\n").slice(0,6000);
+  let chineseNeuralAnalysis = null;
+  if (chineseNewsText && env.AI?.run) {
+    try {
+      chineseNeuralAnalysis = await analyzeChineseNewsNeurally(chineseNewsText,env,{limit:20});
+    } catch(error) {
+      chineseNeuralAnalysis = {status:"neural_analysis_unavailable",model:"@cf/baai/bge-m3",detail:String(error?.message||error).slice(0,160)};
+    }
+  }
+  multilingualNewsAnalysis.chinese_neural_semantic_analysis = chineseNeuralAnalysis || {
+    status: env.AI?.run ? "no_chinese_articles_in_current_news_window" : "neural_binding_not_configured",
+    model:"@cf/baai/bge-m3"
+  };
   const enrichedLanguageAnalysis = {...languageAnalysis,multilingual_news:multilingualNewsAnalysis};
   const topics = languageAnalysis.themes;
   const decisionBrief = buildDecisionBrief({
