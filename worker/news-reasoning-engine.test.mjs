@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { analyzeNewsWithReasoning, retrieveHistoryContext, runReasoningSelfTest, saveReasoningFeedback, REASONING_VERSION } from "./news-reasoning-engine.js";
+import { analyzeNewsWithReasoning, retrieveHistoryContext, runReasoningSelfTest, saveReasoningFeedback, fetchArticleExcerpt, REASONING_VERSION } from "./news-reasoning-engine.js";
 
 const json = value => new Response(JSON.stringify(value),{status:200,headers:{"content-type":"application/json"}});
 const rss = `<?xml version="1.0"?><rss><channel><item><title>Central bank releases new inflation data</title><link>https://example.org/report</link><pubDate>Sun, 15 Nov 2026 10:00:00 GMT</pubDate><description>Central bank reports latest inflation and policy data.</description></item></channel></rss>`;
@@ -17,7 +17,7 @@ const mockFetch = async url => {
 test("reasoning self-test is internally consistent",()=>{
   const result=runReasoningSelfTest();
   assert.equal(result.version,REASONING_VERSION);
-  assert.equal(result.failed.length,0);
+  assert.equal(result.failed,0);
 });
 
 test("History retrieval preserves draft status and returns relevant source context",async()=>{
@@ -99,7 +99,6 @@ test("unreferenced factual claims force abstention",async()=>{
 });
 
 test("bounded payload remains valid JSON and keeps its article structure",async()=>{
-  const large={...Array.from({length:10},(_,i)=>({id:String(i),title:"خبر اقتصادی "+i,text:"متن ".repeat(800)}))};
   const output={comprehension:{event:"آزمون"},facts:[],claims:[],causal_hypotheses:[],alternatives:[],
     counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.2,abstain:true};
   let received="";
@@ -109,4 +108,25 @@ test("bounded payload remains valid JSON and keeps its article structure",async(
   assert.equal(result.ok,true);
   assert.doesNotThrow(()=>JSON.parse(received));
   assert.ok(received.length<=18000);
+});
+
+test("publisher reader blocks redirects to private network addresses",async()=>{
+  let calls=0;
+  const result=await fetchArticleExcerpt("https://news.google.com/article",async()=>{
+    calls++;
+    return new Response(null,{status:302,headers:{location:"http://127.0.0.1/private"}});
+  });
+  assert.equal(result,"");
+  assert.equal(calls,1);
+});
+
+test("publisher reader follows a bounded redirect to a public publisher",async()=>{
+  let calls=0;
+  const result=await fetchArticleExcerpt("https://news.google.com/article",async url=>{
+    calls++;
+    if(calls===1) return new Response(null,{status:302,headers:{location:"https://publisher.example.org/story"}});
+    return new Response("<html><body><p>This is a sufficiently long publisher paragraph containing factual information about the central bank and its published inflation report.</p></body></html>",{status:200,headers:{"content-type":"text/html"}});
+  });
+  assert.match(result,/central bank/);
+  assert.equal(calls,2);
 });
