@@ -246,9 +246,14 @@ export function selectWeightsFromErrorSums(keys,sampleCount,baselineErrorSum,can
   if(sampleCount<40) return baselineWeights(keys);
   const baselineMae=baselineErrorSum/sampleCount;
   const ranked=keys.filter(k=>k!=="no_change").map(k=>{
-    const count=Number(candidateSampleCounts?.[k])||sampleCount;
-    return {key:k,count,mae:(Number(candidateErrorSums?.[k])||0)/count};
-  }).filter(x=>x.count>=40&&x.mae<baselineMae*0.95).sort((a,b)=>a.mae-b.mae).slice(0,3);
+    // An explicit zero means the expert has no matured observations. Do not
+    // replace it with sampleCount: doing so would make its default zero error
+    // look like a perfect model and could assign it ensemble weight.
+    const rawCount=candidateSampleCounts?.[k];
+    const count=rawCount===undefined?sampleCount:Number(rawCount);
+    const errorSum=Number(candidateErrorSums?.[k]);
+    return {key:k,count,mae:count>0&&Number.isFinite(errorSum)?errorSum/count:Infinity};
+  }).filter(x=>Number.isFinite(x.mae)&&x.count>=40&&x.mae<baselineMae*0.95).sort((a,b)=>a.mae-b.mae).slice(0,3);
   if(!ranked.length) return baselineWeights(keys);
   const inverse=ranked.map(x=>1/Math.pow(0.05+x.mae,2));
   const sum=inverse.reduce((a,b)=>a+b,0);
