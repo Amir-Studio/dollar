@@ -432,8 +432,7 @@ const BENCHMARK_CASES = [
   {lang:"fr",text:"Par rapport à l'année dernière, les exportations ont augmenté de 5 %, tandis que les importations ont reculé.",checks:{comparison:true,contrast:true,actions:["increase","decrease","export"],quantities:1}},
   {lang:"fr",text:"La banque centrale a maintenu le taux d'intérêt inchangé.",checks:{actions:["hold"],actors:["central_bank"]}},
   {lang:"fr",text:"Le gouvernement a annoncé un nouvel investissement dans le secteur pétrolier.",checks:{attributed:true,actions:["invest","oil"]}},
-  {lang:"fr",text:"Bien que la demande augmente, les prix restent stables.",checks:{contrast:true,actions:["increase","hold"]}}
-
+  {lang:"fr",text:"Bien que la demande augmente, les prix restent stables.",checks:{contrast:true,actions:["increase","hold"]}},
   {lang:"ru",text:"Центральный банк заявил, что цены на нефть выросли на 3%, однако прогноз может измениться.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","oil"],actors:["central_bank"]}},
   {lang:"ja",text:"中央銀行は原油価格が上昇したと発表したが、来週は下落する可能性がある。",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
   {lang:"ko",text:"한국은행은 원유 가격이 상승했다고 발표했지만 다음 주 하락할 가능성이 있다.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
