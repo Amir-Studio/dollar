@@ -13,14 +13,14 @@ import {
 
 test("inner forecast duplicate guard does not let an older model block a new version", () => {
   const recent = [{ id: "legacy-row", model_version: "iran-ensemble-wf-2.7-maturity-safe-walkforward" }];
-  assert.equal(hasRecentForecastForModel(recent, "iran-ensemble-wf-2.8-live-component-feedback"), false);
+  assert.equal(hasRecentForecastForModel(recent, "iran-ensemble-wf-3.0-neural-mlp"), false);
   assert.equal(hasRecentForecastForModel(recent, "iran-ensemble-wf-2.7-maturity-safe-walkforward"), true);
 });
 
 test("forecast issuance deduplication is isolated by model version", () => {
   const missing = getMissingForecastHorizons([
     { horizon_days: 1, model_version: "iran-ensemble-wf-2.7-maturity-safe-walkforward" },
-    { horizon_days: 3, model_version: "iran-ensemble-wf-2.8-live-component-feedback" },
+    { horizon_days: 3, model_version: "iran-ensemble-wf-3.0-neural-mlp" },
     { horizon_days: 7, model_version: "iran-ensemble-wf-2.7-maturity-safe-walkforward" }
   ]);
   assert.deepEqual(missing, [1, 7]);
@@ -74,11 +74,11 @@ test("learning evidence never mixes different model versions", () => {
   }));
   const result = summarizeLearningEvidence(rows,[]);
   const legacy = result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"];
-  const active = result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.8-live-component-feedback"];
+  const active = result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-3.0-neural-mlp"];
   assert.equal(legacy.samples,3);
   assert.equal(active.samples,0);
   assert.ok(result.learning_actions.some(x=>x.model_version==="legacy-v2.4"&&x.samples===3));
-  assert.ok(result.learning_actions.some(x=>x.model_version==="iran-ensemble-wf-2.8-live-component-feedback"&&x.samples===0));
+  assert.ok(result.learning_actions.some(x=>x.model_version==="iran-ensemble-wf-3.0-neural-mlp"&&x.samples===0));
 });
 
 test("diagnostic patterns are attributed only to the matching model version", () => {
@@ -89,7 +89,7 @@ test("diagnostic patterns are attributed only to the matching model version", ()
   const result = summarizeLearningEvidence(rows,diagnostics);
   assert.equal(result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"].diagnostic_sample_count,3);
   assert.equal(result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"].recurring_error_patterns[0].code,"quote_age_elevated");
-  assert.equal(result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.8-live-component-feedback"].diagnostic_sample_count,0);
+  assert.equal(result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-3.0-neural-mlp"].diagnostic_sample_count,0);
 });
 
 test("model retention requires enough matured evidence and beats the no-change baseline", () => {
