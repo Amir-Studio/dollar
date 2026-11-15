@@ -508,6 +508,7 @@ async function makeFreeAnalysis(env, asset) {
     let language = String(article.language_code||article.language||"").toLowerCase().split("-")[0].slice(0,12);
     if (!language) {
       if (/[\u4e00-\u9fff]/.test(articleText)) language="zh";
+      else if (/[گچپژکی]/.test(articleText)) language="fa";
       else if (/[\u0600-\u06ff]/.test(articleText)) language="ar";
       else if (/[\u0400-\u04ff]/.test(articleText)) language="ru";
       else if (/[\u3040-\u30ff]/.test(articleText)) language="ja";
