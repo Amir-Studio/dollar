@@ -1,5 +1,6 @@
 import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest, runCalibrationSelfTest, runComponentCalibrationSelfTest } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
+import { runNeuralForecastSelfTest, NEURAL_MODEL_VERSION } from "./neural-forecast-engine.js";
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { ARABIC_ENGINE_VERSION, runArabicAcademicBenchmark } from "./arabic-academic-engine.js";
@@ -1442,6 +1443,15 @@ export default {
         llm_configured: false,
         translation_pipeline:{enabled:false,reason:"No translation-provider secret is configured; English source text is analyzed directly without fabricating a Persian translation."},
         model: null,
+        neural_forecast_model: {
+          enabled: true,
+          version: NEURAL_MODEL_VERSION,
+          architecture: "9-6-1",
+          task: "supervised_market_price_return_forecasting_only",
+          training_method: "walk_forward_matured_historical_price_windows",
+          self_test: runNeuralForecastSelfTest(),
+          note_fa: "شبکه عصبی کوچک برای پیش‌بینی بازده قیمت است؛ مدل زبانی یا فهم‌گر خبر نیست و تا عبور از آزمون خارج از نمونه سیگنال جهت‌دار منتشر نمی‌کند."
+        },
         language_model: {
           enabled: false,
           status: "not_deployed",
@@ -1507,7 +1517,7 @@ export default {
         web_search_enabled: false,
          market_news_search_enabled: true,
          market_news_search_provider: "Google News RSS plus local archive; market-topic-only",
-        capabilities: ["market-news-live-search","multi-asset-market-quotes","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","cross-source-contradiction-screening","verified-news-learning-evaluation","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
+        capabilities: ["market-news-live-search","multi-asset-market-quotes","supervised-neural-price-forecast","walk-forward-backtesting","adaptive-ensemble-forecast","forecast-ledger","automatic-forecast-evaluation","continuous-learning-audit","forecast-drift-monitoring","forecast-performance-api","free-news-rss","topic-classification","domain-language-understanding","historical-context-extraction","news-to-price-event-linking","news-price-evidence-synthesis","cross-source-contradiction-screening","verified-news-learning-evaluation","decision-quality-gates","database-schema-diagnostics","no-external-language-model"]
       }, 200, { "cache-control": "no-store" });
     }
     if (url.pathname === "/catalog") return reply({
