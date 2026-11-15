@@ -1,7 +1,7 @@
 // Dollar evidence-first reasoning engine.
 // Uses Cloudflare Workers AI for structured inference, History for long-term context,
 // and bounded RSS discovery when the evidence graph has gaps. It never self-verifies facts.
-export const REASONING_VERSION = "dollar-evidence-reasoner-1.0.0";
+export const REASONING_VERSION = "dollar-evidence-reasoner-1.1.0";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const HISTORY_INDEX = "https://raw.githubusercontent.com/Amir-Studio/History/main/data/index.json";
 const HISTORY_NEWS_INDEX = "https://raw.githubusercontent.com/Amir-Studio/History/main/data/pending-review/news-index.json";
