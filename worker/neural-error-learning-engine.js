@@ -42,6 +42,7 @@ function compactCase(item) {
     expected,
     validation_report: item.validation_report && typeof item.validation_report === "object" ? item.validation_report : {},
     total: Number(item.total) || 0, passed: Number(item.passed) || 0, failed: Number(item.failed) || 0,
+    results: Array.isArray(item.results) ? item.results.slice(0, 24) : [],
     corrected_paths: results.filter(x => !x.passed).slice(0, 8).map(x => ({
       path: String(x.path || "").slice(0, 120),
       expected: x.expected,
@@ -69,7 +70,7 @@ async function supabaseRequest(env, path, options = {}) {
 }
 function storedVector(item) {
   const memory = item?.validation_report?.neural_error_memory;
-  return memory?.version === NEURAL_ERROR_MEMORY_VERSION && Array.isArray(memory.vector) &&
+  return memory?.version === NEURAL_ERROR_MEMORY_VERSION && memory.signature === fingerprint([item]) && Array.isArray(memory.vector) &&
     memory.vector.length > 0 && memory.vector.every(Number.isFinite) ? memory.vector : null;
 }
 export async function refreshNeuralErrorMemory(evaluatedCases, env) {
@@ -118,7 +119,7 @@ export async function refreshNeuralErrorMemory(evaluatedCases, env) {
     const validationReport = {
       ...(item.validation_report || {}),
       total: item.total, passed: item.passed, failed: item.failed,
-      results: item.corrected_paths,
+      results: item.results,
       evaluation_status: item.failed > 0 ? "failed" : "passed",
       neural_error_memory: {
         version: NEURAL_ERROR_MEMORY_VERSION, model: MODEL,
