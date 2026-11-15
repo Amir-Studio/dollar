@@ -230,7 +230,7 @@ function validatePass(value,phase) {
   if(phase==="initial"&&typeof value.provisional_conclusion!=="string") throw new Error("initial_missing_provisional_conclusion");
   if(phase==="final"&&typeof value.conclusion!=="string") throw new Error("final_missing_conclusion");
   for(const field of ["facts","claims","causal_hypotheses","alternatives"]) {
-    for(const item of value[field]) if(!item||typeof item!=="object"||Array.isArray(item)||typeof item.statement!=="string"||!Array.isArray(item.source_ids)||item.source_ids.length>8||item.source_ids.some(x=>typeof x!=="string")||!Array.isArray(item.evidence)||item.evidence.length>8||item.evidence.some(x=>!x||typeof x.source_id!=="string"||typeof x.quote!=="string")) throw new Error(phase+"_invalid_evidence_shape_"+field);
+    for(const item of value[field]) if(!item||typeof item!=="object"||Array.isArray(item)||typeof item.statement!=="string"||!Array.isArray(item.source_ids)||item.source_ids.length>8||item.source_ids.some(x=>typeof x!=="string")||!Array.isArray(item.evidence)||item.evidence.length>8||item.evidence.some(x=>!x||typeof x.source_id!=="string"||typeof x.quote!=="string"||!item.source_ids.includes(x.source_id))) throw new Error(phase+"_invalid_evidence_shape_"+field);
   }
   if(typeof value.confidence!=="number"||!Number.isFinite(value.confidence)||typeof value.abstain!=="boolean")
     throw new Error(phase+"_missing_confidence_or_abstain");
@@ -269,6 +269,30 @@ function normalizeEvidenceText(value) {
   return clean(value,5000).normalize("NFKC").toLocaleLowerCase()
     .replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u064B-\u065F\u0670]/g,"")
     .replace(/[^\p{L}\p{N}]+/gu," ").replace(/\s+/g," ").trim();
+}
+function calculateEvidenceStrength(audit,catalog) {
+  const byId=new Map(catalog.map(x=>[x.id,x]));
+  const verifiedIds=[...new Set(audit.items.flatMap(x=>x.verified_source_ids||[]))];
+  const sources=verifiedIds.map(id=>byId.get(id)).filter(Boolean);
+  const domains=[...new Set(sources.map(x=>{
+    try { return new URL(x.url).hostname.replace(/^www\\./,""); }
+    catch { return x.publisher_domain||x.publisher||"unknown"; }
+  }).filter(x=>x&&x!=="unknown"))];
+  const sourceTypes=[...new Set(sources.map(x=>x.type))];
+  const hasUnreviewedHistory=sources.some(x=>["draft","pending_review","unverified"].includes(String(x.status).toLowerCase()));
+  const hasPublisherText=sources.some(x=>x.type==="search_result"&&x.evidence_type==="publisher_page_excerpt");
+  let ceiling=verifiedIds.length===0?0:domains.length===1?0.45:domains.length===2?0.65:0.78;
+  if(sourceTypes.every(x=>x==="history_dossier"||x==="history_archive")) ceiling=Math.min(ceiling,0.25);
+  if(hasUnreviewedHistory) ceiling=Math.min(ceiling,0.2);
+  if(sources.length&&sources.every(x=>x.type==="search_result"&&x.evidence_type==="search_snippet")) ceiling=Math.min(ceiling,0.25);
+  const clusters=sourceIndependence(catalog).likely_syndication_clusters;
+  const verifiedInSameSyndicationCluster=clusters.some(g=>g.source_ids.filter(id=>verifiedIds.includes(id)).length>1);
+  if(verifiedInSameSyndicationCluster) ceiling=Math.min(ceiling,0.4);
+  return {score:Number(ceiling.toFixed(2)),verified_source_count:verifiedIds.length,distinct_publisher_domains:domains.length,
+    source_types:sourceTypes,contains_unreviewed_history:hasUnreviewedHistory,
+    publisher_page_excerpt_present:hasPublisherText,possible_syndication_overlap:verifiedInSameSyndicationCluster,
+    method:"heuristic_evidence_ceiling_not_statistically_calibrated_probability",
+    note_fa:"این سقف محافظه‌کارانه بر پایهٔ شواهد قابل‌تطبیق است؛ احتمال آماری صحت یا پیش‌بینی قیمت نیست."};
 }
 function auditEvidenceReferences(analysis,catalog) {
   const byId=new Map(catalog.map(x=>[x.id,x])),audit=[];
@@ -376,7 +400,7 @@ const confidence=clamp(final.confidence);
     learning:{reviewed_lessons_considered:reviewedLessons.length,mode:"human_reviewed_retrieval_memory_not_online_weight_updates"},
     search:{attempted:queries.length>0,queries:queries.slice(0,3),results:searched,second_pass:secondPass},
 analysis:final,evidence_catalog:finalCatalog,source_independence:sourceIndependence(finalCatalog),evidence_audit:evidenceAudit,
-evidence_sufficiency:{model_confidence:confidence,source_reference_coverage_pct:Math.round(referenceCoverage*100),verified_quote_coverage_pct:evidenceAudit.total?Math.round(evidenceAudit.with_verified_quotes/evidenceAudit.total*100):0,unique_publisher_domains:sourceIndependence(finalCatalog).unique_publisher_domains,interpretation:"ارجاع معتبر فقط وجود شناسه منبع را نشان می‌دهد؛ تطابق متن منبع با ادعا همچنان نیازمند بررسی است."},
+evidence_sufficiency:{model_confidence:modelConfidence,evidence_strength:evidenceStrength,source_reference_coverage_pct:Math.round(referenceCoverage*100),verified_quote_coverage_pct:evidenceAudit.total?Math.round(evidenceAudit.with_verified_quotes/evidenceAudit.total*100):0,unique_publisher_domains:sourceIndependence(finalCatalog).unique_publisher_domains,interpretation:"ارجاع معتبر فقط وجود شناسه منبع را نشان می‌دهد؛ تطابق متن منبع با ادعا همچنان نیازمند بررسی است."},
 confidence,abstained,
     safeguards:["تحلیل مدل به‌تنهایی تأیید واقعیت نیست.","فرضیهٔ علّی با رابطهٔ علّی اثبات‌شده یکسان نیست.","اسناد History با وضعیت draft یا pending همچنان تأییدنشده‌اند.","نتایج جست‌وجو سرنخ پژوهش‌اند؛ استقلال و متن اصلی باید بررسی شود."]};
 }
