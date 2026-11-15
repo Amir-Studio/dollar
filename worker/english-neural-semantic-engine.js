@@ -60,13 +60,21 @@ export async function analyzeEnglishNewsNeurally(text,env,options={}) {
     .filter(x=>x.id&&x.semantic_score>=minimum).sort((a,b)=>b.semantic_score-a.semantic_score)
     .slice(0,Math.max(1,Math.min(30,Number(options.limit)||15)));
   const unknown=extractUnknownVocabularyCandidates(source,"en",{limit:Math.max(1,Math.min(12,Number(options.unknownLimit)||8))});
+  const termResearch = options.researchUnknown
+    ? await Promise.all(unknown.slice(0,Math.max(0,Math.min(3,Number(options.researchLimit)||2))).map(x=>researchEnglishTerm(x.term,source,env)))
+    : [];
   return {status:"neural_semantic_analysis_complete",model:MODEL,version:ENGLISH_NEURAL_VERSION,
-    pivot_language:"en",concept_count:rows.length,embedding_dimension:query.length,matches,unknown_candidates:unknown,
+    pivot_language:"en",concept_count:rows.length,embedding_dimension:query.length,matches,unknown_candidates:unknown,term_research:termResearch,
     learning_policy:"Unknown terms are candidates only; require dictionary evidence, source context, deduplication and review before promotion."};
 }
 export async function researchEnglishTerm(term,context="",env,fetchImpl=fetch) {
   const clean=String(term||"").normalize("NFKC").trim().slice(0,100);
   if(!clean) return {ok:false,status:"empty_term"};
+  const cacheKey="neural:english:term-research:"+clean.toLowerCase().replace(/\\s+/g," ").slice(0,100);
+  if(env?.MARKET_CACHE && fetchImpl===fetch) {
+    const cached=await env.MARKET_CACHE.get(cacheKey,"json");
+    if(cached) return {...cached,cache_hit:true};
+  }
   const dictionary=await lookupVocabularyMeaning(clean,"en",fetchImpl);
   const query=new URLSearchParams({q:`"${clean}" economy OR finance OR markets OR policy`,hl:"en-US",gl:"US",ceid:"US:en"});
   let evidence=[];
@@ -87,11 +95,15 @@ export async function researchEnglishTerm(term,context="",env,fetchImpl=fetch) {
       }).filter(x=>x.title&&x.url);
     }
   } catch {}
-  return {ok:Boolean(dictionary.ok),term:clean,language:"en",dictionary,
+  const result={ok:Boolean(dictionary.ok),term:clean,language:"en",dictionary,
     search_evidence:evidence,context_excerpt:String(context||"").slice(0,500),
     status:dictionary.ok&&evidence.length>=2?"candidate_review_with_dictionary_and_news_evidence":
       dictionary.ok?"candidate_review_dictionary_only":"needs_more_evidence",
     auto_learned:false};
+  if(env?.MARKET_CACHE && fetchImpl===fetch) {
+    try { await env.MARKET_CACHE.put(cacheKey,JSON.stringify(result),{expirationTtl:60*60*12}); } catch {}
+  }
+  return result;
 }
 export async function runEnglishNeuralSelfTest(ai) {
   if(!ai?.run) return {passed:false,skipped:true,reason:"Workers AI binding unavailable"};
