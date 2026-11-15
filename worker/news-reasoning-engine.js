@@ -109,10 +109,10 @@ Rules:
 const SYSTEM_FINAL = `You are Dollar's skeptical evidence synthesizer. Return ONLY valid JSON with keys: comprehension, facts, claims, causal_hypotheses, alternatives, counter_evidence_needed, history_usage, source_assessment, unresolved_questions, conclusion, confidence, abstain, next_research.
 Reconcile the original reports, History context and newly searched results. Do not count syndicated copies as independent confirmation. A domain difference does not prove editorial independence. Distinguish source quality from claim truth. Explain mechanisms and rival causes, identify what changed versus historical precedent, preserve conflicting evidence, and cite only URLs present in the supplied evidence. If evidence is insufficient, say so and abstain. Persian prose only; JSON keys English.`;
 const REASONING_FEEDBACK_KEY = "news:reasoning:reviewed-feedback:v1";
-async function loadReviewedLessons(env) {
+async function loadReviewedLessons(env,limit=15) {
   try {
     const rows=await env.MARKET_CACHE?.get(REASONING_FEEDBACK_KEY,"json");
-    return (Array.isArray(rows)?rows:[]).slice(-15).map(x=>({
+    return (Array.isArray(rows)?rows:[]).slice(-limit).map(x=>({
       article_title:clean(x.article_title,300),issue_category:clean(x.issue_category,80),correction:clean(x.correction,700),
       evidence_url:clean(x.evidence_url,500),created_at:x.created_at||null
     }));
@@ -126,7 +126,7 @@ export async function saveReasoningFeedback(env,input={}) {
   const category=String(input.issue_category||"other");
   if(!title||correction.length<12||!/^https?:\/\//i.test(evidenceUrl)||!allowed.has(category))
     return {ok:false,reason:"title_correction_evidence_url_and_valid_category_required"};
-  const previous=await loadReviewedLessons(env);
+  const previous=await loadReviewedLessons(env,80);
   const record={id:crypto.randomUUID(),created_at:new Date().toISOString(),article_title:title,
     issue_category:category,correction,evidence_url:evidenceUrl,reviewer_note:clean(input.reviewer_note,500)};
   const next=[...previous,record].slice(-80);
