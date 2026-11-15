@@ -6,6 +6,7 @@ import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
 import { NEWS_SOURCES as CURATED_NEWS_SOURCES } from "./news-sources.js";
+import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -609,6 +610,91 @@ async function syncNewsToSupabase(env) {
   return { enabled:true, refreshed:true, items:await readNewsFromSupabase(env), archived_items:items.length };
 }
 
+function normalizeGdeltLanguage(value) {
+  const key=String(value||"").trim().toLowerCase();
+  const map={english:"en",en:"en",french:"fr",fr:"fr",german:"de",de:"de",arabic:"ar",ar:"ar",chinese:"zh",zh:"zh",persian:"fa",farsi:"fa",fa:"fa"};
+  return map[key]||null;
+}
+function parseGdeltDate(value) {
+  const s=String(value||"");
+  const m=s.match(/^(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})Z?$/);
+  if(m) return new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]),Number(m[5]),Number(m[6]))).toISOString();
+  const parsed=Date.parse(s);
+  return Number.isFinite(parsed)?new Date(parsed).toISOString():null;
+}
+async function fetchCountryNewsArticle(country) {
+  const query=`(economy OR business OR trade OR inflation OR technology OR education OR health OR climate OR policy) sourcecountry:${country.gdelt}`;
+  const api=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
+  api.searchParams.set("query",query);
+  api.searchParams.set("mode","ArtList");
+  api.searchParams.set("format","json");
+  api.searchParams.set("maxrecords","20");
+  api.searchParams.set("timespan","30d");
+  api.searchParams.set("sort","DateDesc");
+  const response=await fetch(api.toString(),{headers:{accept:"application/json"},signal:AbortSignal.timeout(12000)});
+  if(!response.ok) throw Error("GDELT HTTP "+response.status);
+  const payload=await response.json();
+  const articles=Array.isArray(payload?.articles)?payload.articles:[];
+  for(const article of articles.slice(0,8)){
+    const language=normalizeGdeltLanguage(article.language);
+    const url=String(article.url||"");
+    if(!language || !/^https?:\\/\\//i.test(url) || !article.title) continue;
+    const fullText=await fetchFullArticleText(url);
+    if(fullText.length<1000) continue;
+    const title=String(article.title).slice(0,500);
+    const analyzed=analyzeMarketLanguage([{
+      title,original_title:title,original_text:fullText,language_code:language,
+      url,published_at:parseGdeltDate(article.seendate),domain:article.domain||""
+    }]).per_news?.[0] || null;
+    return {
+      country_code:country.code,country_name:country.name,gdelt_country:country.gdelt,
+      language_code:language,publisher_domain:String(article.domain||"").slice(0,200),
+      article_url:url,title,published_at:parseGdeltDate(article.seendate),
+      article_text:fullText.slice(0,15000),article_chars:fullText.length,
+      extraction_status:"full_article_extracted",model_version:LANGUAGE_ENGINE_VERSION,
+      model_output:analyzed,evaluation_status:"pending_review",
+      collected_at:new Date().toISOString(),updated_at:new Date().toISOString()
+    };
+  }
+  return {
+    country_code:country.code,country_name:country.name,gdelt_country:country.gdelt,
+    extraction_status:articles.length?"no_full_article_or_unsupported_language":"no_recent_article",
+    article_chars:0,evaluation_status:"not_evaluable",
+    collected_at:new Date().toISOString(),updated_at:new Date().toISOString()
+  };
+}
+async function collectGlobalCountryTestBatch(env) {
+  try {
+    const state=await learningRest(env,"market_news_country_test_state?select=next_index,total_countries&id=eq.1&limit=1");
+    const start=Math.max(0,Number(state?.[0]?.next_index)||0);
+    if(start>=GLOBAL_TEST_COUNTRIES.length) return {ran:false,complete:true,next_index:start};
+    const batch=GLOBAL_TEST_COUNTRIES.slice(start,start+10);
+    const results=await Promise.allSettled(batch.map(fetchCountryNewsArticle));
+    const rows=results.map((result,index)=>{
+      if(result.status==="fulfilled") return result.value;
+      const country=batch[index];
+      console.error("Global country article failed:",country.code,String(result.reason?.message||result.reason).slice(0,160));
+      return {country_code:country.code,country_name:country.name,gdelt_country:country.gdelt,
+        extraction_status:"collection_error",article_chars:0,evaluation_status:"not_evaluable",
+        evaluation_notes:String(result.reason?.message||result.reason).slice(0,300),
+        collected_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    });
+    await learningRest(env,"market_news_country_test_corpus?on_conflict=country_code",{
+      method:"POST",headers:{prefer:"resolution=merge-duplicates,return=minimal"},body:rows
+    });
+    const next=Math.min(start+batch.length,GLOBAL_TEST_COUNTRIES.length);
+    await learningRest(env,"market_news_country_test_state?id=eq.1",{
+      method:"PATCH",headers:{prefer:"return=minimal"},
+      body:{next_index:next,total_countries:GLOBAL_TEST_COUNTRIES.length,updated_at:new Date().toISOString()}
+    });
+    const full=rows.filter(row=>row.extraction_status==="full_article_extracted").length;
+    console.log("Global country news test batch:",start+1,"-",next,"full_articles",full,"failed_or_missing",rows.length-full);
+    return {ran:true,start,next,batch_size:batch.length,full_articles:full};
+  } catch(error) {
+    console.error("Global country news test batch failed:",error?.message||error);
+    return {ran:false,error:String(error?.message||error).slice(0,180)};
+  }
+}
 export async function refreshBackground(env) {
   const market = await getMarketSnapshot(env);
   const persistence = await persistQuotesToSupabase(env, market);
@@ -645,10 +731,24 @@ export async function refreshBackground(env) {
 export default {
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(refreshBackground(env).then(async market => { await runForecastCycle(env,market); await runNewsLearningCycle(env); }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
+    ctx.waitUntil(collectGlobalCountryTestBatch(env));
   },
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
+    if (url.pathname === "/news/global-test/status") {
+      try {
+        const [rows,state]=await Promise.all([
+          learningRest(env,"market_news_country_test_corpus?select=country_code,country_name,language_code,publisher_domain,title,article_chars,extraction_status,evaluation_status,collected_at&order=country_name.asc&limit=120"),
+          learningRest(env,"market_news_country_test_state?select=next_index,total_countries&id=eq.1&limit=1")
+        ]);
+        return reply({ok:true,total_countries:GLOBAL_TEST_COUNTRIES.length,processed_countries:state?.[0]?.next_index||0,
+          full_articles:rows.filter(x=>x.extraction_status==="full_article_extracted").length,
+          pending_review:rows.filter(x=>x.evaluation_status==="pending_review").length,
+          not_evaluable:rows.filter(x=>x.evaluation_status==="not_evaluable").length,
+          countries:rows.map(({country_code,country_name,language_code,publisher_domain,title,article_chars,extraction_status,evaluation_status,collected_at})=>({country_code,country_name,language_code,publisher_domain,title,article_chars,extraction_status,evaluation_status,collected_at}))});
+      } catch(error) { return reply({ok:false,error:"Global test status unavailable"},503); }
+    }
     if (url.pathname === "/language/conversation") {
       if (request.method !== "POST") return reply({error:"Method not allowed"},405);
       const declaredLength = Number(request.headers.get("content-length") || 0);
