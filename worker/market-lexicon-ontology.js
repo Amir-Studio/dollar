@@ -233,7 +233,7 @@ const TERM_INDEX = new Map();
 for (const c of MARKET_CONCEPTS) {
   for (const [lang,terms] of Object.entries({en:[c.pivot.term],...c.equivalents})) {
     for (const term of terms) {
-      const key=term.toLocaleLowerCase().normalize("NFKC").replace(/[\\u200c\\u200f]/g," ");
+      const key=term.toLocaleLowerCase().normalize("NFKC").replace(/[\u200c\u200f]/g," ");
       if (!TERM_INDEX.has(lang)) TERM_INDEX.set(lang,new Map());
       const list=TERM_INDEX.get(lang).get(key)||[];
       list.push(c.id);
