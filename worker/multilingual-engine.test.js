@@ -42,3 +42,11 @@ test("unsupported or ambiguous language abstains instead of guessing", () => {
   assert.equal(result.language, "und");
   assert.equal(result.reading_status, "unsupported_or_ambiguous_language");
 });
+
+test("Chinese news comprehension extracts specialist terms with Persian and English meanings", () => {
+  const result = analyzeMultilingualNews("央行表示，通胀下降，外汇储备增加。", "", "zh");
+  assert.equal(result.language, "zh");
+  assert.ok(result.domain_vocabulary.some(x => x.english === "foreign exchange reserves"));
+  assert.ok(result.domain_vocabulary.some(x => x.english === "core inflation") === false);
+  assert.ok(result.domain_vocabulary.every(x => x.fa && x.pinyin && x.category));
+});
