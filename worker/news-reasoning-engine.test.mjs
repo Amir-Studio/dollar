@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { analyzeNewsWithReasoning, retrieveHistoryContext, runReasoningSelfTest, saveReasoningFeedback, fetchArticleExcerpt, REASONING_VERSION } from "./news-reasoning-engine.js";
 
 const json = value => new Response(JSON.stringify(value),{status:200,headers:{"content-type":"application/json"}});
-const rss = `<?xml version="1.0"?><rss><channel><item><title>Central bank releases new inflation data</title><link>https://example.org/report</link><pubDate>Sun, 15 Nov 2026 10:00:00 GMT</pubDate><description>Central bank reports latest inflation and policy data.</description></item></channel></rss>`;
+const rss = `<?xml version="1.0"?><rss><channel><item><title>Central bank releases new inflation data</title><link>https://example.org/report</link><pubDate>Sun, 15 Nov 2026 10:00:00 GMT</pubDate><description>Central bank reports latest inflation and policy data.</description><source url="https://centralbank.example.org">Central Bank</source></item></channel></rss>`;
 const historyIndex = {updated_at:"2026-11-13",items:[{id:"history-of-us-dollar",title:"تاریخچه دلار آمریکا",description:"نهادهای پولی و نظام ارزی",keywords:["دلار","ارز","نرخ بهره"],json_url:"https://amir-studio.github.io/History/data/articles/history-of-us-dollar.json"}]};
 const historyArchiveIndex = {items:[{id:"news-central-bank-1",headline:"بانک مرکزی و نرخ بهره",summary:"گزارش تاریخی درباره سیاست پولی",category:"اقتصاد",json_url:"https://amir-studio.github.io/History/data/pending-review/news/news-central-bank-1.json"}]};
 const historyArchiveRecord = {id:"news-central-bank-1",headline:"بانک مرکزی و نرخ بهره",status:"pending_review",published_at:"2026-11-15T10:00:00Z",summary:"گزارش ثبت‌شده برای بازبینی.",source_url:"https://example.org/archive",dollar_triage:{status:"summarize"}};
@@ -47,6 +47,7 @@ test("reasoner searches when first pass identifies an evidence gap and then revi
   assert.equal(result.search.attempted,true);
   assert.equal(result.search.results.length,1);
   assert.match(result.search.results[0].snippet,/inflation and policy data/);
+  assert.equal(result.search.results[0].publisher_domain,"centralbank.example.org");
   assert.equal(result.search.second_pass,"completed");
   assert.equal(result.abstained,true);
   assert.equal(result.analysis.conclusion,"هنوز برای نتیجه قطعی کافی نیست");
