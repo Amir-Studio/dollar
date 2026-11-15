@@ -69,7 +69,7 @@ function detectLanguage(text) {
   return fa>=en?"fa":"en";
 }
 function splitSentences(text) {
-  return String(text||"").replace(/\s+/g," ").split(/(?<=[.!?؟])\s+|(?<=؛)\s+/u).map(x=>x.trim()).filter(Boolean).slice(0,30);
+  return String(text||"").replace(/\s+/g," ").split(/(?<=[.!?؟])\s+|(?<=؛)\s+/u).map(x=>x.trim()).filter(Boolean).slice(0,120);
 }
 function extractAnchors(sentence) {
   const numbers=[];
@@ -198,7 +198,7 @@ function extractDiscourseLinks(frames) {
   }
   return links;
 }
-export function analyzeNewsReading(title,body,publishedAt=null) {
+export function analyzeNewsReading(title,body,publishedAt=null,fullArticle=false) {
   const cleanTitle=String(title||"").trim();
   const cleanBody=String(body||"").trim();
   const content=[cleanTitle,cleanBody].filter(Boolean).join(". ");
@@ -244,12 +244,12 @@ export function analyzeNewsReading(title,body,publishedAt=null) {
   if(cleanBody.length>0&&cleanBody.length<220) issues.push("short_excerpt_may_omit_qualifications");
   if(frames.some(f=>f.ambiguity_flags.includes("pronoun_reference_requires_context"))) issues.push("some_pronoun_references_need_prior_context");
   if(frames.some(f=>f.ambiguity_flags.includes("number_without_explicit_unit"))) issues.push("some_numbers_have_no_explicit_unit");
-  if(frames.length>=30) issues.push("sentence_limit_reached");
-  const status=cleanBody.length===0?"insufficient_text":issues.includes("short_excerpt_may_omit_qualifications")?"partial_text":"parsed_excerpt";
+  if(frames.length>=120) issues.push("sentence_limit_reached");
+  const status=cleanBody.length===0?"insufficient_text":issues.includes("sentence_limit_reached")?"partial_text":fullArticle?"parsed_full_article":issues.includes("short_excerpt_may_omit_qualifications")?"partial_text":"parsed_excerpt";
   return {
     version:NEWS_READING_VERSION,
     language:lang,
-    input_coverage:{title_chars:cleanTitle.length,body_chars:cleanBody.length,total_chars:content.length,mode:cleanBody.length?"headline_plus_excerpt":"headline_only"},
+    input_coverage:{title_chars:cleanTitle.length,body_chars:cleanBody.length,total_chars:content.length,mode:cleanBody.length?(fullArticle?"headline_plus_full_article":"headline_plus_excerpt"):"headline_only"},
     reading_status:status,
     sentence_frames:frames,
     claims,
