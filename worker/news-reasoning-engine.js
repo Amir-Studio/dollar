@@ -461,11 +461,11 @@ confidence,abstained,
     safeguards:["تطبیق نقل‌قول با متن منبع، به‌تنهایی اثبات پشتیبانی معنایی نیست؛ ممیزی استلزام جداگانه انجام می‌شود.","تحلیل مدل به‌تنهایی تأیید واقعیت نیست.","فرضیهٔ علّی با رابطهٔ علّی اثبات‌شده یکسان نیست.","اسناد History با وضعیت draft یا pending همچنان تأییدنشده‌اند.","نتایج جست‌وجو سرنخ پژوهش‌اند؛ استقلال و متن اصلی باید بررسی شود."]};
 }
 export function runReasoningSelfTest() {
-  const validPass={comprehension:{event:"test"},facts:[],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],
+  const validPass={comprehension:{event:"test"},facts:[],claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],
     history_usage:[],evidence_gaps:[],search_queries:[],provisional_conclusion:"test",confidence:0.5,abstain:true};
   let validSchema=false,invalidSchemaRejected=false;
   try { validatePass(validPass,"initial"); validSchema=true; } catch {}
-  try { validatePass({comprehension:{},facts:[],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],provisional_conclusion:"x",confidence:1.5,abstain:false},"initial"); } catch { invalidSchemaRejected=true; }
+  try { validatePass({comprehension:{},facts:[],claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],provisional_conclusion:"x",confidence:1.5,abstain:false},"initial"); } catch { invalidSchemaRejected=true; }
   const draftCatalog=evidenceCatalog([],{documents:[{id:"draft-1",title:"Draft",status:"draft"}]});
   const duplicateCheck=sourceIndependence([
     {id:"news:1",type:"news",title:"Central bank announces new interest rate policy",url:"https://a.example.org/a"},
