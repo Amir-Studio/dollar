@@ -815,6 +815,19 @@ export async function handleForecastApi(url,env) {
         note_fa:"آزمون walk-forward از داده‌های تاریخی استفاده می‌کند؛ دفتر زنده فقط پیش‌بینی‌هایی را می‌شمارد که موعدشان رسیده و با قیمت واقعی ارزیابی شده‌اند."
       },{headers:{"cache-control":"no-store"}});
     }
+    if(url.pathname==="/forecast/diagnostics"){
+      const horizon=Number(url.searchParams.get("horizon_days")||7);
+      if(!HORIZONS.includes(horizon)) return Response.json({error:"افق باید ۱، ۳ یا ۷ روز باشد."},{status:400});
+      const requestedLimit=Number(url.searchParams.get("limit")||100);
+      if(!Number.isInteger(requestedLimit)||requestedLimit<1||requestedLimit>250) return Response.json({error:"limit باید عددی بین ۱ تا ۲۵۰ باشد."},{status:400});
+      const query=new URLSearchParams({
+        select:"forecast_id,asset,horizon_days,model_version,diagnosed_at,error_metrics,contributing_factors,root_cause_candidates",
+        asset:"eq."+asset,horizon_days:"eq."+horizon,order:"diagnosed_at.desc",limit:String(requestedLimit)
+      });
+      const data=await db(env,"market_forecast_error_diagnostics?"+query.toString());
+      return Response.json({asset,horizon_days:horizon,diagnostics:data||[],generated_at:new Date().toISOString()},
+        {headers:{"cache-control":"no-store"}});
+    }
     if(url.pathname==="/forecast/learning"){
       const data=await db(env,"market_learning_cycles?select=cycle_at,model_version,evaluated_count,asset_metrics,learning_actions&order=cycle_at.desc&limit=100");
       return Response.json({model_version:MODEL_VERSION,cycles:data||[],note_fa:"وزن‌های مدل با آزمون walk-forward و فقط با داده‌های بالغ‌شده دوباره محاسبه می‌شوند؛ این گزارش، عملکرد زنده و هشدار افت کیفیت را ثبت می‌کند."},{headers:{"cache-control":"no-store"}});

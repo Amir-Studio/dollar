@@ -744,7 +744,7 @@ export default {
         topics:newsTopics(items),items
       },200,{"cache-control":"no-store"});
     }
-    if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance" || url.pathname === "/forecast/learning") return handleForecastApi(url,env);
+    if (url.pathname === "/forecast/history" || url.pathname === "/forecast/performance" || url.pathname === "/forecast/learning" || url.pathname === "/forecast/diagnostics") return handleForecastApi(url,env);
     if (url.pathname === "/health") {
       const databaseConfigured = Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
       const tableChecks = databaseConfigured ? await Promise.all([
