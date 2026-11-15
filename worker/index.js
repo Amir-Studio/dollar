@@ -796,13 +796,13 @@ async function fetchCountryNewsArticle(country, proxySecret=null) {
       console.warn("Cloudflare country article proxy failed:",country.code,String(error?.message||error).slice(0,140));
     }
   }
-  if (typeof HTMLRewriter === "undefined") {
-    try {
-      const googleResult=await fetchGoogleNewsCountryArticle(country);
-      if(googleResult) return googleResult;
-    } catch(error) {
-      console.warn("Google News country fallback failed:",country.code,String(error?.message||error).slice(0,120));
-    }
+  // Prefer Google News RSS first: GDELT enforces a strict request rate limit.
+  // The publisher domain is checked against the country's local news domain before accepting an article.
+  try {
+    const googleResult=await fetchGoogleNewsCountryArticle(country);
+    if(googleResult) return googleResult;
+  } catch(error) {
+    console.warn("Google News country lookup failed:",country.code,String(error?.message||error).slice(0,120));
   }
   const query="(economy OR business OR trade OR inflation OR technology OR education OR health OR climate OR policy) sourcecountry:"+country.gdelt;
   const api=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
