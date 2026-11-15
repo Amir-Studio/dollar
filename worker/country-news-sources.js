@@ -32,7 +32,7 @@ export const COUNTRY_NEWS_SOURCES = [
   {source_id:"bbc-es",country_code:"MX",country_name:"Mexico",name:"BBC Mundo",language_code:"es",site_url:"https://www.bbc.com/mundo",feed_url:"https://feeds.bbci.co.uk/mundo/rss.xml",active:true,trust_tier:"unrated"},
   {source_id:"batimes-en",country_code:"AR",country_name:"Argentina",name:"Buenos Aires Times",language_code:"en",site_url:"https://www.batimes.com.ar",feed_url:"https://www.batimes.com.ar/feed",active:true,trust_tier:"unrated"},
   {source_id:"news24-en",country_code:"ZA",country_name:"South Africa",name:"News24",language_code:"en",site_url:"https://www.news24.com",feed_url:"https://feeds.news24.com/articles/news24/TopStories/rss",active:true,trust_tier:"unrated"},
-  {source_id:"ahram-en",country_code:"EG",country_name:"Egypt",name:"Ahram Online",language_code:"en",site_url:"https://english.ahram.org.eg",feed_url:"https://english.ahram.org.eg/NewsContent/1/64/0/World.aspx",active:true,trust_tier:"unrated"},
+  {source_id:"madamasr-en",country_code:"EG",country_name:"Egypt",name:"Mada Masr",language_code:"en",site_url:"https://www.madamasr.com",feed_url:"https://www.madamasr.com/en/feed/",active:true,trust_tier:"unrated"},
 ];
 
 export function validateCountryNewsSources(sources=COUNTRY_NEWS_SOURCES) {
