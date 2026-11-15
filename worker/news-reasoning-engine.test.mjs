@@ -36,8 +36,8 @@ test("History retrieval preserves draft status and returns relevant source conte
 
 test("reasoner searches when first pass identifies an evidence gap and then revises",async()=>{
   const outputs=[
-    {comprehension:{event:"تصمیم بانک مرکزی"},facts:[{statement:"دادهٔ رسمی تورم منتشر شده است.",source_ids:["news:1"],evidence:[]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:["داده رسمی کم است"],search_queries:["central bank inflation data policy"],provisional_conclusion:"نامشخص",confidence:.25,abstain:true},
-    {comprehension:{event:"گزارش داده تورم"},facts:[{statement:"یک گزارش مرتبط پیدا شد.",source_ids:["web:1"],evidence:[{source_id:"web:1",quote:"Central bank reports latest inflation and policy data in its official publication for the current reporting period."}]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]},
+    {comprehension:{event:"تصمیم بانک مرکزی"},facts:[{statement:"دادهٔ رسمی تورم منتشر شده است.",source_ids:["news:1"],evidence:[]}],claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:["داده رسمی کم است"],search_queries:["central bank inflation data policy"],provisional_conclusion:"نامشخص",confidence:.25,abstain:true},
+    {comprehension:{event:"گزارش داده تورم"},facts:[{statement:"یک گزارش مرتبط پیدا شد.",source_ids:["web:1"],evidence:[{source_id:"web:1",quote:"Central bank reports latest inflation and policy data in its official publication for the current reporting period."}]}],claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]},
     {items:[{field:"facts",index:0,source_id:"web:1",verdict:"supports",reason:"نقل‌قول دقیقاً ادعای انتشار داده تورم را تأیید می‌کند."}]}
   ];
   const env={AI:{run:async()=>({response:JSON.stringify(outputs.shift())})}};
@@ -100,7 +100,7 @@ test("invalid reasoning structure fails closed instead of inventing an analysis"
 
 test("unreferenced factual claims force abstention",async()=>{
   const output={comprehension:{event:"خبر اقتصادی"},facts:[{statement:"ادعای بدون منبع",source_ids:[],evidence:[]}],
-    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.95,abstain:false};
   const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
   const result=await analyzeNewsWithReasoning({
@@ -113,7 +113,7 @@ test("unreferenced factual claims force abstention",async()=>{
 });
 
 test("bounded payload remains valid JSON and keeps its article structure",async()=>{
-  const output={comprehension:{event:"آزمون"},facts:[],claims:[],causal_hypotheses:[],alternatives:[],
+  const output={comprehension:{event:"آزمون"},facts:[],claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],
     counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.2,abstain:true};
   let received="";
   const env={AI:{run:async(_model,args)=>{received=args.messages[1].content;return {response:JSON.stringify(output)}}}};
@@ -147,7 +147,7 @@ test("publisher reader follows a bounded redirect to a public publisher",async()
 
 test("source reference alone is not treated as verified evidence",async()=>{
   const output={comprehension:{event:"خبر"},facts:[{statement:"ادعای دارای لینک اما بدون نقل‌قول",source_ids:["news:1"],evidence:[]}],
-    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
   const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
   const result=await analyzeNewsWithReasoning({
@@ -163,7 +163,7 @@ test("source reference alone is not treated as verified evidence",async()=>{
 test("fabricated quote does not pass source evidence verification",async()=>{
   const output={comprehension:{event:"خبر"},facts:[{statement:"ادعای ساختگی",source_ids:["news:1"],
     evidence:[{source_id:"news:1",quote:"این جمله در متن منبع وجود ندارد و ساختگی است."}]}],
-    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
   const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
   const result=await analyzeNewsWithReasoning({
@@ -178,7 +178,7 @@ test("fabricated quote does not pass source evidence verification",async()=>{
 test("evidence quote must refer to a declared source id",async()=>{
   const output={comprehension:{event:"خبر"},facts:[{statement:"ادعا",source_ids:["news:999"],
     evidence:[{source_id:"news:999",quote:"یک نقل قول فرضی با طول کافی برای بررسی تطبیق متن."}]}],
-    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.8,abstain:false};
   const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
   const result=await analyzeNewsWithReasoning({
@@ -193,7 +193,7 @@ test("evidence quote must refer to a declared source id",async()=>{
 test("semantic verifier rejects a quote that contradicts the claim",async()=>{
   const output={comprehension:{event:"نرخ بهره"},facts:[{statement:"بانک مرکزی نرخ بهره را افزایش داد.",
     source_ids:["news:1"],evidence:[{source_id:"news:1",quote:"بانک مرکزی اعلام کرد نرخ بهره بدون تغییر باقی می‌ماند و تصمیمی برای افزایش آن اتخاذ نشده است."}]}],
-    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
   const verifier={items:[{field:"facts",index:0,source_id:"news:1",verdict:"contradicts",reason:"متن منبع صریحاً ثابت ماندن نرخ را اعلام می‌کند."}]};
   const env={AI:{run:async()=>({response:JSON.stringify(outputs.shift())})}};
@@ -212,7 +212,7 @@ test("numeric claims cannot pass when cited evidence contains a different number
   const sourceQuote="بانک مرکزی نرخ تورم را ۵ درصد اعلام کرد.";
   const output={comprehension:{event:"اعلام نرخ تورم"},facts:[{statement:"بانک مرکزی نرخ تورم را ۱۰ درصد اعلام کرد.",
     source_ids:["news:1"],evidence:[{source_id:"news:1",quote:sourceQuote}]}],
-    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    claims:[],causal_hypotheses:[],market_implications:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
   const verifier={items:[{field:"facts",index:0,source_id:"news:1",verdict:"supports",reason:"فرض پاسخ‌دهندهٔ آزمون؛ باید کنترل عددی آن را رد کند."}]};
   const outputs=[output,verifier];
@@ -229,7 +229,7 @@ test("numeric claims cannot pass when cited evidence contains a different number
 
 test("causal hypotheses require a mechanism, time order, confounders and falsification test",async()=>{
   const output={comprehension:{event:"تغییر نرخ بهره"},facts:[],claims:[],
-    causal_hypotheses:[{statement:"افزایش نرخ بهره باعث تغییر ارز شد.",source_ids:[],evidence:[]}],
+    causal_hypotheses:[{statement:"افزایش نرخ بهره باعث تغییر ارز شد.",source_ids:[],evidence:[]}],market_implications:[],
     alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],
     provisional_conclusion:"نامشخص",confidence:.3,abstain:true};
   const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
