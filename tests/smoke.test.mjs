@@ -101,6 +101,16 @@ test('multi-turn language endpoint analyzes Persian context and validates input'
   assert.equal(invalid.status, 400);
 });
 
+test('news article status normalization respects the Supabase check constraint', async () => {
+  const module = await import('../worker/index.js');
+  for (const status of ['headline_only', 'queued', 'extracted', 'translated', 'summarized', 'failed', 'blocked']) {
+    assert.equal(module.normalizeNewsArticleStatus(status, true), status);
+  }
+  assert.equal(module.normalizeNewsArticleStatus('rss_excerpt_only', true), 'extracted');
+  assert.equal(module.normalizeNewsArticleStatus('rss_content', true), 'extracted');
+  assert.equal(module.normalizeNewsArticleStatus('unknown_status', false), 'headline_only');
+});
+
 test('health endpoint distinguishes missing credentials from working database storage', async () => {
   const module = await import('../worker/index.js');
   const response = await module.default.fetch(new Request('https://worker.example/health'), {});
