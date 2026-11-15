@@ -39,6 +39,7 @@ jobs:
         run: |
           node --check worker/pragmatics-engine.js
           node --check worker/language-engine.js
+          node --check worker/news-triage-engine.js
           node --check worker/index.js
           node --check worker/forecast-engine.js
           node --check worker/neural-forecast-engine.js
