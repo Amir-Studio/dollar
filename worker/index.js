@@ -953,6 +953,9 @@ export default {
       await runForecastCycle(env,market);
       await runNewsLearningCycle(env);
     }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
+    ctx.waitUntil(collectGlobalCountryTestBatch(env).then(result => {
+      console.log("Global country test collector:", JSON.stringify(result));
+    }).catch(error => console.error("Global country test collector crashed:",error?.message || error)));
   },
   async fetch(request, env) {
     const url = new URL(request.url);
