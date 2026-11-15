@@ -20,7 +20,7 @@ const MARKET_NEWS_TERMS = [
   "تجارت خارجی","گمرک","مالیات","یارانه","دستمزد","قیمت مسکن","بازار مسکن","قیمت خودرو","بازار خودرو",
   "صنعت خودرو","صنعت فولاد","صنعت نفت","صنعت پتروشیمی","قیمت کالا","بازار جهانی","تحریم اقتصادی",
   "تحریم‌های ایران","ارزش پول ملی","فشار اقتصادی",
-  "currency","exchange rate","inflation","gold price","gold futures","gold bullion","gold market",
+  "currency","exchange rate","inflation","gold","gold price","gold futures","gold bullion","gold market","dollar","euro","rial","yuan","oil","forex","stocks","bonds",
   "precious metals","central bank","interest rate","interest rates","rate hike","rate hikes","rate cut",
   "rate cuts","federal reserve","fed rate","fed rates","treasury yield","treasury yields","bond yield",
   "bond yields","oil price","oil prices","brent crude","crude oil","oil futures","oil supply","oil production",
@@ -31,7 +31,12 @@ const MARKET_NEWS_TERMS = [
   "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
   "market volatility","tariffs","export prices","import prices","sanctions","sanction relief","iran sanctions",
   "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency",
-  "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market"
+  "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market",
+  "الدولار","اليورو","الذهب","سعر الذهب","التضخم","البنك المركزي","البنوك المركزية","سعر الفائدة","أسعار الفائدة",
+  "سعر الصرف","أسعار الصرف","النفط","أسعار النفط","الاقتصاد","الأسواق المالية","العملة","العملات","الريال",
+  "goldpreis","zentralbank","leitzins","wechselkurs","ölpreis","wirtschaft","devisen","finanzmarkt","anleihen","rohöl","aktienmarkt","geldpolitik","eurokurs","dollarkurs",
+  "prix de l'or","cours de l'or","banque centrale","taux d'intérêt","taux de change","prix du pétrole","économie","marchés financiers","devises","obligations","bourse","pétrole brut","politique monétaire","cours du dollar",
+  "美元","欧元","黄金","金价","通胀","中央银行","利率","汇率","油价","原油","经济","金融市场","外汇","股市","债券","货币政策","人民币"
 ];
 const EXCLUDED_NEWS_TERMS = [
   "missile","casualties","killed","shooting","armed","police","explosion","bombing","court case",
@@ -214,11 +219,11 @@ function relativeErrorPct(predictedLogReturn,actualLogReturn) {
 function baselineWeights(keys) {
   return Object.fromEntries(keys.map(k=>[k,k==="no_change"?1:0]));
 }
-function selectWeights(sample,keys) {
-  if(sample.length<40) return baselineWeights(keys);
-  const baselineMae=sample.reduce((s,r)=>s+relativeErrorPct(0,r.actual),0)/sample.length;
+export function selectWeightsFromErrorSums(keys,sampleCount,baselineErrorSum,candidateErrorSums) {
+  if(sampleCount<40) return baselineWeights(keys);
+  const baselineMae=baselineErrorSum/sampleCount;
   const ranked=keys.filter(k=>k!=="no_change").map(k=>({
-    key:k,mae:sample.reduce((s,r)=>s+relativeErrorPct(r.preds[k]??0,r.actual),0)/sample.length
+    key:k,mae:(Number(candidateErrorSums?.[k])||0)/sampleCount
   })).filter(x=>x.mae<baselineMae*0.95).sort((a,b)=>a.mae-b.mae).slice(0,3);
   if(!ranked.length) return baselineWeights(keys);
   const inverse=ranked.map(x=>1/Math.pow(0.05+x.mae,2));
@@ -239,6 +244,14 @@ function selectWeights(sample,keys) {
   }
   const total=Object.values(weights).reduce((a,b)=>a+b,0);
   return Object.fromEntries(keys.map(k=>[k,weights[k]/total]));
+}
+function selectWeights(sample,keys) {
+  if(sample.length<40) return baselineWeights(keys);
+  const baselineErrorSum=sample.reduce((s,r)=>s+relativeErrorPct(0,r.actual),0);
+  const candidateErrorSums=Object.fromEntries(keys.map(k=>[
+    k,sample.reduce((s,r)=>s+relativeErrorPct(r.preds[k]??0,r.actual),0)
+  ]));
+  return selectWeightsFromErrorSums(keys,sample.length,baselineErrorSum,candidateErrorSums);
 }
 
 function backtest(points,h) {
@@ -285,12 +298,21 @@ function backtest(points,h) {
   ]));
   const ensembleErrors=[],baselineErrors=[];
   let hits=0,directionalN=0,within1=0,within2=0,within5=0;
+  // Accumulate errors only when their target timestamp has matured. This preserves
+  // the walk-forward information boundary without rescanning every future row.
+  const candidateErrorSums=Object.fromEntries(keys.map(k=>[k,0]));
+  let baselineErrorSum=0,maturedCount=0;
   for(let i=0;i<n;i++){
     const origin=records[i].originTime;
     // Critical maturity guard: only outcomes whose actual observation timestamp
     // was already available at this origin may train the ensemble weights.
-    const matured=records.filter((r,j)=>j<i&&r.actualTime<=origin);
-    const weights=selectWeights(matured,keys);
+    while(maturedCount<i&&records[maturedCount].actualTime<=origin){
+      const matured=records[maturedCount];
+      baselineErrorSum+=relativeErrorPct(0,matured.actual);
+      for(const key of keys) candidateErrorSums[key]+=relativeErrorPct(matured.preds[key]??0,matured.actual);
+      maturedCount++;
+    }
+    const weights=selectWeightsFromErrorSums(keys,maturedCount,baselineErrorSum,candidateErrorSums);
     const blend=keys.reduce((s,k)=>s+(weights[k]||0)*(records[i].preds[k]??0),0);
     const actual=records[i].actual;
     const error=relativeErrorPct(blend,actual);
@@ -345,7 +367,7 @@ function buildForecastPoint(points,price,horizon,newsContext=null) {
     // This creates measurable future feedback without inventing a directional signal.
     if(validation.samples>=30 && Number.isFinite(validation.mae_pct) &&
        Number.isFinite(validation.range_error_p80_pct)) {
-      const {dailyVol}=candidates(points,horizon);
+      const {raw,dailyVol}=candidates(points,horizon);
       const band=Math.max(validation.range_error_p80_pct/100,dailyVol*Math.sqrt(horizon)*1.28,0.003);
       const weights=baselineWeights(Object.keys(validation.weights||{no_change:1}));
       const baselineValidation={
@@ -354,6 +376,9 @@ function buildForecastPoint(points,price,horizon,newsContext=null) {
         forecast_mode:"baseline_only",
         directional_signal:false,
         confidence_label:"baseline",
+        // Preserve issue-time expert outputs for later matured, holdout-gated learning.
+        candidate_predictions_log:raw,
+        candidate_predictions_scope:"as_of_forecast_issue",
         reason:"مدل هنوز در آزمون خارج از نمونه از مبنای بدون تغییر بهتر نشده است؛ فقط سناریوی مرجع خنثی برای سنجش خطای آینده ثبت می‌شود."
       };
       return {
@@ -706,10 +731,15 @@ export function runComponentCalibrationSelfTest() {
   const good=evaluateComponentWeightAdjustment(stable,base);
   const unstable=evaluateComponentWeightAdjustment(drift,base);
   const small=evaluateComponentWeightAdjustment(insufficient,base);
+  const neutralBase={no_change:1,trend_15:0};
+  const neutralRows=Array.from({length:60},()=>({reference_price:100,actual_price:100*Math.exp(0.01),
+    model_weights:neutralBase,validation:{candidate_predictions_log:{no_change:0,trend_15:0.01}}}));
+  const neutral=evaluateComponentWeightAdjustment(neutralRows,neutralBase);
   const checks=[
     {name:"component_weights_improve_newer_holdout",passed:good.applied&&good.holdout_improvement_pct>=3},
     {name:"component_weights_rejected_on_holdout_drift",passed:!unstable.applied},
-    {name:"component_weights_minimum_60_samples",passed:!small.applied&&small.samples===59}
+    {name:"component_weights_minimum_60_samples",passed:!small.applied&&small.samples===59},
+    {name:"neutral_forecasts_train_only_after_holdout_gain",passed:neutral.applied&&neutral.holdout_improvement_pct>=3&&neutral.weights.trend_15>0}
   ];
   return {total:checks.length,passed:checks.filter(x=>x.passed).length,failed:checks.filter(x=>!x.passed)};
 }
@@ -753,9 +783,10 @@ async function issueForecast(env,asset,horizon,input) {
     news_context:input.newsContext
   };
   const quoteAgeHours=Math.max(0,(Date.parse(issuedAt)-input.stamp)/3600000);
-  const baselineOnly=result.forecast_mode==="baseline_only";
-  const componentCalibration=baselineOnly?{samples:0,applied:false,reason:"baseline_only_forecasts_do_not_train_directional_components"}:
-    await liveComponentWeightCalibration(env,asset,horizon,result.model_weights||result.validation?.weights||{});
+  let baselineOnly=result.forecast_mode==="baseline_only";
+  // Neutral forecasts are training observations, but only after their actual
+  // target is known and a newer holdout proves the challenger improves.
+  const componentCalibration=await liveComponentWeightCalibration(env,asset,horizon,result.model_weights||result.validation?.weights||{});
   if(componentCalibration.applied){
     const raw=result.validation?.candidate_predictions_log||{};
     const weights=componentCalibration.weights;
@@ -768,7 +799,26 @@ async function issueForecast(env,asset,horizon,input) {
     result.predicted_change_pct=(result.predicted_price/input.price-1)*100;
     result.direction=result.predicted_change_pct>0.1?"up":result.predicted_change_pct< -0.1?"down":"sideways";
     result.model_weights=weights;
-    result.validation.weights=weights;
+    const historicalReason=result.validation?.reason||null;
+    result.validation={
+      ...result.validation,
+      weights,
+      forecast_mode:"adaptive_directional",
+      directional_signal:true,
+      historical_backtest_eligible:!baselineOnly,
+      historical_backtest_reason:baselineOnly?historicalReason:null,
+      live_component_validation_passed:true,
+      live_component_validation_method:componentCalibration.method
+    };
+    result.forecast_mode="adaptive_directional";
+    if(Array.isArray(result.forecast_curve)){
+      result.forecast_curve_meta={
+        ...(result.forecast_curve_meta||{}),
+        complete:false,
+        note_fa:"پیش‌بینی اصلی با وزن‌های تأییدشدهٔ زنده محاسبه شده است؛ نمودار روزانه تا زمانی که اعتبارسنجی مستقل هر افق آماده نشود نمایش داده نمی‌شود."
+      };
+    }
+    baselineOnly=false;
   }
   const calibration=baselineOnly?{samples:0,applied:false,log_bias:0,reason:"baseline-only forecasts are not directionally adjusted"}:
     await liveBiasCalibration(env,asset,horizon);
