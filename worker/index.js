@@ -18,6 +18,7 @@ import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.
 import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_CONTRADICTION_VERSION } from "./news-contradiction-engine.js";
 import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
 import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
+import { NEWS_TRIAGE_VERSION, buildNewsTriageFeatures, extractiveNewsSummary, trainNewsTriageModel, predictNewsTriageModel, fallbackNewsTriage, runNewsTriageSelfTest } from "./news-triage-engine.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -1001,6 +1002,139 @@ export async function runNewsLearningCycle(env) {
   }
 }
 
+
+async function refreshNewsTriageModel(env) {
+  let model=null;
+  if(env.MARKET_CACHE) model=await env.MARKET_CACHE.get("news:triage:classifier:v1","json");
+  const latest=await learningRest(env,"market_news_triage_feedback?select=created_at&order=created_at.desc&limit=1");
+  const latestAt=Date.parse(latest?.[0]?.created_at||"");
+  if(model?.trained_at&&Number.isFinite(latestAt)&&latestAt<=Date.parse(model.trained_at))
+    return {model,trained:false,samples:model.trained_samples||0};
+  const feedback=await learningRest(env,"market_news_triage_feedback?select=features,decision&order=created_at.desc&limit=500");
+  const trained=trainNewsTriageModel((feedback||[]).map(x=>({features:x.features,decision:x.decision})));
+  if(trained.trained){
+    model=trained.model;
+    if(env.MARKET_CACHE) await env.MARKET_CACHE.put("news:triage:classifier:v1",JSON.stringify(model),{expirationTtl:60*60*24*180});
+    return {model,trained:true,metrics:trained.metrics};
+  }
+  return {model,trained:false,reason:trained.reason,samples:trained.samples||0};
+}
+
+async function archiveAndPruneNews(env) {
+  const headers={prefer:"resolution=merge-duplicates,return=minimal"};
+  const discardBefore=new Date(Date.now()-7*86400000).toISOString();
+  const stale=await learningRest(env,"market_news_items?select=id,url,title,domain,published_at,triage_status,triage_reason,summary_original,summary_fa,content_hash,original_text,translated_text_fa&triage_status=eq.discard&triaged_at=lt."+encodeURIComponent(discardBefore)+"&limit=20");
+  let deleted=0,compacted=0;
+  for(const item of stale||[]){
+    const raw=String(item.content_hash||item.url||item.id);
+    const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
+    const itemUrlHash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+    await learningRest(env,"market_news_triage_archive?on_conflict=item_url_hash",{
+      method:"POST",headers,
+      body:{item_url_hash:itemUrlHash,title:String(item.title||"").slice(0,500),domain:item.domain||null,
+        published_at:item.published_at||null,decision:"discard",reason:item.triage_reason||{},
+        summary_original:null,summary_fa:null,
+        removed_payload_chars:String(item.original_text||"").length+String(item.translated_text_fa||"").length}
+    });
+    await learningRest(env,"market_news_items?id=eq."+encodeURIComponent(item.id),{method:"DELETE",headers:{"prefer":"return=minimal"}});
+    deleted++;
+  }
+  const compactBefore=new Date(Date.now()-30*86400000).toISOString();
+  const oldKept=await learningRest(env,"market_news_items?select=id,url,title,domain,published_at,triage_status,triage_reason,summary_original,summary_fa,content_hash,original_text,translated_text_fa&triage_status=in.(keep,summarize)&triaged_at=lt."+encodeURIComponent(compactBefore)+"&original_text=not.is.null&limit=20");
+  for(const item of oldKept||[]){
+    const raw=String(item.content_hash||item.url||item.id);
+    const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
+    const itemUrlHash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+    await learningRest(env,"market_news_triage_archive?on_conflict=item_url_hash",{
+      method:"POST",headers,
+      body:{item_url_hash:itemUrlHash,title:String(item.title||"").slice(0,500),domain:item.domain||null,
+        published_at:item.published_at||null,decision:item.triage_status,reason:item.triage_reason||{},
+        summary_original:item.summary_original||null,summary_fa:item.summary_fa||null,
+        removed_payload_chars:String(item.original_text||"").length+String(item.translated_text_fa||"").length}
+    });
+    await learningRest(env,"market_news_items?id=eq."+encodeURIComponent(item.id),{
+      method:"PATCH",headers:{"prefer":"return=minimal"},
+      body:{original_text:null,translated_text_fa:null,article_status:"summarized",extraction_method:"triage_summary_retained"}
+    });
+    compacted++;
+  }
+  return {deleted,compacted};
+}
+
+export async function runNewsTriageCycle(env,limit=10) {
+  if(!env?.AI?.run) return {ran:false,reason:"cloudflare_workers_ai_binding_missing",model:NEWS_TRIAGE_VERSION};
+  const base=String(env.SUPABASE_URL||"").replace(/\/+$/,"");
+  const key=env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!base||!key) return {ran:false,reason:"supabase_service_role_not_configured"};
+  const modelState=await refreshNewsTriageModel(env);
+  const queue=await learningRest(env,"market_news_items?select=id,url,title,domain,published_at,source_id,language_code,original_title,original_text,translated_text_fa,summary_fa,article_status,extraction_method,content_hash,duplicate_of,triage_status&triage_status=eq.pending&order=published_at.desc&limit="+Math.max(1,Math.min(20,Number(limit)||10)));
+  const counts={keep:0,summarize:0,quarantine:0,discard:0,failed:0};
+  const seenHashes=new Map();
+  for(const item of queue||[]){
+    try{
+      const body=[item.title,item.original_title,item.original_text,item.translated_text_fa].filter(Boolean).join("\n").slice(0,12000);
+      const neural=await analyzeEnglishNewsNeurally(body,env,{limit:8,minimumScore:0.20,extractUnknown:false});
+      const semanticMatches=Array.isArray(neural.matches)?neural.matches:[];
+      const semanticScore=Number(semanticMatches[0]?.semantic_score)||0;
+      const languageResult=analyzeMarketLanguage([{
+        title:item.title,original_title:item.original_title||item.title,original_text:item.original_text||"",
+        language_code:item.language_code||"und",domain:item.domain,url:item.url,published_at:item.published_at
+      }],[]);
+      const perNews=languageResult.per_news?.[0]||{};
+      const themes=Array.isArray(languageResult.themes)?languageResult.themes:(Array.isArray(perNews.themes)?perNews.themes:[]);
+      const hash=String(item.content_hash||"");
+      const duplicate=Boolean(item.duplicate_of)||(hash&&seenHashes.has(hash));
+      if(hash&&!seenHashes.has(hash)) seenHashes.set(hash,item.id);
+      const features=buildNewsTriageFeatures(item,{semantic_score:semanticScore,themes,duplicate});
+      const fallback=fallbackNewsTriage(features.vector,{rationale:"BGE-M3 multilingual semantic match plus topic, source-context, recency, extraction and attribution signals."});
+      const learned=modelState.model?predictNewsTriageModel(modelState.model,features.vector):null;
+      let decision=learned&&learned.confidence>=0.62?learned.decision:fallback.decision;
+      const ageDays=(Date.now()-Date.parse(item.published_at||""))/86400000;
+      if(duplicate) decision="discard";
+      else if(ageDays>14&&semanticScore<0.20&&themes.length===0) decision="discard";
+      const originalSummary=extractiveNewsSummary({...item,translated_text_fa:null});
+      const persianSummary=item.translated_text_fa?extractiveNewsSummary(item):String(item.language_code||"").toLowerCase()==="fa"?originalSummary:null;
+      if(decision==="summarize"&&originalSummary.summary.length<45) decision="quarantine";
+      const reason={
+        ...fallback.reason,decision_source:learned&&learned.confidence>=0.62?"feedback_trained_mlp":"neural_encoder_plus_transparent_fallback",
+        learned_prediction:learned||null,semantic_status:neural.status,semantic_score:semanticScore,
+        model_concepts:semanticMatches.slice(0,8).map(x=>({id:x.id,term:x.term,score:x.semantic_score})),
+        themes:themes.slice(0,12),age_days:Number.isFinite(ageDays)?Number(ageDays.toFixed(2)):null,
+        duplicate_of:duplicate?(item.duplicate_of||seenHashes.get(hash)||null):null
+      };
+      const patch={
+        triage_status:decision,triage_score:fallback.score,triage_reason:reason,
+        triage_features:{vector:features.vector,values:features.values},
+        semantic_concepts:reason.model_concepts,
+        summary_original:originalSummary.summary||null,summary_language:originalSummary.language||item.language_code||"und",
+        triage_model_version:modelState.model?.version||NEWS_TRIAGE_VERSION+"+bge-m3-fallback",
+        triaged_at:new Date().toISOString(),
+        ...(persianSummary?.summary?{summary_fa:persianSummary.summary}:{}),
+        ...(duplicate&&reason.duplicate_of?{duplicate_of:reason.duplicate_of}:{})
+      };
+      if(decision==="summarize") patch.article_status="summarized";
+      await learningRest(env,"market_news_items?id=eq."+encodeURIComponent(item.id),{
+        method:"PATCH",headers:{"prefer":"return=minimal"},body:patch
+      });
+      counts[decision]++;
+    }catch(error){
+      counts.failed++;
+      console.error("News triage item failed:",item?.id,String(error?.message||error).slice(0,160));
+    }
+  }
+  const cleanup=await archiveAndPruneNews(env);
+  const metrics={queue_size:(queue||[]).length,counts,feedback_model_trained:modelState.trained,
+    feedback_samples:modelState.model?.trained_samples||modelState.samples||0,cleanup};
+  await learningRest(env,"market_news_triage_cycles",{
+    method:"POST",headers:{"prefer":"return=minimal"},
+    body:{model_version:modelState.model?.version||NEWS_TRIAGE_VERSION,scanned:(queue||[]).length,
+      kept:counts.keep,summarized:counts.summarize,quarantined:counts.quarantine,discarded:counts.discard,
+      model_trained:Boolean(modelState.model),metrics}
+  });
+  return {ran:true,version:NEWS_TRIAGE_VERSION,model:modelState.model?.version||"bge-m3-semantic-fallback",
+    model_trained:Boolean(modelState.model),feedback_samples:metrics.feedback_samples,counts,cleanup};
+}
+
 async function readNewsFromSupabase(env) {
   const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -1339,6 +1473,8 @@ export default {
     ctx.waitUntil(refreshBackground(env).then(async market => {
       await runForecastCycle(env,market);
       await runNewsLearningCycle(env);
+      const triage = await runNewsTriageCycle(env);
+      console.log("Autonomous news triage cycle:",JSON.stringify(triage));
     }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
     // Vocabulary discovery is isolated from market refresh/forecast failures.
     ctx.waitUntil(runVocabularyLearningCycle(env).then(result => {
@@ -1461,6 +1597,50 @@ export default {
         console.error("History vocabulary dispatch error:",String(error?.message||error).slice(0,160));
         return reply({error:"History intake temporarily unavailable"},503);
       }
+    }
+
+    if (url.pathname === "/news/triage") {
+      if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+      const base=String(env.SUPABASE_URL||"").replace(/\/+$/,"");
+      const key=env.SUPABASE_SERVICE_ROLE_KEY;
+      if(!base||!key) return reply({error:"News triage storage unavailable"},503);
+      const limit=Math.max(1,Math.min(50,Number(url.searchParams.get("limit"))||12));
+      const params=new URLSearchParams({
+        select:"id,title,original_title,url,domain,published_at,source_id,language_code,summary_original,summary_fa,triage_status,triage_score,triage_reason,semantic_concepts,triage_model_version,triaged_at",
+        triage_status:"in.(keep,summarize)",order:"triaged_at.desc",limit:String(limit)
+      });
+      const response=await fetch(base+"/rest/v1/market_news_items?"+params.toString(),{
+        headers:{apikey:key,authorization:"Bearer "+key,accept:"application/json"},
+        signal:AbortSignal.timeout(12000)
+      });
+      if(!response.ok) return reply({error:"News triage archive unavailable"},502);
+      const items=await response.json();
+      return reply({ok:true,engine:NEWS_TRIAGE_VERSION,items},200,{"cache-control":"no-store"});
+    }
+    if (url.pathname === "/news/triage/review") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      if (!(await verifyWorkerCronSecret(request))) return reply({error:"Unauthorized"},401);
+      let payload;
+      try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
+      const id=String(payload?.id||"");
+      const decision=String(payload?.decision||"");
+      if(!/^[0-9a-f-]{36}$/i.test(id)||!["keep","summarize","quarantine","discard"].includes(decision))
+        return reply({error:"Valid id and decision are required"},400);
+      const rows=await learningRest(env,"market_news_items?select=id,url,content_hash,triage_features&id=eq."+encodeURIComponent(id)+"&limit=1");
+      const item=rows?.[0];
+      const vector=item?.triage_features?.vector;
+      if(!item||!Array.isArray(vector)||vector.length!==8) return reply({error:"Triage features are not available for this item"},404);
+      const raw=String(item.content_hash||item.url||item.id);
+      const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
+      const itemUrlHash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+      await learningRest(env,"market_news_triage_feedback",{
+        method:"POST",headers:{"prefer":"return=minimal"},
+        body:{item_url_hash:itemUrlHash,item_id:id,decision,features:vector,
+          note:String(payload?.note||"").slice(0,1000),reviewer:"human"}
+      });
+      const training=await refreshNewsTriageModel(env);
+      return reply({ok:true,saved:true,decision,model_trained:training.trained,
+        feedback_samples:training.model?.trained_samples||training.samples||0},200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/news/global-test/fetch") {
       if (request.method !== "POST") return reply({error:"Method not allowed"},405);
