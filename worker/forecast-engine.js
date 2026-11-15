@@ -806,25 +806,31 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
     const dueByTime=!Number.isFinite(lastCycleAt)||Date.now()-lastCycleAt>=15*60*1000;
     if(!newEvaluations.length&&!dueByTime) return {ran:false,reason:"15-minute-learning-interval-not-reached",next_cycle_in_seconds:Math.max(0,Math.ceil((15*60*1000-(Date.now()-lastCycleAt))/1000))};
     let diagnosticCount=0,diagnosticPersistError=null,diagnosticReadError=null;
-    try {
-      const diagnostics=newEvaluations.map(buildForecastErrorDiagnostic).filter(Boolean);
-      if(diagnostics.length) {
-        await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
-          method:"POST",headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(diagnostics)
-        });
-        diagnosticCount=diagnostics.length;
-      }
-    } catch(error) {
-      diagnosticPersistError=String(error?.message||error).slice(0,160);
-      console.error("Forecast diagnostic persistence failed:",diagnosticPersistError);
-    }
-    const rows=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&order=actual_at.desc&limit=1500");
+    const rows=await db(env,"market_forecast_runs?select=id,asset,horizon_days,model_version,predicted_price,reference_price,actual_price,predicted_change_pct,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&order=actual_at.desc&limit=1500");
     let diagnosticRows=[];
     try {
-      diagnosticRows=await db(env,"market_forecast_error_diagnostics?select=asset,horizon_days,model_version,root_cause_candidates,diagnosed_at&order=diagnosed_at.desc&limit=1000");
+      diagnosticRows=await db(env,"market_forecast_error_diagnostics?select=forecast_id,asset,horizon_days,model_version,root_cause_candidates,diagnosed_at&order=diagnosed_at.desc&limit=1500");
     } catch(error) {
       diagnosticReadError=String(error?.message||error).slice(0,160);
       console.error("Forecast diagnostic read failed:",diagnosticReadError);
+    }
+    // Backfill matured forecasts that have no diagnostic yet; the unique forecast_id
+    // index makes retries and overlapping cron invocations idempotent.
+    const diagnosedIds=new Set((Array.isArray(diagnosticRows)?diagnosticRows:[]).map(x=>String(x.forecast_id)));
+    const missingDiagnostics=(Array.isArray(rows)?rows:[])
+      .filter(row=>row.id&&!diagnosedIds.has(String(row.id)))
+      .map(buildForecastErrorDiagnostic).filter(Boolean);
+    if(missingDiagnostics.length&&!diagnosticReadError){
+      try {
+        await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
+          method:"POST",headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(missingDiagnostics)
+        });
+        diagnosticCount=missingDiagnostics.length;
+        diagnosticRows=[...diagnosticRows,...missingDiagnostics.map(x=>({...x,diagnosed_at:new Date().toISOString()}))];
+      } catch(error) {
+        diagnosticPersistError=String(error?.message||error).slice(0,160);
+        console.error("Forecast diagnostic backfill failed:",diagnosticPersistError);
+      }
     }
     const evidence=summarizeLearningEvidence(rows,diagnosticRows);
     const assetMetrics=evidence.asset_metrics,actions=evidence.learning_actions;
