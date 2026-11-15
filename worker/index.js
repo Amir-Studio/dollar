@@ -1126,7 +1126,7 @@ export async function runNewsTriageCycle(env,limit=10) {
       if(decision==="summarize"&&originalSummary.summary.length<45) decision="quarantine";
       const reason={
         ...fallback.reason,decision_source:learned&&learned.confidence>=0.62?"feedback_trained_mlp":"neural_encoder_plus_transparent_fallback",
-        learned_prediction:learned||null,semantic_status:neural.status,semantic_score:semanticScore,
+        learned_prediction:learned||null,semantic_status:neuralBatch?.status||"unavailable",semantic_score:semanticScore,
         model_concepts:semanticMatches.slice(0,8).map(x=>({id:x.id,term:x.term,score:x.semantic_score})),
         themes:themes.slice(0,12),age_days:Number.isFinite(ageDays)?Number(ageDays.toFixed(2)):null,
         duplicate_of:duplicate?(item.duplicate_of||seenHashes.get(hash)||null):null
@@ -1152,11 +1152,11 @@ export async function runNewsTriageCycle(env,limit=10) {
     }
   }
   const cleanup=await archiveAndPruneNews(env);
-  const metrics={queue_size:(queue||[]).length,counts,feedback_model_trained:modelState.trained,
+  const metrics={queue_size:queueItems.length,counts,feedback_model_trained:modelState.trained,
     feedback_samples:modelState.model?.trained_samples||modelState.samples||0,cleanup};
   await learningRest(env,"market_news_triage_cycles",{
     method:"POST",headers:{"prefer":"return=minimal"},
-    body:{model_version:modelState.model?.version||NEWS_TRIAGE_VERSION,scanned:(queue||[]).length,
+    body:{model_version:modelState.model?.version||NEWS_TRIAGE_VERSION,scanned:queueItems.length,
       kept:counts.keep,summarized:counts.summarize,quarantined:counts.quarantine,discarded:counts.discard,
       model_trained:Boolean(modelState.model),metrics}
   });
