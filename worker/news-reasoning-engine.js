@@ -103,7 +103,7 @@ Rules:
 - For causality, propose mechanisms as hypotheses, check temporal order, intermediate links, confounders and rival explanations. Correlation is not causation.
 - State what evidence would disprove each hypothesis. Never invent missing facts or source citations.
 - History is context, not proof that the present repeats the past. Respect draft/unverified labels.
-- Search only when a material gap exists; write 1-3 short, specific queries to find primary data or independent reporting.
+- Treat reviewed_lessons as human-corrected examples, not universal facts; apply only when the context matches and evidence supports them.\n- Search only when a material gap exists; write 1-3 short, specific queries to find primary data or independent reporting.
 - Confidence is evidence sufficiency, not probability that a market price will move. If uncertain, abstain.
 - All prose values must be Persian. JSON keys remain English.`;
 const SYSTEM_FINAL = `You are Dollar's skeptical evidence synthesizer. Return ONLY valid JSON with keys: comprehension, facts, claims, causal_hypotheses, alternatives, counter_evidence_needed, history_usage, source_assessment, unresolved_questions, conclusion, confidence, abstain, next_research.
@@ -113,7 +113,7 @@ async function loadReviewedLessons(env) {
   try {
     const rows=await env.MARKET_CACHE?.get(REASONING_FEEDBACK_KEY,"json");
     return (Array.isArray(rows)?rows:[]).slice(-15).map(x=>({
-      issue_category:clean(x.issue_category,80),correction:clean(x.correction,700),
+      article_title:clean(x.article_title,300),issue_category:clean(x.issue_category,80),correction:clean(x.correction,700),
       evidence_url:clean(x.evidence_url,500),created_at:x.created_at||null
     }));
   } catch { return []; }
