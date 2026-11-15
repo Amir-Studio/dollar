@@ -129,7 +129,7 @@ async function fetchFullArticleText(url) {
       element(element){
         current="";
         element.onEndTag(()=>{
-          const paragraph=current.replace(/\\s+/g," ").trim();
+          const paragraph=current.replaceAll("\\n"," ").replaceAll("\\r"," ").split(" ").filter(Boolean).join(" ").trim();
           if(paragraph.length>=35 && !seen.has(paragraph)){
             seen.add(paragraph);paragraphs.push(paragraph);
           }
@@ -142,7 +142,7 @@ async function fetchFullArticleText(url) {
       .on("article p, main p, [itemprop='articleBody'] p",handler)
       .transform(response);
     await transformed.text();
-    return paragraphs.join("\\n").slice(0,16000);
+    return paragraphs.join(String.fromCharCode(10)).slice(0,16000);
   } catch(error) {
     console.warn("Full article extraction failed:",new URL(url).hostname,String(error?.message||error).slice(0,100));
     return "";
@@ -617,7 +617,7 @@ function normalizeGdeltLanguage(value) {
 }
 function parseGdeltDate(value) {
   const s=String(value||"");
-  const m=s.match(/^(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})Z?$/);
+  const m=s.length>=15 && s[8]==="T" ? [s,s.slice(0,4),s.slice(4,6),s.slice(6,8),s.slice(9,11),s.slice(11,13),s.slice(13,15)] : null;
   if(m) return new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]),Number(m[5]),Number(m[6]))).toISOString();
   const parsed=Date.parse(s);
   return Number.isFinite(parsed)?new Date(parsed).toISOString():null;
@@ -638,7 +638,7 @@ async function fetchCountryNewsArticle(country) {
   for(const article of articles.slice(0,8)){
     const language=normalizeGdeltLanguage(article.language);
     const url=String(article.url||"");
-    if(!language || !/^https?:\\/\\//i.test(url) || !article.title) continue;
+    if(!language || !(url.startsWith("https://") || url.startsWith("http://")) || !article.title) continue;
     const fullText=await fetchFullArticleText(url);
     if(fullText.length<1000) continue;
     const title=String(article.title).slice(0,500);
