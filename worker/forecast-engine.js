@@ -735,6 +735,69 @@ async function evaluateDue(env,market) {
   }
   return done;
 }
+export function summarizeLearningEvidence(rows, diagnosticRows=[]) {
+  const groups=new Map(), diagnosticGroups=new Map();
+  const keyOf=row=>String(row.asset)+":"+Number(row.horizon_days)+":"+String(row.model_version||"unknown");
+  for(const row of (Array.isArray(rows)?rows:[])){
+    if(!ASSETS.has(row.asset)||!HORIZONS.includes(Number(row.horizon_days))||
+      !(Number(row.predicted_price)>0&&Number(row.reference_price)>0&&Number(row.actual_price)>0)) continue;
+    const key=keyOf(row);
+    if(!groups.has(key)) groups.set(key,[]);
+    if(groups.get(key).length<60) groups.get(key).push(row);
+  }
+  for(const row of (Array.isArray(diagnosticRows)?diagnosticRows:[])){
+    const key=keyOf(row);
+    if(!diagnosticGroups.has(key)) diagnosticGroups.set(key,{diagnoses:0,codes:{}});
+    const group=diagnosticGroups.get(key);group.diagnoses++;
+    for(const candidate of (Array.isArray(row.root_cause_candidates)?row.root_cause_candidates:[])){
+      const code=String(candidate?.code||"unknown");group.codes[code]=(group.codes[code]||0)+1;
+    }
+  }
+  for(const asset of ASSETS) for(const horizon of HORIZONS){
+    const key=asset+":"+horizon+":"+MODEL_VERSION;
+    if(!groups.has(key)) groups.set(key,[]);
+  }
+  const assetMetrics={},learningActions=[];
+  for(const [key,sample] of groups){
+    const [asset,horizonText,modelVersion]=key.split(":");
+    const diag=diagnosticGroups.get(key)||{diagnoses:0,codes:{}};
+    const recurring=Object.entries(diag.codes).filter(([code,count])=>count>=3&&count/Math.max(1,diag.diagnoses)>=0.2)
+      .map(([code,count])=>({code,count,share_pct:Number((count/Math.max(1,diag.diagnoses)*100).toFixed(1)),interpretation:"repeated_association_not_proven_cause"}))
+      .sort((a,b)=>b.count-a.count).slice(0,8);
+    const metrics={model_version:modelVersion,samples:sample.length,diagnostic_sample_count:diag.diagnoses,recurring_error_patterns:recurring};
+    if(sample.length){
+      const errors=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.predicted_price)-1)*100));
+      const baseline=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.reference_price)-1)*100));
+      const mae=errors.reduce((a,b)=>a+b,0)/errors.length,baselineMae=baseline.reduce((a,b)=>a+b,0)/baseline.length;
+      const skill=baselineMae>0?(1-mae/baselineMae)*100:0;
+      const directional=sample.filter(r=>typeof r.direction_correct==="boolean");
+      const accuracy=directional.length?directional.filter(r=>r.direction_correct).length/directional.length*100:null;
+      const recent=errors.slice(0,20),older=errors.slice(20);
+      const recentMae=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:null;
+      const olderMae=older.length?older.reduce((a,b)=>a+b,0)/older.length:null;
+      const drift=recent.length>=10&&older.length>=10&&olderMae>0&&recentMae>olderMae*1.5;
+      Object.assign(metrics,{mae_pct:Number(mae.toFixed(5)),no_change_mae_pct:Number(baselineMae.toFixed(5)),
+        skill_vs_no_change_pct:Number(skill.toFixed(3)),directional_accuracy_pct:accuracy===null?null:Number(accuracy.toFixed(2)),
+        directional_samples:directional.length,recent_20_mae_pct:recentMae===null?null:Number(recentMae.toFixed(5)),
+        previous_40_mae_pct:olderMae===null?null:Number(olderMae.toFixed(5)),performance_drift:drift});
+      if(sample.length>=30&&skill>=2) learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"retain_validated_model",reason:"rolling live MAE beats same-row no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
+      else if(sample.length>=30) learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
+      else learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
+      if(drift) learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
+    }else{
+      Object.assign(metrics,{mae_pct:null,no_change_mae_pct:null,skill_vs_no_change_pct:null,directional_accuracy_pct:null,
+        directional_samples:0,recent_20_mae_pct:null,previous_40_mae_pct:null,performance_drift:null});
+      learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"collect_more_live_evidence",
+        reason:"no matured forecasts exist for this model and horizon",samples:0,required:30});
+    }
+    assetMetrics[key]=metrics;
+    for(const pattern of recurring) learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,
+      action:"investigate_recurring_error_signal",error_code:pattern.code,diagnoses:pattern.count,share_pct:pattern.share_pct,
+      reason:"Repeated diagnostic association; evidence for investigation only, not an automatic causal correction."});
+  }
+  return {asset_metrics:assetMetrics,learning_actions:learningActions,model_lanes:Object.keys(assetMetrics).length};
+}
+
 async function runContinuousLearning(env, evaluatedNow=[]) {
   try {
     const newEvaluations=Array.isArray(evaluatedNow)?evaluatedNow:[];
@@ -754,77 +817,15 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
     } catch(error) {
       console.error("Forecast diagnostic persistence failed:",error?.message||error);
     }
-    const rows = await db(env,"market_forecast_runs?select=asset,horizon_days,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=1500");
-    const groups = new Map();
-    for (const row of (Array.isArray(rows)?rows:[])) {
-      const key = row.asset + ":" + row.horizon_days;
-      if (!groups.has(key)) groups.set(key,[]);
-      const group=groups.get(key);
-      if (group.length<60 && Number(row.predicted_price)>0 && Number(row.reference_price)>0 && Number(row.actual_price)>0) group.push(row);
-    }
-    const diagnosticRows=await db(env,"market_forecast_error_diagnostics?select=asset,horizon_days,root_cause_candidates,diagnosed_at&order=diagnosed_at.desc&limit=1000").catch(()=>[]);
-    const diagnosticGroups=new Map();
-    for(const row of (Array.isArray(diagnosticRows)?diagnosticRows:[])){
-      const key=row.asset+":"+row.horizon_days;
-      if(!diagnosticGroups.has(key)) diagnosticGroups.set(key,{diagnoses:0,codes:{}});
-      const group=diagnosticGroups.get(key);group.diagnoses++;
-      for(const candidate of (Array.isArray(row.root_cause_candidates)?row.root_cause_candidates:[])){
-        const code=String(candidate?.code||"unknown");
-        group.codes[code]=(group.codes[code]||0)+1;
-      }
-    }
-    const assetMetrics={}, actions=[];
-    for (const [key,sample] of groups) {
-      if (!sample.length) continue;
-      const errors=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.predicted_price)-1)*100));
-      const baseline=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.reference_price)-1)*100));
-      const mae=errors.reduce((a,b)=>a+b,0)/errors.length;
-      const baselineMae=baseline.reduce((a,b)=>a+b,0)/baseline.length;
-      const skill=baselineMae>0?(1-mae/baselineMae)*100:0;
-      const directional=sample.filter(r=>typeof r.direction_correct==="boolean");
-      const accuracy=directional.length?directional.filter(r=>r.direction_correct).length/directional.length*100:null;
-      const recent=errors.slice(0,20), older=errors.slice(20);
-      const recentMae=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:null;
-      const olderMae=older.length?older.reduce((a,b)=>a+b,0)/older.length:null;
-      const drift=recent.length>=10&&older.length>=10&&recentMae!==null&&olderMae!==null&&olderMae>0&&recentMae>olderMae*1.5;
-      const [asset,horizonText]=key.split(":");
-      const diagnosticPattern=diagnosticGroups.get(key)||{diagnoses:0,codes:{}};
-      const recurringPatterns=Object.entries(diagnosticPattern.codes)
-        .filter(([code,count])=>count>=3&&count/Math.max(1,diagnosticPattern.diagnoses)>=0.2)
-        .map(([code,count])=>({code,count,share_pct:Number((count/Math.max(1,diagnosticPattern.diagnoses)*100).toFixed(1)),
-          interpretation:"repeated_association_not_proven_cause"}))
-        .sort((a,b)=>b.count-a.count).slice(0,8);
-      assetMetrics[key]={
-        samples:sample.length,mae_pct:Number(mae.toFixed(5)),
-        diagnostic_sample_count:diagnosticPattern.diagnoses,
-        recurring_error_patterns:recurringPatterns,
-        no_change_mae_pct:Number(baselineMae.toFixed(5)),
-        skill_vs_no_change_pct:Number(skill.toFixed(3)),
-        directional_accuracy_pct:accuracy===null?null:Number(accuracy.toFixed(2)),
-        directional_samples:directional.length,
-        recent_20_mae_pct:recentMae===null?null:Number(recentMae.toFixed(5)),
-        previous_40_mae_pct:olderMae===null?null:Number(olderMae.toFixed(5)),
-        performance_drift:drift
-      };
-      if(sample.length>=30 && skill>=2) actions.push({asset,horizon_days:Number(horizonText),action:"retain_validated_model",reason:"rolling live MAE beats no-change baseline for this model version",skill_pct:Number(skill.toFixed(3))});
-      else if(sample.length>=30) actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
-      else actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
-      if(drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
-      for(const pattern of recurringPatterns){
-        actions.push({asset,horizon_days:Number(horizonText),action:"investigate_recurring_error_signal",
-          error_code:pattern.code,diagnoses:pattern.count,share_pct:pattern.share_pct,
-          reason:"Repeated diagnostic association; evidence for investigation only, not an automatic causal correction."});
-      }
-    }
-    const payload={
-      model_version:MODEL_VERSION,evaluated_count:newEvaluations.length,
-      asset_metrics:assetMetrics,learning_actions:actions
-    };
+    const rows=await db(env,"market_forecast_runs?select=asset,horizon_days,model_version,predicted_price,reference_price,actual_price,direction_correct,validation,actual_at&status=eq.evaluated&actual_price=not.is.null&order=actual_at.desc&limit=1500");
+    const diagnosticRows=await db(env,"market_forecast_error_diagnostics?select=asset,horizon_days,model_version,root_cause_candidates,diagnosed_at&order=diagnosed_at.desc&limit=1000").catch(()=>[]);
+    const evidence=summarizeLearningEvidence(rows,diagnosticRows);
+    const assetMetrics=evidence.asset_metrics,actions=evidence.learning_actions;
     await db(env,"market_learning_cycles",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify({
       model_version:MODEL_VERSION,evaluated_count:newEvaluations.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,trigger:newEvaluations.length?"new_evaluations":"15_minute_interval",evaluated:newEvaluations.length,diagnostics:diagnosticCount,groups:Object.keys(assetMetrics).length,actions:actions.length};
+    return {ran:true,trigger:newEvaluations.length?"new_evaluations":"15_minute_interval",evaluated:newEvaluations.length,diagnostics:diagnosticCount,groups:evidence.model_lanes,actions:actions.length};
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};
