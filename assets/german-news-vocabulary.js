@@ -52,15 +52,26 @@ function renderLearn(){
  $('germanKnown').onclick=()=>{markKnown(w.id);};
  $('germanLearning').onclick=()=>{markLearning(w.id);};
 }
+function scheduleReview(id,repetitions=0,delayMs=86400000){
+ const due=(progress.due||[]).filter(x=>x.id!==id);
+ due.push({id,at:now()+delayMs,repetitions});
+ progress.due=due;
+}
+function nextReviewDelay(repetitions){
+ const days=[1,3,7,14,30];
+ return days[Math.min(Math.max(0,repetitions-1),days.length-1)]*86400000;
+}
 function markKnown(id){
+ const previous=(progress.due||[]).find(x=>x.id===id);
+ const repetitions=(Number(previous?.repetitions)||0)+1;
  progress.known=[...new Set([...(progress.known||[]),id])];
  progress.learning=(progress.learning||[]).filter(x=>x!==id);
- progress.due=(progress.due||[]).filter(x=>x.id!==id);
+ scheduleReview(id,repetitions,nextReviewDelay(repetitions));
  writeLocal();sync('POST');const list=currentWords();if(index<list.length-1){index++;renderLearn();}else renderLearn();
 }
 function markLearning(id){
  progress.learning=[...new Set([...(progress.learning||[]),id])];
- const due=(progress.due||[]).filter(x=>x.id!==id);due.push({id,at:now()+10*60*1000});progress.due=due;
+ scheduleReview(id,0,10*60*1000);
  writeLocal();sync('POST');renderLearn();
 }
 function chooseQuizQuestion(){
@@ -81,8 +92,8 @@ function renderQuiz(){
 function answerQuiz(choice){
  if(!quiz||quiz.answered)return;quiz.answered=true;const selected=quiz.options[choice],correct=selected.id===quiz.target.id;
  progress.stats=progress.stats||{correct:0,attempted:0};progress.stats.attempted++;if(correct)progress.stats.correct++;
- if(correct){progress.known=[...new Set([...(progress.known||[]),quiz.target.id])];progress.learning=(progress.learning||[]).filter(x=>x!==quiz.target.id);progress.due=(progress.due||[]).filter(x=>x.id!==quiz.target.id);}
- else{progress.learning=[...new Set([...(progress.learning||[]),quiz.target.id])];progress.due=(progress.due||[]).filter(x=>x.id!==quiz.target.id);progress.due.push({id:quiz.target.id,at:now()+10*60*1000});}
+ if(correct){const previous=(progress.due||[]).find(x=>x.id===quiz.target.id);const repetitions=(Number(previous?.repetitions)||0)+1;progress.known=[...new Set([...(progress.known||[]),quiz.target.id])];progress.learning=(progress.learning||[]).filter(x=>x!==quiz.target.id);scheduleReview(quiz.target.id,repetitions,nextReviewDelay(repetitions));}
+ else{progress.learning=[...new Set([...(progress.learning||[]),quiz.target.id])];scheduleReview(quiz.target.id,0,10*60*1000);}
  writeLocal();sync('POST');renderQuiz();
  $('germanFeedback').textContent=correct?'درست است! '+quiz.target.word+' — '+quiz.target.fa:'پاسخ درست: '+quiz.target.fa+' · '+quiz.target.word;
  const buttons=$('germanContent').querySelectorAll('[data-option]');
@@ -92,7 +103,7 @@ function renderReview(){
  const dueRows=(progress.due||[]).filter(x=>Number(x.at)<=now());const ids=dueRows.map(x=>x.id);const due=words.filter(w=>ids.includes(w.id));
  if(!due.length){const upcoming=(progress.due||[]).length;$('germanContent').innerHTML='<div class="german-empty"><h3>واژه‌ای برای مرور در این لحظه سررسید نشده است.</h3><p>'+(upcoming?upcoming+' واژه برای مرور بعدی زمان‌بندی شده‌اند.':'واژه‌هایی که «نیاز به مرور» می‌زنند، در این بخش ظاهر می‌شوند.')+'</p><button class="german-action primary" id="germanReviewStart">شروع آزمون</button></div>';$('germanReviewStart').onclick=()=>{mode='quiz';renderTabs();quiz=chooseQuizQuestion();renderQuiz();};return;}
  $('germanContent').innerHTML='<div class="german-workspace-head"><span class="german-kicker">SPACED REVIEW</span><span class="german-sync">'+due.length+' واژه در صف مرور</span></div>'+due.map(w=>'<article class="german-example"><h3 class="german-word" lang="de">'+esc(w.word)+'</h3><p class="translation">'+esc(w.fa)+'</p><p lang="de">'+esc(w.example)+'</p><p class="translation">'+esc(w.example_fa)+'</p><div class="german-card-actions"><button class="german-action primary" data-reviewed="'+w.id+'">مرور شد</button></div></article>').join('');
- $('germanContent').querySelectorAll('[data-reviewed]').forEach(b=>b.onclick=()=>{const id=b.dataset.reviewed;progress.due=progress.due.filter(x=>x.id!==id);progress.known=[...new Set([...progress.known,id])];writeLocal();sync('POST');renderReview();});
+ $('germanContent').querySelectorAll('[data-reviewed]').forEach(b=>b.onclick=()=>{const id=b.dataset.reviewed;const previous=(progress.due||[]).find(x=>x.id===id);const repetitions=(Number(previous?.repetitions)||0)+1;progress.known=[...new Set([...(progress.known||[]),id])];progress.learning=(progress.learning||[]).filter(x=>x!==id);scheduleReview(id,repetitions,nextReviewDelay(repetitions));writeLocal();sync('POST');renderReview();});
 }
 function renderTabs(){document.querySelectorAll('.german-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));}
 function setMode(next){mode=next;renderTabs();if(mode==='learn')renderLearn();if(mode==='quiz'){quiz=chooseQuizQuestion();renderQuiz();}if(mode==='review')renderReview();}
