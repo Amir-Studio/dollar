@@ -2,6 +2,8 @@
 // It proposes definitions from a curated cross-language ontology or Wiktionary.
 // Suggestions remain unverified until independently reviewed.
 import { analyzeMarketLexicon, getMarketLexicon } from "./market-lexicon-ontology.js";
+import { getGermanNewsVocabulary } from "./news-vocabulary-de.js";
+import { getChineseNewsVocabulary } from "./news-vocabulary-zh.js";
 
 export const LANGUAGE_LEARNER_VERSION = "dollar-language-learner-1.0.0";
 export const LEARNER_LANGUAGES = ["fa","en","ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"];
@@ -34,6 +36,23 @@ export function extractUnknownVocabularyCandidates(text, language, options={}) {
  if(!LEARNER_LANGUAGES.includes(lang)) return [];
  const source=String(text||"").slice(0,12000);
  const known=new Set(getMarketLexicon({language:lang,limit:200}).concepts.flatMap(c=>[...(c.equivalents?.[lang]||[]),...(lang==="en"?[c.pivot?.term]:[])]).map(x=>norm(x,lang)));
+ if(lang==="de") {
+   for(const item of getGermanNewsVocabulary({limit:1000}).items) {
+     for(const value of [item.word,item.form]) {
+       const clean=String(value||"").replace(/^(der|die|das)\s+/i,"");
+       for(const part of clean.split(/[·,;\s]+/)) if(part.length>=4) known.add(norm(part,lang));
+       if(clean.length>=4) known.add(norm(clean,lang));
+     }
+   }
+ }
+ if(lang==="zh") {
+   const terms=getChineseNewsVocabulary({limit:1000}).items.map(x=>x.zh);
+   for(const value of terms) {
+     const chars=[...norm(value,lang)];
+     known.add(norm(value,lang));
+     for(let n=2;n<=4;n++) for(let i=0;i+n<=chars.length;i++) known.add(chars.slice(i,i+n).join(""));
+   }
+ }
  const counts=new Map();
  const add=raw=>{
    const term=safeWord(raw), key=norm(term,lang);
