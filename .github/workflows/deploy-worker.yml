@@ -41,6 +41,7 @@ jobs:
           node --check worker/language-engine.js
           node --check worker/index.js
           node --check worker/forecast-engine.js
+          node --check worker/neural-forecast-engine.js
           node --check worker/decision-engine.js
           node --check worker/news-reading-engine.js
           node --check worker/multilingual-engine.js
