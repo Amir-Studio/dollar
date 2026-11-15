@@ -288,7 +288,7 @@ export function analyzeArabicText(input = "", options = {}) {
     syntax_and_discourse:{clauses,features,grammar:analyzeGrammar(text,tokens)},
     formal_grammar:analyzeFormalArabicGrammar(original),
     formal_grammar_curriculum_version:ARABIC_FORMAL_GRAMMAR_VERSION,
-    formal_grammar_curriculum:ARABIC_FORMAL_CURRICULUM,
+    formal_grammar_curriculum:{version:ARABIC_FORMAL_GRAMMAR_VERSION,levels:4,rule_count:ARABIC_FORMAL_CURRICULUM.length},
     finance_domain:{concepts:financeConcepts,concept_count:new Set(financeConcepts.map(x=>x.concept)).size},
     quantities:numbers,
     speech_acts:features.speech_acts,
