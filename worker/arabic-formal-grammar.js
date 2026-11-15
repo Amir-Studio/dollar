@@ -57,3 +57,26 @@ export function analyzeFormalArabicGrammar(input = "") {
     requires_human_review:true
   };
 }
+
+const GRAMMAR_CASES = [
+  {id:"inna_case",text:"إن التضخمَ مرتفعٌ.",rule:"inna_sisters"},
+  {id:"kana_case",text:"كان التضخمُ مرتفعًا.",rule:"kana_sisters"},
+  {id:"jussive_case",text:"لم يرتفعْ سعرُ الفائدةِ.",rule:"jussive_particles"},
+  {id:"subjunctive_case",text:"لن يرتفعَ سعرُ الفائدةِ.",rule:"subjunctive_particles"},
+  {id:"preposition_case",text:"في الأسواقِ العالميةِ.",rule:"prepositions"},
+  {id:"conditional_case",text:"إذا استمر التضخم فقد تتغير السياسة.",rule:"conditional"},
+  {id:"exception_case",text:"لم ترتفع الأسعار إلا قليلًا.",rule:"exception"},
+  {id:"attribution_case",text:"أعلن البنك المركزي القرار.",rule:"attribution"},
+  {id:"passive_case",text:"تم رفع سعر الفائدة.",rule:"passive"},
+  {id:"idafa_case",text:"ارتفع سعر الصرف.",rule:"idafa"},
+  {id:"numbers_case",text:"ارتفع المعدل بمقدار 100 نقطة أساس.",rule:"number_and_tamyiz"}
+];
+export function runArabicFormalGrammarBenchmark() {
+  const results=GRAMMAR_CASES.map(c=>{
+    const a=analyzeFormalArabicGrammar(c.text);
+    const passed=a.detected_rules.some(x=>x.rule===c.rule);
+    return {id:c.id,rule:c.rule,passed};
+  });
+  const passed=results.filter(x=>x.passed).length;
+  return {version:ARABIC_FORMAL_GRAMMAR_VERSION,total:results.length,passed,failed:results.length-passed,score_pct:Number((passed/results.length*100).toFixed(1)),failures:results.filter(x=>!x.passed),scope:"Curated rule-trigger regression only; not a full Arabic grammar exam or proof of correct i'rab."};
+}
