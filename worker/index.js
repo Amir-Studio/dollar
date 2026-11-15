@@ -1,4 +1,4 @@
-import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest, runCalibrationSelfTest } from "./forecast-engine.js";
+import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest, runCalibrationSelfTest, runComponentCalibrationSelfTest } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
@@ -1181,6 +1181,7 @@ export default {
         history_parser_self_test: runHistoryParserSelfTest(),
         unified_news_pipeline_self_test: runUnifiedNewsPipelineSelfTest(),
         forecast_learning_self_test: runCalibrationSelfTest(),
+        forecast_component_learning_self_test: runComponentCalibrationSelfTest(),
         decision_engine: {
           enabled: true,
           name: "Dollar Evidence Decision Engine",
