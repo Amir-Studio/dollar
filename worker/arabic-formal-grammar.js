@@ -50,6 +50,7 @@ export function analyzeFormalArabicGrammar(input = "") {
   add("five_verbs",tokens.filter(t=>/(?:ون|ان|ين)$/.test(t) && t.length>4),"قد تكون من الأفعال الخمسة أو أسماء مثناة/مجموعات؛ لا يُحسم من النهاية وحدها.");
   add("dual_and_sound_plural",tokens.filter(t=>/(?:ان|ين|ون|ات)$/.test(t) && t.length>3),"مرشحات صرفية؛ يجب التمييز بين المثنى وجمع المذكر السالم والأسماء.");
   add("number_and_tamyiz",original.match(/\d+(?:[.,]\d+)?\s*(?:%|٪|بالمئة|في المئة|نقطة أساس|نقاط أساس|مليون|مليار|دولار|جنيه|ريال)/gu)||[],"تحليل العدد وتمييزه يحتاج إلى جنس المعدود وحالة العدد وسياق الوحدة.");
+  const formalCues=has(text,FORMAL_CUES), colloquialCues=has(text,COLLOQUIAL_CUES);
   return {
     version:ARABIC_FORMAL_GRAMMAR_VERSION,
     register:colloquialCues.length?"colloquial_or_mixed_candidate":formalCues.length>=2?"formal_official_arabic_candidate":"modern_standard_arabic_candidate",
