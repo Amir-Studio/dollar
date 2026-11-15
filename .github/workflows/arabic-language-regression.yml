@@ -7,6 +7,8 @@ on:
       - "test/**"
       - ".github/workflows/arabic-language-regression.yml"
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,4 +17,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test test/arabic-academic-engine.test.js test/arabic-formal-grammar.test.js
+      - name: Run automated tests
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          node --test test/arabic-academic-engine.test.js test/arabic-formal-grammar.test.js > test-output.txt 2>&1
+          code=$?
+          cat test-output.txt
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Publish failure details for diagnosis
+        if: steps.tests.outputs.exit_code != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test-output.txt
+          git commit -m "Record Arabic regression failure details [skip ci]"
+          git push
+      - name: Fail workflow when tests fail
+        if: steps.tests.outputs.exit_code != '0'
+        run: exit 1
