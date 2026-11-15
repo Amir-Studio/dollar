@@ -240,7 +240,7 @@ const LANGS = {
     forecast:/(?:beklenti|tahmin|öngörü|bekleniyor|olabilir)/i,
     past:/(?:dün|geçen hafta|geçen ay|geçen yıl|yükseldi|düştü|açıkladı)/i,
     future:/(?:yarın|gelecek hafta|gelecek ay|gelecek yıl|olacak|artacak)/i,
-    actions:[["increase",/(?:yükseldi|arttı|artış|yükseliş|çoğaldı)/i],["decrease",/(?:düştü|düşebilir|azaldı|azalmak|düşüş|geriledi|gerilemek|daraldı)/i],["hold",/(?:sabit|değişmedi|aynı kaldı|istikrarlı)/i],["deny",/(?:reddetti|yalanladı|inkâr etti)/i],["approve",/(?:onayladı|kabul etti|yetkilendirdi)/i],["sanction",/(?:yaptırım|ambargo)/i],["negotiate",/(?:müzakere|görüşme|anlaşma)/i],["invest",/(?:yatırım|yatırdı)/i],["export",/(?:ihracat|dış satım)/i],["oil",/(?:petrol|ham petrol|brent)/i]],
+    actions:[["increase",/(?:yükseldi(?:ğini|ği)?|yüksel(?:di|en|mesi|iş)|arttı(?:ğını|ğı)?|art(?:tı|an|ış|ması)|yükseliş|çoğaldı)/i],["decrease",/(?:düştü(?:ğünü|üğü)?|düş(?:ebilir|tü|en|mesi|üş)|azaldı|azalmak|azal(?:dı|an|ma)|geriledi|gerilemek|daraldı)/i],["hold",/(?:sabit|değişmedi|aynı kaldı|istikrarlı)/i],["deny",/(?:reddetti|yalanladı|inkâr etti)/i],["approve",/(?:onayladı|kabul etti|yetkilendirdi)/i],["sanction",/(?:yaptırım|ambargo)/i],["negotiate",/(?:müzakere|görüşme|anlaşma)/i],["invest",/(?:yatırım|yatırdı)/i],["export",/(?:ihracat|dış satım)/i],["oil",/(?:petrol|ham petrol|brent)/i]],
     actors:[["central_bank",/(?:merkez bankası|tcmb)/i],["government",/(?:hükümet|bakanlık)/i],["opec",/\bopec\b/i],["imf",/(?:uluslararası para fonu|imf)/i],["us",/(?:abd|amerikan merkez bankası|fed)/i],["turkey",/(?:türkiye|türk)/i]]
   },
   nl: {
@@ -364,7 +364,7 @@ function localActionEvidence(text, cfg, language) {
         const before=clause.slice(Math.max(0,at-90),at);
         const after=clause.slice(at+match[0].length,Math.min(clause.length,at+match[0].length+55));
         const local=before+" "+match[0]+" "+after;
-        const negated=cfg.negation.test(before.slice(-65));
+        const negated=cfg.negation.test(before.slice(-65)+" "+after.slice(0,45));
         const modal=cfg.modality.test(before.slice(-75))||cfg.forecast.test(before.slice(-75))||cfg.modality.test(after.slice(0,45));
         evidence.push({
           concept,matched_form:match[0],clause,
