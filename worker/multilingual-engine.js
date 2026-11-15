@@ -272,7 +272,7 @@ const LANGS = {
     forecast:/(?:prognoza|przewiduje|oczekuje|perspektywy|może wzrosnąć)/i,
     past:/(?:wczoraj|w zeszłym tygodniu|w zeszłym miesiącu|w ubiegłym roku|wzrosła|spadła)/i,
     future:/(?:jutro|w przyszłym tygodniu|w przyszłym miesiącu|w przyszłym roku|będzie)/i,
-    actions:[["increase",/(?:wzrosła|wzrosły|wzrost|zwiększył|podwyższył|zwyżka)/i],["decrease",/(?:spadła|spaść|spadek|obniżył|obniżyć się|zmniejszył|zmniejszyć się|zniżka)/i],["hold",/(?:bez zmian|stabilny|pozostał bez zmian)/i],["deny",/(?:zaprzeczył|zdementował|odrzucił)/i],["approve",/(?:zatwierdził|zaakceptował|przyjął)/i],["sanction",/(?:sankcje|sankcjonował)/i],["negotiate",/(?:negocjacje|rozmowy|porozumienie)/i],["invest",/(?:inwestycja|inwestował)/i],["export",/(?:eksport|wywóz)/i],["oil",/(?:ropa|ropa naftowa|brent)/i]],
+    actions:[["increase",/(?:wzrosła|wzrosły|wzrost|zwiększył|podwyższył|zwyżka)/i],["decrease",/(?:spadła|spaść|spadek|obniżył|obniżyć się|zmniejszył|zmniejszyć się|zniżka)/i],["hold",/(?:bez zmian|stabilny|pozostał bez zmian)/i],["deny",/(?:zaprzeczył|zdementował|odrzucił)/i],["approve",/(?:zatwierdził|zaakceptował|przyjął)/i],["sanction",/(?:sankcje|sankcjonował)/i],["negotiate",/(?:negocjacje|rozmowy|porozumienie)/i],["invest",/(?:inwestycja|inwestował)/i],["export",/(?:eksport|wywóz)/i],["oil",/(?:rop|brent)/i]],
     actors:[["central_bank",/(?:bank centralny|nbp|europejski bank centralny)/i],["government",/(?:rząd|ministerstwo)/i],["opec",/\bopec\b/i],["imf",/(?:międzynarodowy fundusz walutowy|mfw)/i],["us",/(?:stany zjednoczone|fed)/i],["poland",/(?:polska|polski)/i]]
   }
 };
