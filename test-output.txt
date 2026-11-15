@@ -2,70 +2,227 @@ TAP version 13
 # Subtest: Arabic normalization removes diacritics and standardizes Arabic numerals
 ok 1 - Arabic normalization removes diacritics and standardizes Arabic numerals
   ---
-  duration_ms: 2.518736
+  duration_ms: 2.919589
   type: 'test'
   ...
 # Subtest: MSA analysis identifies finance domain, attribution and discourse markers
 ok 2 - MSA analysis identifies finance domain, attribution and discourse markers
   ---
-  duration_ms: 6.919541
+  duration_ms: 8.364585
   type: 'test'
   ...
 # Subtest: Arabic number extraction preserves decimal values and currency units
 ok 3 - Arabic number extraction preserves decimal values and currency units
   ---
-  duration_ms: 2.118465
+  duration_ms: 2.586987
   type: 'test'
   ...
 # Subtest: Egyptian and Maghrebi colloquial markers are not silently treated as MSA
 ok 4 - Egyptian and Maghrebi colloquial markers are not silently treated as MSA
   ---
-  duration_ms: 1.873206
+  duration_ms: 2.336694
   type: 'test'
   ...
 # Subtest: clitic and morphology outputs are explicitly marked as candidates
 ok 5 - clitic and morphology outputs are explicitly marked as candidates
   ---
-  duration_ms: 1.887017
+  duration_ms: 1.683831
   type: 'test'
   ...
 # Subtest: academic benchmark reports its limited scope and exposes all cases
 ok 6 - academic benchmark reports its limited scope and exposes all cases
   ---
-  duration_ms: 13.020303
+  duration_ms: 18.207581
   type: 'test'
   ...
-# file:///home/runner/work/dollar/dollar/worker/market-lexicon-ontology.js:95
-# C("armed_conflict","armed conflict","Organized hostilities between states or organized armed groups; the term describes a conflict, not its legal classification.",{
-# ^
-# SyntaxError: Unexpected identifier 'C'
-#     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
-#     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:110:18)
-#     at \#translate (node:internal/modules/esm/loader:559:20)
-#     at afterLoad (node:internal/modules/esm/loader:612:29)
-#     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:617:12)
-#     at \#createModuleJob (node:internal/modules/esm/loader:640:36)
-#     at \#getJobFromResolveResult (node:internal/modules/esm/loader:353:34)
-#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:321:41)
-# Node.js v22.23.4
-# Subtest: test/arabic-formal-grammar.test.js
-not ok 2 - test/arabic-formal-grammar.test.js
+# Subtest: formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
+ok 7 - formal Arabic curriculum covers core morphology, syntax, inflection and rhetoric
   ---
-  duration_ms: 211.519598
+  duration_ms: 1.585067
   type: 'test'
-  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:1:1'
-  failureType: 'testCodeFailure'
-  exitCode: 1
-  signal: ~
-  error: 'test failed'
-  code: 'ERR_TEST_FAILURE'
   ...
-1..7
-# tests 7
+# Subtest: formal Arabic diagnostics detect إن وأخواتها
+ok 8 - formal Arabic diagnostics detect إن وأخواتها
+  ---
+  duration_ms: 1.607815
+  type: 'test'
+  ...
+# Subtest: formal Arabic diagnostics detect كان وأخواتها
+ok 9 - formal Arabic diagnostics detect كان وأخواتها
+  ---
+  duration_ms: 0.542641
+  type: 'test'
+  ...
+# Subtest: formal Arabic diagnostics distinguish subjunctive and jussive triggers
+ok 10 - formal Arabic diagnostics distinguish subjunctive and jussive triggers
+  ---
+  duration_ms: 0.48667
+  type: 'test'
+  ...
+# Subtest: formal Arabic diagnostics detect idafa, prepositions, condition and exception
+ok 11 - formal Arabic diagnostics detect idafa, prepositions, condition and exception
+  ---
+  duration_ms: 0.294329
+  type: 'test'
+  ...
+# Subtest: formal grammar benchmark passes all curated rule triggers
+ok 12 - formal grammar benchmark passes all curated rule triggers
+  ---
+  duration_ms: 2.525017
+  type: 'test'
+  ...
+# Subtest: official Arabic monetary-policy news preserves actor, direction, rates and basis points
+ok 13 - official Arabic monetary-policy news preserves actor, direction, rates and basis points
+  ---
+  duration_ms: 95.754736
+  type: 'test'
+  ...
+# Subtest: Persian inflation news preserves monthly and annual rates
+ok 14 - Persian inflation news preserves monthly and annual rates
+  ---
+  duration_ms: 392.624354
+  type: 'test'
+  ...
+# Subtest: Persian and Arabic versions of the CBE rate decision retain the same numeric facts
+ok 15 - Persian and Arabic versions of the CBE rate decision retain the same numeric facts
+  ---
+  duration_ms: 159.499863
+  type: 'test'
+  ...
+# Subtest: Arabic article analysis exposes grammar candidates but never claims final i'rab
+ok 16 - Arabic article analysis exposes grammar candidates but never claims final i'rab
+  ---
+  duration_ms: 1.782571
+  type: 'test'
+  ...
+# Subtest: formal Arabic register is separated from colloquial dialect
+ok 17 - formal Arabic register is separated from colloquial dialect
+  ---
+  duration_ms: 0.414596
+  type: 'test'
+  ...
+# Subtest: English-pivot market lexicon has broad language coverage and stable sense IDs
+ok 18 - English-pivot market lexicon has broad language coverage and stable sense IDs
+  ---
+  duration_ms: 0.145149
+  type: 'test'
+  ...
+# Subtest: English synonyms and inflections map to canonical concepts
+ok 19 - English synonyms and inflections map to canonical concepts
+  ---
+  duration_ms: 51.491393
+  type: 'test'
+  ...
+# Subtest: Persian financial terms map to canonical English senses
+ok 20 - Persian financial terms map to canonical English senses
+  ---
+  duration_ms: 1.063741
+  type: 'test'
+  ...
+# Subtest: Arabic official news terms map to canonical English senses
+ok 21 - Arabic official news terms map to canonical English senses
+  ---
+  duration_ms: 0.499255
+  type: 'test'
+  ...
+# Subtest: Chinese and Russian rate policy terms are recognized
+ok 22 - Chinese and Russian rate policy terms are recognized
+  ---
+  duration_ms: 66.072657
+  type: 'test'
+  ...
+# Subtest: Turkish and Spanish inflected/plural rate phrases are recognized
+ok 23 - Turkish and Spanish inflected/plural rate phrases are recognized
+  ---
+  duration_ms: 83.352091
+  type: 'test'
+  ...
+# Subtest: Disinflation and deflation are kept as distinct concepts
+ok 24 - Disinflation and deflation are kept as distinct concepts
+  ---
+  duration_ms: 0.22726
+  type: 'test'
+  ...
+# Subtest: Curated multilingual lexicon benchmark has no misses
+ok 25 - Curated multilingual lexicon benchmark has no misses
+  ---
+  duration_ms: 314.442002
+  type: 'test'
+  ...
+# Subtest: previously defined English market synonyms map to canonical action concepts
+ok 26 - previously defined English market synonyms map to canonical action concepts
+  ---
+  duration_ms: 1.209665
+  type: 'test'
+  ...
+# Subtest: lexicon output distinguishes English synonyms from cross-language equivalents
+ok 27 - lexicon output distinguishes English synonyms from cross-language equivalents
+  ---
+  duration_ms: 0.783458
+  type: 'test'
+  ...
+# Subtest: expanded English-pivot ontology covers conflict, diplomacy, humanitarian law, energy and trade
+ok 28 - expanded English-pivot ontology covers conflict, diplomacy, humanitarian law, energy and trade
+  ---
+  duration_ms: 0.209131
+  type: 'test'
+  ...
+# Subtest: Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to English concepts
+not ok 29 - Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to English concepts
+  ---
+  duration_ms: 1.499872
+  type: 'test'
+  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:175:1'
+  failureType: 'testCodeFailure'
+  error: 'ceasefire'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:177:60)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: English geopolitical and economic news maps to distinct concepts
+not ok 30 - English geopolitical and economic news maps to distinct concepts
+  ---
+  duration_ms: 0.528548
+  type: 'test'
+  location: '/home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:186:1'
+  failureType: 'testCodeFailure'
+  error: 'sanctions'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/runner/work/dollar/dollar/test/arabic-formal-grammar.test.js:189:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: war-crime and armed-conflict concepts are descriptive, not legal verdicts
+ok 31 - war-crime and armed-conflict concepts are descriptive, not legal verdicts
+  ---
+  duration_ms: 0.130075
+  type: 'test'
+  ...
+1..31
+# tests 31
 # suites 0
-# pass 6
-# fail 1
+# pass 29
+# fail 2
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 222.02462
+# duration_ms 1268.132366
