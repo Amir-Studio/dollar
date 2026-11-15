@@ -48,12 +48,13 @@ function compactCase(item) {
   };
 }
 function fingerprint(items) {
-  return items.map(x => x.feedback_id + ":" + x.id + ":" + x.category).sort().join("|").slice(0, 12000);
+  return items.map(x => x.feedback_id + ":" + x.id + ":" + x.category + ":" + JSON.stringify(x.expected) + ":" + x.input.slice(0, 160)).sort().join("|").slice(0, 12000);
 }
 export async function refreshNeuralErrorMemory(evaluatedCases, env) {
   if (!env?.AI?.run) return { refreshed: false, reason: "workers_ai_unavailable", indexed: 0 };
   if (!env?.MARKET_CACHE) return { refreshed: false, reason: "market_cache_unavailable", indexed: 0 };
   const items = (Array.isArray(evaluatedCases) ? evaluatedCases : [])
+    .filter(item => Number(item?.total) > 0)
     .map(compactCase).filter(Boolean)
     .filter(x => x.input.length >= 20)
     .slice(0, MAX_CASES);
