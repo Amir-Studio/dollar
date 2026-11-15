@@ -606,16 +606,59 @@ async function fetchInputs(env,asset,marketPayload) {
   return {price,stamp,source:String(item.source||"unknown"),provider_meta:item.provider_meta||null,history_provider:historyProvider,points,newsContext};
 }
 
+function medianValue(values) {
+  const sorted=values.filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!sorted.length) return 0;
+  const mid=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+}
+function evaluateBiasAdjustment(rows) {
+  const valid=(Array.isArray(rows)?rows:[]).filter(x=>Number(x.predicted_price)>0&&Number(x.actual_price)>0);
+  if(valid.length<30) return {samples:valid.length,applied:false,log_bias:0,reason:"minimum_30_matured_forecasts_required"};
+  // Newest third is a holdout. The adjustment is estimated only from older rows,
+  // then accepted only if it improves error on unseen, newer observations.
+  const holdoutCount=Math.max(10,Math.floor(valid.length/3));
+  const holdout=valid.slice(0,holdoutCount);
+  const training=valid.slice(holdoutCount);
+  const residuals=training.map(x=>Math.log(Number(x.actual_price)/Number(x.predicted_price)));
+  const center=medianValue(residuals);
+  const mad=medianValue(residuals.map(x=>Math.abs(x-center)));
+  const robustLimit=Math.max(0.001,3*1.4826*mad);
+  const winsorized=residuals.map(x=>Math.max(center-robustLimit,Math.min(center+robustLimit,x)));
+  const trainBias=medianValue(winsorized);
+  const adjustment=Math.max(-0.015,Math.min(0.015,trainBias));
+  const before=holdout.map(x=>Math.abs(Math.log(Number(x.actual_price)/Number(x.predicted_price))));
+  const after=holdout.map(x=>Math.abs(Math.log(Number(x.actual_price)/Number(x.predicted_price))-adjustment));
+  const maeBefore=before.reduce((a,b)=>a+b,0)/before.length;
+  const maeAfter=after.reduce((a,b)=>a+b,0)/after.length;
+  const improvementPct=maeBefore>0?(1-maeAfter/maeBefore)*100:0;
+  const accepted=Math.abs(adjustment)>0.00005&&improvementPct>=2;
+  return {samples:valid.length,training_samples:training.length,holdout_samples:holdout.length,
+    applied:accepted,log_bias:Number(trainBias.toFixed(6)),
+    adjustment_log:Number((accepted?adjustment:0).toFixed(6)),
+    holdout_mae_before_pct:Number((maeBefore*100).toFixed(5)),
+    holdout_mae_after_pct:Number((maeAfter*100).toFixed(5)),
+    holdout_improvement_pct:Number(improvementPct.toFixed(3)),
+    method:"older_train_newer_holdout_median_mad_winsorized_v2",
+    reason:accepted?"validated_on_newer_holdout":"adjustment_failed_holdout_improvement_gate"};
+}
 async function liveBiasCalibration(env,asset,horizon) {
   try {
-    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=60");
-    const valid=(Array.isArray(rows)?rows:[]).filter(x=>Number(x.predicted_price)>0&&Number(x.actual_price)>0);
-    if(valid.length<30) return {samples:valid.length,applied:false,log_bias:0};
-    const errors=valid.map(x=>Math.log(Number(x.actual_price)/Number(x.predicted_price)));
-    const mean=errors.reduce((a,b)=>a+b,0)/errors.length,shrink=Math.min(0.5,valid.length/60);
-    const adjustment=Math.max(-0.015,Math.min(0.015,mean*shrink));
-    return {samples:valid.length,applied:true,log_bias:Number(mean.toFixed(6)),adjustment_log:Number(adjustment.toFixed(6))};
-  } catch(error) { return {samples:0,applied:false,log_bias:0,error:String(error?.message||error).slice(0,100)}; }
+    const rows=await db(env,"market_forecast_runs?select=predicted_price,actual_price,actual_at&asset=eq."+encodeURIComponent(asset)+"&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&validation->>forecast_mode=eq.adaptive_directional&model_version=eq."+encodeURIComponent(MODEL_VERSION)+"&order=actual_at.desc&limit=90");
+    return evaluateBiasAdjustment(rows);
+  } catch(error) { return {samples:0,applied:false,log_bias:0,adjustment_log:0,reason:"calibration_data_unavailable",error:String(error?.message||error).slice(0,100)}; }
+}
+export function runCalibrationSelfTest() {
+  const rows=Array.from({length:45},(_,i)=>({predicted_price:100,actual_price:102,actual_at:new Date(Date.UTC(2026,0,1)+i*DAY).toISOString()}));
+  const stable=evaluateBiasAdjustment(rows);
+  const noisy=evaluateBiasAdjustment(rows.map((x,i)=>({...x,actual_price:i%2?110:95})));
+  const insufficient=evaluateBiasAdjustment(rows.slice(0,20));
+  const tests=[
+    {name:"stable_bias_validated_on_unseen_holdout",passed:stable.applied&&stable.holdout_improvement_pct>=2},
+    {name:"unstable_bias_not_accepted_without_holdout_gain",passed:!noisy.applied},
+    {name:"minimum_sample_guard",passed:!insufficient.applied&&insufficient.samples===20}
+  ];
+  return {total:tests.length,passed:tests.filter(x=>x.passed).length,failed:tests.filter(x=>!x.passed)};
 }
 async function issueForecast(env,asset,horizon,input) {
   const issuedAt=new Date().toISOString();
@@ -691,12 +734,16 @@ async function evaluateDue(env,market) {
   }
   return done;
 }
-async function runContinuousLearning(env, evaluatedNow) {
-  if (!evaluatedNow?.length) return {ran:false,reason:"no-new-evaluations"};
+async function runContinuousLearning(env, evaluatedNow=[]) {
   try {
+    const newEvaluations=Array.isArray(evaluatedNow)?evaluatedNow:[];
+    const latestCycle=await db(env,"market_learning_cycles?select=cycle_at&order=cycle_at.desc&limit=1");
+    const lastCycleAt=Date.parse(latestCycle?.[0]?.cycle_at||"");
+    const dueByTime=!Number.isFinite(lastCycleAt)||Date.now()-lastCycleAt>=15*60*1000;
+    if(!newEvaluations.length&&!dueByTime) return {ran:false,reason:"15-minute-learning-interval-not-reached",next_cycle_in_seconds:Math.max(0,Math.ceil((15*60*1000-(Date.now()-lastCycleAt))/1000))};
     let diagnosticCount=0;
     try {
-      const diagnostics=(evaluatedNow||[]).map(buildForecastErrorDiagnostic).filter(Boolean);
+      const diagnostics=newEvaluations.map(buildForecastErrorDiagnostic).filter(Boolean);
       if(diagnostics.length) {
         await db(env,"market_forecast_error_diagnostics?on_conflict=forecast_id",{
           method:"POST",headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(diagnostics)
@@ -745,14 +792,14 @@ async function runContinuousLearning(env, evaluatedNow) {
       if(drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
     }
     const payload={
-      model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
+      model_version:MODEL_VERSION,evaluated_count:newEvaluations.length,
       asset_metrics:assetMetrics,learning_actions:actions
     };
     await db(env,"market_learning_cycles",{method:"POST",headers:{"prefer":"return=minimal"},body:JSON.stringify({
-      model_version:MODEL_VERSION,evaluated_count:evaluatedNow.length,
+      model_version:MODEL_VERSION,evaluated_count:newEvaluations.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,evaluated:evaluatedNow.length,diagnostics:diagnosticCount,groups:Object.keys(assetMetrics).length,actions:actions.length};
+    return {ran:true,trigger:newEvaluations.length?\"new_evaluations\":\"15_minute_interval\",evaluated:newEvaluations.length,diagnostics:diagnosticCount,groups:Object.keys(assetMetrics).length,actions:actions.length};
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};
