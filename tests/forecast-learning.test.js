@@ -4,7 +4,8 @@ import {
   runCalibrationSelfTest,
   buildForecastErrorDiagnostic,
   directionMatches,
-  summarizeLearningEvidence
+  summarizeLearningEvidence,
+  evaluateComponentWeightAdjustment
 } from "../worker/forecast-engine.js";
 
 test("robust calibration passes its holdout and minimum-sample regression checks", () => {
@@ -55,11 +56,11 @@ test("learning evidence never mixes different model versions", () => {
   }));
   const result = summarizeLearningEvidence(rows,[]);
   const legacy = result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"];
-  const active = result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.7-maturity-safe-walkforward"];
+  const active = result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.8-live-component-feedback"];
   assert.equal(legacy.samples,3);
   assert.equal(active.samples,0);
   assert.ok(result.learning_actions.some(x=>x.model_version==="legacy-v2.4"&&x.samples===3));
-  assert.ok(result.learning_actions.some(x=>x.model_version==="iran-ensemble-wf-2.7-maturity-safe-walkforward"&&x.samples===0));
+  assert.ok(result.learning_actions.some(x=>x.model_version==="iran-ensemble-wf-2.8-live-component-feedback"&&x.samples===0));
 });
 
 test("diagnostic patterns are attributed only to the matching model version", () => {
@@ -70,7 +71,7 @@ test("diagnostic patterns are attributed only to the matching model version", ()
   const result = summarizeLearningEvidence(rows,diagnostics);
   assert.equal(result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"].diagnostic_sample_count,3);
   assert.equal(result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"].recurring_error_patterns[0].code,"quote_age_elevated");
-  assert.equal(result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.7-maturity-safe-walkforward"].diagnostic_sample_count,0);
+  assert.equal(result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.8-live-component-feedback"].diagnostic_sample_count,0);
 });
 
 test("model retention requires enough matured evidence and beats the no-change baseline", () => {
@@ -85,4 +86,40 @@ test("model retention requires enough matured evidence and beats the no-change b
   const result = summarizeLearningEvidence([...good,...bad],[]);
   assert.ok(result.learning_actions.some(x=>x.asset==="EUR_IRR_FREE"&&x.action==="retain_validated_model"));
   assert.ok(result.learning_actions.some(x=>x.asset==="GOLD_18K_IRR"&&x.action==="keep_directional_signal_withheld"));
+});
+
+test("live component reweighting is accepted only when it wins on newer holdout rows", () => {
+  const rows = Array.from({length:60},(_,i)=>({
+    reference_price:100,
+    actual_price:100*Math.exp(0.01),
+    model_weights:{trend_15:1,median_5:0,no_change:0},
+    validation:{candidate_predictions_log:{trend_15:0.02,median_5:0.01,no_change:0}}
+  }));
+  const result = evaluateComponentWeightAdjustment(rows,{trend_15:1,median_5:0,no_change:0});
+  assert.equal(result.samples,60);
+  assert.equal(result.training_samples,40);
+  assert.equal(result.holdout_samples,20);
+  assert.equal(result.applied,true);
+  assert.ok(result.holdout_improvement_pct>=3);
+});
+
+test("live component reweighting rejects a change that fails on newer holdout rows", () => {
+  const rows = Array.from({length:60},(_,i)=>({
+    reference_price:100,
+    actual_price:100*Math.exp(i<20?0.02:0.01),
+    model_weights:{trend_15:1,median_5:0,no_change:0},
+    validation:{candidate_predictions_log:{trend_15:0.02,median_5:0.01,no_change:0}}
+  }));
+  const result = evaluateComponentWeightAdjustment(rows,{trend_15:1,median_5:0,no_change:0});
+  assert.equal(result.applied,false);
+});
+
+test("live component reweighting requires at least 60 matured forecasts", () => {
+  const rows = Array.from({length:59},()=>({
+    reference_price:100,actual_price:101,model_weights:{trend_15:1},
+    validation:{candidate_predictions_log:{trend_15:0.01,median_5:0.01}}
+  }));
+  const result = evaluateComponentWeightAdjustment(rows,{trend_15:1});
+  assert.equal(result.applied,false);
+  assert.equal(result.samples,59);
 });
