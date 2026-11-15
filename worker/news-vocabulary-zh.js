@@ -1,4 +1,4 @@
-// Curated Chinese-language news vocabulary, batch 1/9 (120 of 1,000 target concepts).
+// Curated Chinese-language news vocabulary, batches 1-2 (220 of 1,000 target concepts).
 // Each row: [id, category, English concept, Simplified Chinese, pinyin, Persian meaning].
 // Entries are specialist news terms, not everyday vocabulary.
 export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.3.0";
@@ -150,7 +150,7 @@ export function getChineseNewsVocabulary({category=null, query=null, limit=1000}
     batch_size:100,
     target_total:1000,
     previously_covered_concepts:120,
-    current_batch_new:CHINESE_NEWS_VOCABULARY.length,
+    current_batch_new:CHINESE_NEWS_VOCABULARY_BATCH_2.length,
     current_total:CHINESE_NEWS_VOCABULARY.length,
     coverage_pct:CHINESE_NEWS_VOCABULARY.length/10,
     categories:[...new Set(CHINESE_NEWS_VOCABULARY.map(x=>x[1]))],
