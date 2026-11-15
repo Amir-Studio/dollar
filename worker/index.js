@@ -19,7 +19,7 @@ import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_C
 import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
 import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
 import { NEWS_TRIAGE_VERSION, buildNewsTriageFeatures, extractiveNewsSummary, trainNewsTriageModel, predictNewsTriageModel, fallbackNewsTriage, runNewsTriageSelfTest } from "./news-triage-engine.js";
-import { analyzeNewsWithReasoning, REASONING_VERSION } from "./news-reasoning-engine.js";
+import { analyzeNewsWithReasoning, saveReasoningFeedback, REASONING_VERSION } from "./news-reasoning-engine.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -1755,7 +1755,7 @@ export default {
       const result = analyzeConversationContext(turns,payload?.language);
       return reply({ok:true,engine:"dollar-conversation-context",version:CONVERSATION_CONTEXT_VERSION,result},200,{"cache-control":"no-store"});
     }
-    if (request.method !== "GET" && !(request.method === "POST" && ["/news/feedback","/news/learning/review"].includes(url.pathname))) return reply({error:"Method not allowed"},405);
+    if (request.method !== "GET" && !(request.method === "POST" && ["/news/feedback","/news/learning/review","/news/reason/feedback"].includes(url.pathname))) return reply({error:"Method not allowed"},405);
     if (url.pathname === "/forecast/v2") {
       const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
       if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
@@ -1832,6 +1832,20 @@ export default {
         }});
         return reply({ok:true,feedback_id:item?.id||null,status:"submitted",note_fa:"بازخورد ذخیره شد؛ تا تأیید انسانی، برچسب حقیقت قطعی محسوب نمی‌شود و هیچ قاعده‌ای خودکار تغییر نمی‌کند."},201);
       } catch(error) { console.error("News feedback write failed:",error); return reply({error:"Could not save feedback"},503); }
+    }
+    if (url.pathname === "/news/reason/feedback") {
+      if(request.method!=="POST") return reply({error:"Method not allowed"},405);
+      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      if(Number(request.headers.get("content-length")||0)>12000) return reply({error:"Feedback payload too large"},413);
+      let payload; try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
+      try {
+        const result=await saveReasoningFeedback(env,payload||{});
+        if(!result.ok) return reply({error:result.reason},400);
+        return reply({...result,note_fa:"اصلاح انسانی در حافظهٔ پژوهشی ثبت شد و در تحلیل‌های بعدی به‌عنوان راهنما بررسی می‌شود؛ این کار به معنی آموزش وزن‌های مدل نیست."},201);
+      } catch(error) {
+        console.error("Reasoning feedback save failed:",String(error?.message||error).slice(0,160));
+        return reply({error:"Could not save reasoning feedback"},503);
+      }
     }
     if (url.pathname === "/news/learning/review") {
       if(request.method!=="POST") return reply({error:"Method not allowed"},405);
