@@ -5,6 +5,7 @@ import { analyzeFormalRegister, runFormalRegisterBenchmark, FORMAL_REGISTER_VERS
 import { runNewsComprehensionBenchmark, getHardNewsChallenge, NEWS_COMPREHENSION_VERSION } from "./news-comprehension-engine.js";
 import { analyzeNewsReading, runNewsReadingBenchmark, NEWS_READING_VERSION } from "./news-reading-engine.js";
 import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
+import { analyzeMarketLexicon, MARKET_LEXICON_VERSION, MARKET_CONCEPTS } from "./market-lexicon-ontology.js";
 
 export const VERSION = "dollar-news-analyzer-1.4.0";
 
@@ -915,6 +916,7 @@ function classifyOne(item) {
     persian_literature:persianLiterature,
     language_foundations:languageFoundations,
     bilingual_vocabulary:bilingualVocabulary,
+    market_lexicon:analyzeMarketLexicon(title+" "+body,language),market_lexicon_version:MARKET_LEXICON_VERSION,
     pragmatics,
     formal_register:formalRegister,
     reading_comprehension:analyzeNewsReading(title,body,item?.published_at||null,fullArticle),
@@ -1181,7 +1183,8 @@ export function analyzeMarketLanguage(items,rows) {
   const numberMentions=analyses.flatMap(a=>a.numbers.map(n=>({...n,title:a.title,source:a.source,published_at:a.published_at})));
   return {
     engine:"dollar-domain-nlp",version:VERSION,mode:"deterministic_domain_nlp_not_llm",
-    language_coverage:["fa","en","ar","zh","de","fr"],
+    language_coverage:["fa","en","ar","de","fr","ru","zh","ja","ko","hi","es","it","pt","tr","nl","pl"],
+    market_lexicon:{version:MARKET_LEXICON_VERSION,pivot:"en",supported_languages:16,concept_count:MARKET_CONCEPTS.length},
     multilingual_news_engine:{version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr"],benchmark:runMultilingualBenchmark()},english_understanding:["actor_extraction","market_entity_recognition","morphological_and_synonym_normalization","negation_and_modality","reported_speech","conditional_statements","sentence_level_frames","discourse_relations","time_framing","financial_amount_and_unit_extraction","b1_oriented_common_vocabulary","basic_tense_voice_condition_and_comparison_frames","c1_oriented_financial_and_macroeconomic_terminology","advanced_discourse_hedging_attribution_and_counterfactual_analysis","financial_market_glossary_60_plus_terms","terminology_self_test","introductory_broad_persian_financial_vocabulary","persian_to_financial_concept_mapping","persian_literature_genres_and_rhetorical_devices","bilingual_internal_comprehension_exam","general_english_and_persian_grammar_vocabulary_reading_writing_and_literature","idiom_and_proverb_recognition","metaphor_and_figurative_language","irony_and_sarcasm_candidate_detection","indirect_speech_act_detection","persian_taarof_and_english_politeness","rhetorical_questions","conversational_implicature","hedging_and_uncertainty","contextual_ambiguity_with_abstention"],news_analyzed:analyses.length,
     theme_classification_benchmark:runThemeClassificationBenchmark(),
     terminology_benchmark:terminologySelfTest(),
