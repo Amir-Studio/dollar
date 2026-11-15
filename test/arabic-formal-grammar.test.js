@@ -89,3 +89,61 @@ test("formal Arabic register is separated from colloquial dialect", () => {
   assert.equal(formal.register,"formal_official_arabic_candidate");
   assert.equal(colloquial.register,"colloquial_or_mixed_candidate");
 });
+
+import {
+  analyzeMarketLexicon,
+  runMarketLexiconBenchmark,
+  MARKET_CONCEPTS,
+  SUPPORTED_LEXICON_LANGUAGES,
+  MARKET_LEXICON_VERSION
+} from "../worker/market-lexicon-ontology.js";
+
+test("English-pivot market lexicon has broad language coverage and stable sense IDs", () => {
+  assert.ok(MARKET_CONCEPTS.length >= 25);
+  assert.equal(SUPPORTED_LEXICON_LANGUAGES.length,16);
+  assert.equal(MARKET_LEXICON_VERSION,"market-lexicon-ontology-1.0.0");
+  assert.ok(MARKET_CONCEPTS.every(x=>x.id&&x.pivot?.term&&x.pivot?.definition&&x.equivalents?.fa&&x.equivalents?.ar));
+});
+
+test("English synonyms and inflections map to canonical concepts", () => {
+  const result=analyzeMarketLexicon("Inflation slowed while interest rates remained unchanged.","en");
+  assert.ok(result.matched_concept_ids.includes("inflation"));
+  assert.ok(result.matched_concept_ids.includes("interest_rate"));
+});
+
+test("Persian financial terms map to canonical English senses", () => {
+  const result=analyzeMarketLexicon("بانک مرکزی نرخ بهره را افزایش داد و تورم کاهش یافت.","fa");
+  for(const id of ["central_bank","interest_rate","inflation"]) assert.ok(result.matched_concept_ids.includes(id),id);
+});
+
+test("Arabic official news terms map to canonical English senses", () => {
+  const result=analyzeMarketLexicon("أعلن البنك المركزي رفع سعر الفائدة لمواجهة التضخم.","ar");
+  for(const id of ["central_bank","rate_hike","interest_rate","inflation"]) assert.ok(result.matched_concept_ids.includes(id),id);
+});
+
+test("Chinese and Russian rate policy terms are recognized", () => {
+  const zh=analyzeMarketLexicon("央行宣布降息以应对通货膨胀。","zh");
+  for(const id of ["central_bank","rate_cut","inflation"]) assert.ok(zh.matched_concept_ids.includes(id),id);
+  const ru=analyzeMarketLexicon("Центральный банк повысил процентную ставку.","ru");
+  for(const id of ["central_bank","interest_rate"]) assert.ok(ru.matched_concept_ids.includes(id),id);
+});
+
+test("Turkish and Spanish inflected/plural rate phrases are recognized", () => {
+  const tr=analyzeMarketLexicon("Merkez bankası faiz oranını artırdı.","tr");
+  for(const id of ["central_bank","rate_hike","interest_rate"]) assert.ok(tr.matched_concept_ids.includes(id),id);
+  const es=analyzeMarketLexicon("El banco central anunció una subida de los tipos de interés.","es");
+  for(const id of ["central_bank","rate_hike","interest_rate"]) assert.ok(es.matched_concept_ids.includes(id),id);
+});
+
+test("Disinflation and deflation are kept as distinct concepts", () => {
+  const disinflation=MARKET_CONCEPTS.find(x=>x.id==="disinflation");
+  const deflation=MARKET_CONCEPTS.find(x=>x.id==="deflation");
+  assert.notEqual(disinflation.id,deflation.id);
+  assert.match(disinflation.pivot.definition,/slowing rate of inflation/);
+  assert.match(deflation.pivot.definition,/decline in the general price level/);
+});
+
+test("Curated multilingual lexicon benchmark has no misses", () => {
+  const result=runMarketLexiconBenchmark();
+  assert.equal(result.failed,0,JSON.stringify(result.cases.filter(x=>!x.passed)));
+});
