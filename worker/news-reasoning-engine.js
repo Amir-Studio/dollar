@@ -149,10 +149,48 @@ function parseModelJson(result) {
   if(start<0||end<=start) throw new Error("model_output_not_json");
   return JSON.parse(textValue.slice(start,end+1));
 }
+function compactPayload(payload) {
+  const compact={
+    ...payload,
+    articles:(payload.articles||[]).slice(0,10).map(x=>({...x,title:clean(x.title,220),text:clean(x.text,850)})),
+    language_analysis:payload.language_analysis?{
+      news_analyzed:payload.language_analysis.news_analyzed,
+      news_with_excerpt:payload.language_analysis.news_with_excerpt,
+      excerpt_coverage_pct:payload.language_analysis.excerpt_coverage_pct,
+      themes:(payload.language_analysis.themes||[]).slice(0,8),
+      events:(payload.language_analysis.events||[]).slice(0,8),
+      possible_conflicts:(payload.language_analysis.possible_conflicts||[]).slice(0,6),
+      structured_claim_conflicts:(payload.language_analysis.structured_claim_conflicts||[]).slice(0,6)
+    }:null,
+    history:payload.history?{
+      status:payload.history.status,
+      documents:(payload.history.documents||[]).slice(0,3).map(x=>({...x,context:clean(x.context,1200),sources:(x.sources||[]).slice(0,4)})),
+      news_archive:(payload.history.news_archive||[]).slice(0,4).map(x=>({...x,summary:clean(x.summary,650)})),
+      warning:payload.history.warning
+    }:null,
+    reviewed_lessons:(payload.reviewed_lessons||[]).slice(-8).map(x=>({...x,correction:clean(x.correction,450)})),
+    search_results:(payload.search_results||[]).slice(0,6).map(x=>({...x,snippet:clean(x.snippet,350),article_excerpt:clean(x.article_excerpt,1000)})),
+    evidence_catalog:(payload.evidence_catalog||[]).slice(0,40),
+    source_independence:payload.source_independence||null
+  };
+  let encoded=JSON.stringify(compact);
+  if(encoded.length>18000) {
+    compact.articles=compact.articles.slice(0,6).map(x=>({...x,text:clean(x.text,450)}));
+    compact.history.documents=compact.history?.documents?.slice(0,2).map(x=>({...x,context:clean(x.context,650)}))||[];
+    compact.history.news_archive=compact.history?.news_archive?.slice(0,2)||[];
+    compact.search_results=compact.search_results.slice(0,3).map(x=>({...x,article_excerpt:clean(x.article_excerpt,500)}));
+    compact.language_analysis=null;
+    compact.reviewed_lessons=compact.reviewed_lessons.slice(-4);
+    encoded=JSON.stringify(compact);
+  }
+  if(encoded.length>18000) throw new Error("reasoning_payload_exceeds_safe_context_budget");
+  return encoded;
+}
 async function infer(env, system, payload, maxTokens=1500) {
+  const encoded=compactPayload(payload);
   const result=await env.AI.run(MODEL,{messages:[
     {role:"system",content:system},
-    {role:"user",content:JSON.stringify(payload).slice(0,18000)}
+    {role:"user",content:encoded}
   ],max_tokens:maxTokens,temperature:0.12});
   return parseModelJson(result);
 }
