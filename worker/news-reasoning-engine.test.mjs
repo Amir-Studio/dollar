@@ -88,6 +88,36 @@ test("only evidence-backed human corrections enter persistent reasoning memory",
   assert.equal(invalid.ok,false);
 });
 
+test("headline-only History records force abstention before Workers AI is called",async()=>{
+  let aiCalls=0;
+  const env={AI:{run:async()=>{aiCalls++;throw new Error("AI must not run without source text");}}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"headline-only",title:"قیمت طلا و سکه امروز؛ بازار آرام شد",url:"https://example.org/news",
+      domain:"example.org",language_code:"fa"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.status,"insufficient_source_text");
+  assert.equal(result.abstained,true);
+  assert.equal(result.confidence,0);
+  assert.equal(result.source_coverage.title_or_metadata_only,1);
+  assert.equal(aiCalls,0);
+});
+
+test("empty model analysis abstains when no evidence-backed claims exist",async()=>{
+  const output={comprehension:{event:"گزارش اقتصادی"},facts:[],claims:[],causal_hypotheses:[],market_implications:[],
+    alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],
+    provisional_conclusion:"گزارش بررسی شد.",confidence:.9,abstain:false};
+  const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"گزارش اقتصادی",original_text:"بانک مرکزی گزارش رسمی تازه‌ای درباره شاخص قیمت منتشر کرد.",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.abstained,true);
+  assert.equal(result.evidence_audit.total,0);
+});
+
 test("invalid reasoning structure fails closed instead of inventing an analysis",async()=>{
   const env={AI:{run:async()=>({response:JSON.stringify({facts:[],claims:[],confidence:.9,abstain:false})})}};
   const result=await analyzeNewsWithReasoning({
