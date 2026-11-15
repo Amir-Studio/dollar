@@ -15,6 +15,75 @@ export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
   return NEWS_ARTICLE_STATUSES.has(value)?value:(hasText?"extracted":"headline_only");
 }
+function runPersianArabicNewsBenchmark() {
+  // Short original paraphrases grounded in current source reporting; no full article text is copied.
+  const cases = [
+    {
+      id:"fa_rferl_inflation_report",
+      language:"fa",
+      source:"https://docs.rferl.org/fa-ir/2026/11/12/pdf/33896902/7894781ea3ab494a85992de2823b6d8f.pdf",
+      title:"گزارش تورم ایران",
+      text:"بر اساس گزارش بانک مرکزی، تورم ماهانه در مهرماه به 4.6 درصد رسید و تورم سالانه 71.4 درصد اعلام شد. این داده‌ها از افزایش سطح عمومی قیمت‌ها حکایت دارد.",
+      expected_numbers:[4.6,71.4],
+      expected_terms:["تورم","افزایش"]
+    },
+    {
+      id:"fa_cbe_rate_decision_parallel",
+      language:"fa",
+      source:"https://www.cbe.org.eg/ar/news-publications/news/2026/10/29/13/08/mpc-press-release-29-october-2026",
+      title:"تصمیم نرخ بهره بانک مرکزی مصر",
+      text:"بانک مرکزی مصر نرخ‌های سیاستی را 100 واحد پایه افزایش داد؛ نرخ سپرده شبانه به 20.0 درصد و نرخ تسهیلات شبانه به 21.0 درصد رسید.",
+      expected_numbers:[100,20,21],
+      expected_terms:["افزایش","بانک مرکزی"]
+    },
+    {
+      id:"ar_cbe_official_rate_decision",
+      language:"ar",
+      source:"https://www.cbe.org.eg/ar/news-publications/news/2026/10/29/13/08/mpc-press-release-29-october-2026",
+      title:"قرار لجنة السياسة النقدية",
+      text:"أعلن البنك المركزي المصري رفع أسعار العائد الأساسية بمقدار 100 نقطة أساس؛ وبلغ سعر عائد الإيداع لليلة واحدة 20.0% وسعر عائد الإقراض 21.0%.",
+      expected_numbers:[100,20,21],
+      expected_action:"increase",
+      expected_actor:"central_bank",
+      expected_finance:"interest_rate"
+    }
+  ];
+  const results = cases.map(item => {
+    if (item.language === "fa") {
+      const analysis = analyzeMarketLanguage([{title:item.title,original_title:item.title,original_text:item.text,language_code:"fa",domain:"benchmark"}],[]).per_news[0];
+      const nums = (analysis?.numbers||[]).map(x=>Number(x.value));
+      const checks = [
+        {id:"numbers_preserved",passed:item.expected_numbers.every(n=>nums.includes(n))},
+        {id:"formal_register_detected",passed:analysis?.formal_register?.register==="formal_official_or_analytical"},
+        {id:"news_excerpt_processed",passed:analysis?.content_chars>0}
+      ];
+      if(item.id==="fa_rferl_inflation_report") checks.push({id:"inflation_topic_detected",passed:(analysis?.themes||[]).includes("inflation")});
+      if(item.id==="fa_cbe_rate_decision_parallel") checks.push({id:"central_bank_context",passed:/بانک مرکزی/.test(item.text)&&/افزایش/.test(item.text)});
+      return {id:item.id,language:item.language,source:item.source,passed:checks.every(x=>x.passed),checks,extracted_numbers:nums};
+    }
+    const analysis=analyzeMultilingualNews(item.title,item.text,"ar");
+    const academic=analysis.arabic_academic_analysis;
+    const nums=(analysis.extracted_quantities||[]).map(x=>Number(x.value));
+    const checks=[
+      {id:"language_identified",passed:analysis.language==="ar"},
+      {id:"numbers_preserved",passed:item.expected_numbers.every(n=>nums.includes(n))},
+      {id:"action_direction",passed:analysis.summary.action_concepts.includes(item.expected_action)},
+      {id:"actor_identified",passed:analysis.summary.actor_candidates.includes(item.expected_actor)},
+      {id:"interest_rate_domain",passed:academic.finance_domain.concepts.some(x=>x.concept===item.expected_finance)},
+      {id:"formal_grammar_layer_active",passed:academic.formal_grammar?.version===ARABIC_FORMAL_GRAMMAR_VERSION}
+    ];
+    return {id:item.id,language:item.language,source:item.source,passed:checks.every(x=>x.passed),checks,extracted_numbers:nums,grammar_rules:academic.formal_grammar?.detected_rules?.map(x=>x.rule)||[]};
+  });
+  const passed=results.filter(x=>x.passed).length;
+  return {
+    version:"persian-arabic-news-regression-1.0.0",
+    total:results.length,passed,failed:results.length-passed,
+    score_pct:Number((passed/results.length*100).toFixed(1)),
+    cases:results,
+    scope:"Three source-grounded paraphrase regressions, not a representative real-world accuracy estimate or a translation-quality certificate."
+  };
+}
+
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
