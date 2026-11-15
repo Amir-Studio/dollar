@@ -200,6 +200,9 @@ function validatePass(value,phase) {
     ? ["facts","claims","causal_hypotheses","alternatives","counter_evidence_needed","history_usage","evidence_gaps","search_queries"]
     : ["facts","claims","causal_hypotheses","alternatives","counter_evidence_needed","history_usage","source_assessment","unresolved_questions"];
   for(const key of required) if(!Array.isArray(value[key])) throw new Error(phase+"_invalid_"+key);
+  for(const field of ["facts","claims","causal_hypotheses","alternatives"]) {
+    for(const item of value[field]) if(!item||typeof item!=="object"||Array.isArray(item)||typeof item.statement!=="string"||!Array.isArray(item.source_ids)||item.source_ids.length>8||item.source_ids.some(x=>typeof x!=="string")) throw new Error(phase+"_invalid_evidence_shape_"+field);
+  }
   if(typeof value.confidence!=="number"||!Number.isFinite(value.confidence)||typeof value.abstain!=="boolean")
     throw new Error(phase+"_missing_confidence_or_abstain");
   if(phase==="initial" && value.search_queries.length>3) value.search_queries=value.search_queries.slice(0,3);
@@ -314,7 +317,7 @@ const confidence=clamp(final.confidence);
     history_news_archive_items:(history.news_archive||[]).length,
     learning:{reviewed_lessons_considered:reviewedLessons.length,mode:"human_reviewed_retrieval_memory_not_online_weight_updates"},
     search:{attempted:queries.length>0,queries:queries.slice(0,3),results:searched,second_pass:secondPass},
-    analysis:final,evidence_catalog:finalCatalog,source_independence:sourceIndependence(finalCatalog),evidence_audit:evidenceAudit,confidence,abstained:final.abstain===true,
+    analysis:final,evidence_catalog:finalCatalog,source_independence:sourceIndependence(finalCatalog),evidence_audit:evidenceAudit,\n    evidence_sufficiency:{model_confidence:confidence,source_reference_coverage_pct:Math.round(referenceCoverage*100),unique_publisher_domains:sourceIndependence(finalCatalog).unique_publisher_domains,interpretation:"ارجاع معتبر فقط وجود شناسه منبع را نشان می‌دهد؛ تطابق متن منبع با ادعا همچنان نیازمند بررسی است."},\n    confidence,abstained,
     safeguards:["تحلیل مدل به‌تنهایی تأیید واقعیت نیست.","فرضیهٔ علّی با رابطهٔ علّی اثبات‌شده یکسان نیست.","اسناد History با وضعیت draft یا pending همچنان تأییدنشده‌اند.","نتایج جست‌وجو سرنخ پژوهش‌اند؛ استقلال و متن اصلی باید بررسی شود."]};
 }
 export function runReasoningSelfTest() {
