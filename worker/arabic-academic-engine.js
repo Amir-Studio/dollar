@@ -211,6 +211,35 @@ function analyzeClauses(text) {
   });
 }
 
+function analyzeGrammar(text, tokens) {
+  const evidence=[];
+  const add=(type,pattern,matched)=>{if(matched.length)evidence.push({type,pattern,matched:matched.slice(0,12),status:"candidate_not_full_parse"});};
+  const prepositions=["في","من","إلى","على","عن","ب","ك","ل","حتى","منذ","خلال","بين","مع","ضد"];
+  const relatives=["الذي","التي","اللذان","اللتان","الذين","اللاتي","اللواتي","من","ما"];
+  const conjunctions=["و","ف","ثم","أو","أم","بل","لكن"];
+  const verbalOpeners=["ارتفع","انخفض","تراجع","هبط","زاد","نقص","أعلن","قال","صرح","نفى","وافق","رفض","استقر","ثبت","أبقى","خفض","رفع","توقع","يتوقع","يرتفع","ينخفض","يزيد","يخفض","تراجع"];
+  const normalizedPreps=prepositions.map(normalizeArabic);
+  const normalizedRelatives=relatives.map(normalizeArabic);
+  const normalizedVerbs=verbalOpeners.map(normalizeArabic);
+  add("prepositional_phrase_candidates","preposition + following phrase",tokens.filter(t=>normalizedPreps.includes(t)));
+  add("relative_clause_candidates","relative pronouns",tokens.filter(t=>normalizedRelatives.includes(t)));
+  add("coordinating_conjunction_candidates","coordination particles",tokens.filter(t=>conjunctions.map(normalizeArabic).includes(t)));
+  add("verbal_sentence_opening_candidate","verb-like lexical opener",tokens[0]&&normalizedVerbs.includes(tokens[0])?[tokens[0]]:[]);
+  add("nominal_sentence_opening_candidate","definite noun or pronoun opener",tokens[0]&&(/^(?:ال|هذا|هذه|ذلك|تلك|هو|هي|هم|هن)/u.test(tokens[0]))?[tokens[0]]:[]);
+  add("idafa_construction_candidates","first noun followed by a definite or construct-state complement",text.match(/(?:سعر|اسعار|معدل|معدلات|سياسة|سياسات|بنك|مصرف|وزارة|اسواق|اسعار|حجم|مستوى|قيمة|قيمة|احتياطي|نسبة)\\s+(?:ال[\\p{Script=Arabic}]+|[\\p{Script=Arabic}]{3,})/gu)||[]);
+  add("adjective_noun_agreement_candidates","known noun-adjective pairs",text.match(/(?:البنك المركزي|السياسة النقدية|الميزان التجاري|الاحتياطيات الأجنبية|الأسواق العالمية|الاقتصاد العالمي|الطلب المحلي|العملة المحلية|النفط الخام|الذهب العالمي)/gu)||[]);
+  add("passive_or_impersonal_construction_candidates","passive or impersonal reporting forms",text.match(/(?:تم|جرى)\\s+(?:فرض|رفع|خفض|اعلان|تطبيق|اعتماد|تثبيت|تجميد|اصدار|الغاء|اتخاذ)|(?:اعلن|اقر|فرض|خفض|رفع)\\s+.{0,24}\\s+(?:من قبل|بواسطة)/gu)||[]);
+  add("comparative_construction_candidates","comparative and proportional markers",text.match(/(?:أكثر من|اكثر من|أقل من|اقل من|أعلى من|اعلى من|أدنى من|ادنى من|مقارنة ب|مقارنة مع|ضعف|نصف|بنسبة أكبر|بنسبة أقل)/gu)||[]);
+  add("conditional_construction_candidates","conditional particle and apodosis cues",text.match(/(?:إذا|اذا|إن|ان|لو|لولا|ما لم|في حال|بشرط)[^،؛.!؟?]{0,140}/gu)||[]);
+  add("exception_construction_candidates","exception particles and their local spans",text.match(/(?:إلا|الا|عدا|خلا|حاشا|باستثناء|ما عدا)[^،؛.!؟?]{0,90}/gu)||[]);
+  add("numeral_tamyiz_or_measure_candidates","numeric measure phrases",text.match(/\\d+(?:[.,]\\d+)?\\s*(?:بالمئة|في المئة|مليون|مليار|دولار|درهم|ريال|دينار|جنيه|ليرة|برميل|أونصة|اونصة|نقطة)/gu)||[]);
+  return {
+    sentence_type_candidate:tokens.length&&normalizedVerbs.includes(tokens[0])?"verbal_sentence":tokens.length&&(/^(?:ال|هذا|هذه|ذلك|تلك|هو|هي)/u.test(tokens[0]))?"nominal_sentence":"undetermined",
+    construction_candidates:evidence,
+    caution:"Arabic syntactic roles (فاعل، مفعول به، مبتدأ، خبر، حال، تمييز، مضاف إليه) are not assigned without a context-aware parser."
+  };
+}
+
 function identifySpeechActs(text) {
   const patterns = [
     ["official_announcement",/(?:أعلن|اعلن|أعلنت|اعلنت|إعلان|اعلان|بيان رسمي)/],
@@ -254,7 +283,7 @@ export function analyzeArabicText(input = "", options = {}) {
     morphology:detectMorphology(text,tokens),
     clitic_analysis:clitics.slice(0,120),
     root_and_semantic_families:rootFamilies,
-    syntax_and_discourse:{clauses,features},
+    syntax_and_discourse:{clauses,features,grammar:analyzeGrammar(text,tokens)},
     finance_domain:{concepts:financeConcepts,concept_count:new Set(financeConcepts.map(x=>x.concept)).size},
     quantities:numbers,
     speech_acts:features.speech_acts,
