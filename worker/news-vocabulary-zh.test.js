@@ -6,9 +6,9 @@ import {
   runChineseNewsVocabularySelfTest
 } from "./news-vocabulary-zh.js";
 
-test("Chinese news vocabulary has 120 unique specialist entries", () => {
-  assert.equal(CHINESE_NEWS_VOCABULARY.length, 120);
-  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 120);
+test("Chinese news vocabulary has 220 unique specialist entries", () => {
+  assert.equal(CHINESE_NEWS_VOCABULARY.length, 220);
+  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 220);
   assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 120);
 });
 
@@ -29,11 +29,23 @@ test("category and query filters return relevant vocabulary", () => {
   assert.ok(search.items.length === 8); // sanctions terms are in the second tranche
   const politics = getChineseNewsVocabulary({ category: "politics" });
   assert.equal(politics.items.length, 10);
+  const fx = getChineseNewsVocabulary({ category: "foreign_exchange" });
+  assert.equal(fx.items.length, 10);
+  assert.ok(fx.items.some(x => x.english === "currency depreciation"));
 });
 
 test("self-test reports structural quality without claiming translation certification", () => {
   const result = runChineseNewsVocabularySelfTest();
-  assert.equal(result.total, 120);
+  assert.equal(result.total, 220);
   assert.equal(result.passed, true);
   assert.match(result.scope, /native-speaker review/);
+});
+
+test("second Chinese vocabulary batch passes structural checks", async () => {
+  const { runChineseVocabularyBatch2SelfTest } = await import("./news-vocabulary-zh-batch-2.js");
+  const result = runChineseVocabularyBatch2SelfTest();
+  assert.equal(result.total, 100);
+  assert.equal(result.passed, true);
+  assert.equal(result.unique_ids, 100);
+  assert.equal(result.unique_chinese_terms, 100);
 });
