@@ -655,7 +655,7 @@ async function fetchCountryNewsArticle(country) {
   api.searchParams.set("timespan","30d");
   api.searchParams.set("sort","DateDesc");
   const response=await fetch(api.toString(),{headers:{accept:"application/json"},signal:AbortSignal.timeout(12000)});
-  if(!response.ok) throw Error("GDELT HTTP "+response.status);
+  if(!response.ok){const detail=(await response.text()).slice(0,180);throw Error("GDELT HTTP "+response.status+(response.headers.get("retry-after")?" retry-after "+response.headers.get("retry-after"):"")+": "+detail);}
   const payload=await response.json();
   const articles=Array.isArray(payload?.articles)?payload.articles:[];
   for(const article of articles.slice(0,3)){
