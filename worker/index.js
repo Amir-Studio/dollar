@@ -1776,6 +1776,9 @@ export default {
         data.decision_brief = null;
         data.decision_brief_error = String(error?.message || error).slice(0,120);
       }
+      const reasoningCache = await readFreshCache(env,"news:reasoning:latest",2*60*60*1000);
+      data.news_reasoning = reasoningCache?.payload || null;
+      data.news_reasoning_status = reasoningCache ? "scheduled_evidence_reasoning_available" : "waiting_for_next_scheduled_reasoning_cycle";
       const combinedLanguageAnalysis = analyzeMarketLanguage(news, []);
       data.news_context = {
         collected_at: cachedNews?.fetched_at || new Date().toISOString(),
