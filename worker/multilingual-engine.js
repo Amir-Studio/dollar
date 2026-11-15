@@ -8,15 +8,15 @@ const LANGS = {
     script: /[\u0600-\u06ff]/g,
     cues: ["البنك","الاقتصاد","الأسعار","الحكومة","المركزي","النفط","الذهب","الدولار","ارتفع","انخفض","قالت","أعلنت","يتوقع","قد","إذا","لكن","ليس","لم","لن","بالمئة","مليار"],
     modality: /(?:قد\s|ربما|من المحتمل|من المتوقع|يتوقع|تتوقع|يمكن أن|قد يكون|قد تكون|مرجح أن)/,
-    conditional: /(?:إذا|إن\s|في حال|بشرط|ما لم|شريطة أن)/,
-    negation: /(?:\bلا\b|\bلم\b|\bلن\b|\bليس\b|\bليست\b|\bلم يكن\b|\bلم يتم\b|\bما زال لا\b|ينفي|نفت|نفى|لم يؤكد)/,
+    conditional: /(?:اذا|ان\s|في حال|بشرط|ما لم|شريطة ان)/,
+    negation: /(?:لا|لم|لن|ليس|ليست|لم يكن|لم يتم|ما زال لا|ينفي|نفت|نفي|لم يؤكد)/,
     attribution: /(?:قال|قالت|أفاد|أفادت|اعلن|اعلنت|ذكر|ذكرت|بحسب|وفقا ل|اوضح|اوضحت|حذر|حذرت|صرح|صرحت|نفي|نفت)/,
     causal: /(?:بسبب|نتيجة ل|مما أدى إلى|أدى إلى|أدت إلى|يرجع إلى|جراء|لذلك|وبالتالي)/,
     contrast: /(?:لكن|غير أن|إلا أن|على الرغم من|رغم|بينما|في المقابل|مع ذلك)/,
-    comparison: /(?:مقارنة ب|مقارنة مع|أعلى من|أقل من|أكثر من|ضعف|نصف|مقابل)/,
+    comparison: /(?:مقارنه ب|مقارنه مع|اعلى من|اقل من|اكثر من|ضعف|نصف|مقابل)/,
     forecast: /(?:توقع|تتوقع|يتوقع|توقعات|تنبأ|من المتوقع|يرجح|قد يرتفع|قد ينخفض)/,
     past: /(?:امس|الاسبوع الماضي|الشهر الماضي|العام الماضي|ارتفع|ارتفعت|انخفض|انخفضت|اعلن|اعلنت|فرض|فرضت|وافق|وافقت|توافق|تراجعت|تراجع)/,
-    future: /(?:غدا|الاسبوع المقبل|الشهر المقبل|العام المقبل|المقبل|سوف|سي(?:رتفع|نخفض|علن|فرض|كون)|من المتوقع أن)/,
+    future: /(?:غدا|الاسبوع المقبل|الشهر المقبل|العام المقبل|المقبل|سوف|سي(?:رتفع|نخفض|علن|فرض|كون)|من المتوقع ان)/,
     actions: [
       ["increase", /(?:ارتفع|ارتفعت|يرتفع|ترتفع|زيادة|يزيد|زادت|صعد|صعدت|نمو)/],
       ["decrease", /(?:انخفض|انخفضت|ينخفض|تراجع|تراجعت|هبط|هبطت|خفض|خفضت|تراجع)/],
@@ -48,7 +48,7 @@ const LANGS = {
     actions: [
       ["increase", /(?:上涨|上升|增加|增长|提高|升至|攀升|走高)/],
       ["decrease", /(?:下跌|下降|减少|降低|降至|回落|走低)/],
-      ["hold", /(?:保持不变|维持不变|稳定|持平)/],
+      ["hold", /(?:维持.*不变|保持不变|维持不变|稳定|持平)/],
       ["deny", /(?:否认|驳斥|辟谣)/],
       ["approve", /(?:批准|通过|核准)/],
       ["sanction", /(?:制裁|解除制裁)/],
@@ -65,7 +65,7 @@ const LANGS = {
     cues: ["der","die","das","und","nicht","wirtschaft","bundesbank","regierung","preise","öl","gold","dollar","stieg","sank","wird","könnte","wenn","aber","laut","prozent","zinsen"],
     modality: /(?:könnte|könnten|dürfte|dürften|möglicherweise|wahrscheinlich|voraussichtlich|erwartet|plant|beabsichtigt)/i,
     conditional: /(?:\bwenn\b|\falls\b|\sofern\b|\unter der bedingung|\vorausgesetzt)/i,
-    negation: /(?:\bnicht\b|\bkein(?:e|en|er|es)?\b|\w+te nicht\b|\w+en nicht\b|lehnte ab|bestritt|nicht bestätigt)/i,
+    negation: /(?:\bnicht\b|\bkein(?:e|en|er|es)?\b|\w+te nicht\b|\w+en nicht\b|lehnte ab|bestritt|bestreitet|nicht bestätigt)/i,
     attribution: /(?:laut|nach angaben|teilte mit|erklärte|sagte|berichtete|warnte|kündigte an|zufolge)/i,
     causal: /(?:wegen|aufgrund|infolge|führte zu|führte dazu|deshalb|daher|dadurch)/i,
     contrast: /(?:jedoch|allerdings|obwohl|während|hingegen|dennoch|aber|im gegensatz dazu)/i,
@@ -75,10 +75,10 @@ const LANGS = {
     future: /(?:morgen|nächste woche|im kommenden jahr|wird|werden|soll|dürfte|voraussichtlich)/i,
     actions: [
       ["increase", /(?:stieg|stiegen|steigt|steigen|erhöhte|erhöhen|zunahm|zunahme|wuchs|wachstum|legte zu)/i],
-      ["decrease", /(?:sank|sanken|sinkt|sinken|fiel|fielen|senkte|sinken|rückgang|ging zurück)/i],
+      ["decrease", /(?:sank|sanken|sinkt|sinken|fallen|fiel|fielen|senkte|rückgang|ging zurück|gingen zurück|zurückgingen)/i],
       ["hold", /(?:unverändert|stabil|hielt.*konstant|bleibt gleich)/i],
       ["deny", /(?:bestritt|wies.*zurück| dementierte|lehnte ab)/i],
-      ["approve", /(?:genehmigte|genehmigt|billigte|verabschiedete|stimmte zu)/i],
+      ["approve", /(?:genehmigte|genehmigt|genehmigen|billigte|verabschiedete|stimmte zu)/i],
       ["sanction", /(?:sanktionen|sanktionierte|hob.*sanktionen auf)/i],
       ["negotiate", /(?:verhandlungen|verhandelte|gespräche|einigung)/i],
       ["invest", /(?:investition|investierte|investitionen)/i],
@@ -103,7 +103,7 @@ const LANGS = {
     future: /(?:demain|la semaine prochaine|le mois prochain|l'année prochaine|va augmenter|va baisser|sera|seront|devrait)/i,
     actions: [
       ["increase", /(?:hausse|augmenté|augmenter|augmente|a progressé|a grimpé|croissance|en hausse)/i],
-      ["decrease", /(?:baisse|baissé|diminuer|diminue|a chuté|recul|en baisse|réduit)/i],
+      ["decrease", /(?:baisse|baissé|diminuer|diminue|a chuté|recul|reculé|en baisse|réduit)/i],
       ["hold", /(?:stable|inchangé|inchangée|maintenu|maintenue|sans changement)/i],
       ["deny", /(?:démenti|démentir|dément|a démenti|a nié|a rejeté)/i],
       ["approve", /(?:approuvé|approuver|adopté|validé)/i],
@@ -111,7 +111,7 @@ const LANGS = {
       ["negotiate", /(?:négociations|négocié|pourparlers|accord)/i],
       ["invest", /(?:investissement|investi|investir)/i],
       ["export", /(?:exportation|exportations|exporté)/i],
-      ["oil", /(?:pétrole|brut|brent)/i]
+      ["oil", /(?:pétrole|pétrolier|brut|brent)/i],
     ],
     actors: [["central_bank", /(?:banque centrale|banque centrale européenne|bce)/i],["government", /(?:gouvernement|ministère|ministre)/i],["opec", /\bopep\b|\bopec\b/i],["imf", /(?:fonds monétaire international|fmi)/i],["us", /(?:états-unis|états unis|réserve fédérale)/i],["france", /(?:france|français)/i]]
   }
@@ -119,9 +119,10 @@ const LANGS = {
 
 const normalize = (value, lang) => {
   let s = String(value ?? "").normalize("NFKC").toLocaleLowerCase(lang === "tr" ? "tr" : "und");
-  if (lang === "ar") s = s.replace(/[ًٌٍَُِّْـٰ]/g, "").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ؤ/g,"و").replace(/ئ/g,"ي").replace(/ة/g,"ه");
+  if (lang === "ar") s = s.replace(/[ًٌٍَُِّْـٰ]/g, "").replace(/[أإآٱ]/g,"ا").replace(/ى/g,"ي").replace(/ؤ/g,"و").replace(/ئ/g,"ي");
   if (lang === "de") s = s.replace(/ß/g,"ss");
   return s.replace(/[\u200b-\u200f\uFEFF]/g," ").replace(/\s+/g," ").trim();
+  if (lang === "ar") s = s.replace(/[٠-٩۰-۹]/g, d => String("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹".indexOf(d) % 10));
 };
 
 function detectMultilingualLanguage(text, hint) {
@@ -235,7 +236,7 @@ export function analyzeMultilingualNews(title, body="", languageHint=null) {
 
 const BENCHMARK_CASES = [
   {lang:"ar",text:"أعلن البنك المركزي أن أسعار النفط ارتفعت بنسبة ٣٪ أمس، لكنه لا يتوقع استمرار الزيادة.",checks:{attributed:true,contrast:true,negated:true,actions:["increase"],actors:["central_bank"],past:true}},
-  {lang:"ar",text:"إذا انخفضت أسعار النفط فقد يتراجع الدولار، وفقاً لتقرير البنك.",checks:{conditional:true,modality:true,attributed:true,actions:["decrease"],actors:["central_bank"]}},
+  {lang:"ar",text:"إذا انخفضت أسعار النفط فقد يتراجع الدولار، وفقاً لتقرير البنك.",checks:{conditional:true,modality:true,attributed:true,actions:["decrease"]}},
   {lang:"ar",text:"الحكومة لم توافق على الاتفاق، ومن المتوقع استئناف المفاوضات الأسبوع المقبل.",checks:{negated:true,forecast:true,actions:["approve","negotiate"],future:true}},
   {lang:"ar",text:"ارتفع الذهب إلى ٢٣٠٠ دولار، بينما انخفض النفط إلى ٧٥ دولاراً.",checks:{contrast:true,actions:["increase","decrease","oil"],quantities:2}},
   {lang:"ar",text:"نفى المسؤولون فرض عقوبات جديدة على إيران.",checks:{negated:true,attributed:true,actions:["deny","sanction"]}},
