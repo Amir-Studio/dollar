@@ -1005,16 +1005,23 @@ export async function runNewsLearningCycle(env) {
 
 
 async function refreshNewsTriageModel(env) {
-  let model=null;
-  if(env.MARKET_CACHE) model=await env.MARKET_CACHE.get("news:triage:classifier:v1","json");
+  const savedRows=await learningRest(env,"market_news_triage_models?select=model,trained_at,trained_samples& id=eq.1&limit=1");
+  let model=savedRows?.[0]?.model||null;
   const latest=await learningRest(env,"market_news_triage_feedback?select=created_at&order=created_at.desc&limit=1");
   const latestAt=Date.parse(latest?.[0]?.created_at||"");
-  if(model?.trained_at&&Number.isFinite(latestAt)&&latestAt<=Date.parse(model.trained_at))
-    return {model,trained:false,samples:model.trained_samples||0};
+  const modelAt=Date.parse(savedRows?.[0]?.trained_at||model?.trained_at||"");
+  if(model&&Number.isFinite(latestAt)&&Number.isFinite(modelAt)&&latestAt<=modelAt)
+    return {model,trained:false,samples:savedRows?.[0]?.trained_samples||model.trained_samples||0};
   const feedback=await learningRest(env,"market_news_triage_feedback?select=features,decision&order=created_at.desc&limit=500");
   const trained=trainNewsTriageModel((feedback||[]).map(x=>({features:x.features,decision:x.decision})));
   if(trained.trained){
     model=trained.model;
+    const now=new Date().toISOString();
+    await learningRest(env,"market_news_triage_models?on_conflict=id",{
+      method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},
+      body:{id:1,version:model.version,model,trained_samples:model.trained_samples,
+        metrics:trained.metrics||{},trained_at:model.trained_at,updated_at:now}
+    });
     if(env.MARKET_CACHE) await env.MARKET_CACHE.put("news:triage:classifier:v1",JSON.stringify(model),{expirationTtl:60*60*24*180});
     return {model,trained:true,metrics:trained.metrics};
   }
