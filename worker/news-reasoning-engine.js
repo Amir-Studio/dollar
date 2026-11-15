@@ -99,7 +99,7 @@ function safePublisherUrl(value) {
     return parsed;
   } catch { return null; }
 }
-async function fetchArticleExcerpt(url,fetchImpl=fetch) {
+export async function fetchArticleExcerpt(url,fetchImpl=fetch) {
   try {
     let current=safePublisherUrl(url),response=null;
     if(!current) return "";
