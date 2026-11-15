@@ -48,7 +48,7 @@ export function extractUnknownVocabularyCandidates(text, language, options={}) {
    const tokens=source.match(/[\p{L}][\p{L}'’\-]{2,35}/gu)||[];
    for(const token of tokens) add(token);
  }
- return [...counts.entries()].filter(([,v])=>v.count>=2)
+ return [...counts.entries()].filter(([,v])=>CJK.has(lang)?v.count>=2:(v.count>=2||v.term.length>=9))
    .map(([normalized,v])=>({term:v.term,normalized_term:normalized,occurrences:v.count,language:lang,confidence_hint:Math.min(0.9,0.45+v.count*0.08)}))
    .sort((a,b)=>b.occurrences-a.occurrences||b.term.length-a.term.length)
    .slice(0,Math.max(1,Math.min(12,Number(options.limit)||8)));
@@ -72,7 +72,11 @@ export async function lookupVocabularyMeaning(term, language, fetchImpl=fetch) {
    const all=Object.entries(payload||{}).flatMap(([entryLanguage,entries])=>(Array.isArray(entries)?entries:[]).flatMap(entry=>(entry.definitions||[]).map(def=>({entry_language:entryLanguage,part_of_speech:entry.partOfSpeech||null,definition:String(def.definition||"").replace(/<[^>]*>/g," ").trim()}))));
    const useful=all.filter(x=>x.definition).slice(0,6);
    if(!useful.length) return {ok:false,status:"definition_missing",term:clean,language:lang};
-   return {ok:true,term:clean,language:lang,definition_en:useful.map(x=>x.definition).join(" | ").slice(0,1600),part_of_speech:useful[0].part_of_speech,source_provider:"Wiktionary",source_url:"https://en.wiktionary.org/wiki/"+encodeURIComponent(clean),dictionary_api_url:url,confidence:0.68,status:"candidate_review",dictionary_entry_languages:[...new Set(useful.map(x=>x.entry_language))],cross_language_equivalents:{}};
+   const definition_en=useful.map(x=>x.definition).join(" | ").slice(0,1600);
+   const bridge=analyzeMarketLexicon(definition_en,"en");
+   const bridgeMatch=bridge.matches?.[0]||null;
+   const bridgedConcept=bridgeMatch?getMarketLexicon({language:lang,query:bridgeMatch.pivot_term,limit:3}).concepts.find(x=>x.id===bridgeMatch.concept_id):null;
+   return {ok:true,term:clean,language:lang,definition_en,part_of_speech:useful[0].part_of_speech,source_provider:"Wiktionary",source_url:"https://en.wiktionary.org/wiki/"+encodeURIComponent(clean),dictionary_api_url:url,confidence:bridgeMatch?0.82:0.68,status:"candidate_review",dictionary_entry_languages:[...new Set(useful.map(x=>x.entry_language))],concept_id:bridgeMatch?.concept_id||null,cross_language_equivalents:bridgedConcept?.equivalents||{},cross_language_inference:bridgeMatch?"english_gloss_matched_to_internal_multilingual_ontology":"english_dictionary_gloss_only"};
  } catch(error) {
    return {ok:false,status:"lookup_failed",term:clean,language:lang,error:String(error?.message||error).slice(0,120)};
  }
