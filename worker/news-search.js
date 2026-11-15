@@ -28,8 +28,8 @@ export function detectMarketNewsLocale(value) {
   if(/[\u4e00-\u9fff]/.test(query)) return "zh";
   if(/[پچژگکی]/.test(query)) return "fa";
   if(/[\u0600-\u06ff]/.test(query)) return "ar";
-  if(/[äöüß]/i.test(query)) return "de";
-  if(/[àâçéèêëîïôûùüÿœ]/i.test(query)) return "fr";
+  if(/\b(goldpreis|zentralbank|wechselkurs|ölpreis|wirtschaft|devisen|dollarkurs)\b/i.test(query)||/[äöüß]/i.test(query)) return "de";
+  if(/\b(prix|cours|banque centrale|taux de change|pétrole|économie|devises|marchés)\b/i.test(query)||/[àâçéèêëîïôûùüÿœ]/i.test(query)) return "fr";
   return "en";
 }
 
