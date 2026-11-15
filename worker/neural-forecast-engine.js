@@ -3,7 +3,8 @@
 // This is a price-series model, not a language model or a trading instruction.
 export const NEURAL_MODEL_VERSION = "dollar-price-mlp-2.1.0";
 const INPUTS = 9;
-const HIDDEN = 6;
+const HIDDEN = 8;
+const ENSEMBLE_SIZE = 5;
 const MAX_TRAINING_ROWS = 120;
 const MIN_TRAINING_ROWS = 60;
 const MAX_EPOCHS = 12;
@@ -68,8 +69,8 @@ function fitScaler(rows) {
   for(let j=0;j<INPUTS;j++) scale[j]=Math.max(Math.sqrt(scale[j]),1e-6);
   return {mean,scale,apply(row){return row.map((x,j)=>clamp((x-mean[j])/scale[j],-5,5));}};
 }
-function makeNetwork() {
-  let seed=0x6d2b79f5;
+function makeNetwork(initialSeed=0x6d2b79f5) {
+  let seed=initialSeed>>>0;
   const random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
   const limit=Math.sqrt(6/(INPUTS+HIDDEN));
   return {
@@ -112,8 +113,8 @@ function trainOneEpoch(net,x,labels) {
   net.b2-=rate*clamp(gb2,-GRADIENT_LIMIT,GRADIENT_LIMIT);
   return loss/Math.max(1,x.length);
 }
-function fitCore(rows,labels,epochs) {
-  const scaler=fitScaler(rows),x=rows.map(scaler.apply),net=makeNetwork();
+function fitCore(rows,labels,epochs,seed=0x6d2b79f5) {
+  const scaler=fitScaler(rows),x=rows.map(scaler.apply),net=makeNetwork(seed);
   let loss=0;
   for(let epoch=0;epoch<epochs;epoch++) loss=trainOneEpoch(net,x,labels);
   return {net,scaler,loss};
@@ -128,7 +129,7 @@ function chooseEpochs(examples,labels,horizonDays) {
   const validStart=examples[split]?.origin_time;
   // Purge training labels whose realization window overlaps the validation era.
   const trainIndices=examples.slice(0,split).map((item,index)=>({item,index}))
-    .filter(x=>x.item.target_time < validStart-horizonDays*DAY*0.25).map(x=>x.index);
+    .filter(x=>x.item.target_time < validStart).map(x=>x.index);
   const validIndices=examples.slice(split).map((_,index)=>split+index);
   const trainRows=trainIndices.map(i=>examples[i].features),trainLabels=trainIndices.map(i=>labels[i]);
   const validRows=validIndices.map(i=>examples[i].features),validLabels=validIndices.map(i=>labels[i]);
@@ -180,8 +181,16 @@ export function trainNeuralReturnModel(points,horizonDays) {
   const rows=examples.map(x=>x.features),rawTargets=examples.map(x=>x.target);
   const scale=targetScale(rawTargets),labels=rawTargets.map(x=>clamp(x/scale,-0.98,0.98));
   const selection=chooseEpochs(examples,labels,horizon);
-  const fitted=fitCore(rows,labels,selection.epochs);
-  const prediction=forward(fitted.net,fitted.scaler.apply(featuresAt(points,points.length-1))).output*scale;
+  const latestFeatures=featuresAt(points,points.length-1);
+  const members=Array.from({length:ENSEMBLE_SIZE},(_,i)=>
+    fitCore(rows,labels,selection.epochs,(0x6d2b79f5+Math.imul(i+1,0x9e3779b9))>>>0));
+  const memberPredictions=members.map(member=>forward(member.net,member.scaler.apply(latestFeatures)).output*scale);
+  const ensembleMean=memberPredictions.reduce((sum,x)=>sum+x,0)/memberPredictions.length;
+  const ensembleStd=Math.sqrt(memberPredictions.reduce((sum,x)=>sum+(x-ensembleMean)**2,0)/memberPredictions.length);
+  const fitted=members[0];
+  const validationSkill=Number(selection.validation_skill);
+  const skillGate=Number.isFinite(validationSkill)?clamp((validationSkill+0.05)/0.55,0,1):0;
+  const prediction=ensembleMean*skillGate;
   const recent=points.slice(-31),returns=[];
   for(let i=1;i<recent.length;i++){
     const elapsed=(Number(recent[i].t)-Number(recent[i-1].t))/DAY;
@@ -192,9 +201,10 @@ export function trainNeuralReturnModel(points,horizonDays) {
   const volatilityCap=clamp(3.5*vol*Math.sqrt(horizon),0.01,0.30);
   return {
     available:true,predicted_log_return:clamp(prediction,-volatilityCap,volatilityCap),
-    training_samples:examples.length,architecture:`${INPUTS}-${HIDDEN}-1`,
+    training_samples:examples.length,architecture:`${INPUTS}-${HIDDEN}-1`,ensemble_size:ENSEMBLE_SIZE,
     epochs:selection.epochs,validation_huber_loss:selection.validation_loss,
     validation_baseline_huber_loss:selection.baseline_loss,validation_skill:selection.validation_skill,
+    ensemble_prediction_std:Number(ensembleStd.toFixed(8)),validation_skill_gate:Number(skillGate.toFixed(4)),
     purged_training_samples:selection.purged_training_samples,validation_samples:selection.validation_samples,
     final_training_huber_loss:Number(fitted.loss.toFixed(8)),target_scale:Number(scale.toFixed(6)),
     volatility_cap:Number(volatilityCap.toFixed(6)),horizon_days:horizon,
@@ -215,5 +225,5 @@ export function runNeuralForecastSelfTest() {
     {name:"non_positive_price_is_rejected",passed:!trainNeuralReturnModel(sample.map((x,i)=>i===100?{...x,p:0}:x),3).available}
   ];
   return {version:NEURAL_MODEL_VERSION,total:checks.length,passed:checks.filter(x=>x.passed).length,
-    failed:checks.filter(x=>!x.passed),architecture:`${INPUTS}-${HIDDEN}-1`};
+    failed:checks.filter(x=>!x.passed),architecture:`${INPUTS}-${HIDDEN}-1`,ensemble_size:ENSEMBLE_SIZE};
 }
