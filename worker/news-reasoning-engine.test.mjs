@@ -15,6 +15,7 @@ const mockFetch = async url => {
   if(value.includes("news-index.json")) return json(historyArchiveIndex);
   if(value.includes("news-central-bank-1.json")) return json(historyArchiveRecord);
   if(value.includes("news.google.com")) return new Response(rss,{status:200,headers:{"content-type":"application/xml"}});
+  if(value.includes("example.org/report")) return new Response("<html><body><p>Central bank reports latest inflation and policy data in its official publication for the current reporting period.</p></body></html>",{status:200,headers:{"content-type":"text/html"}});
   throw new Error("unexpected URL "+value);
 };
 
@@ -35,8 +36,8 @@ test("History retrieval preserves draft status and returns relevant source conte
 
 test("reasoner searches when first pass identifies an evidence gap and then revises",async()=>{
   const outputs=[
-    {comprehension:{event:"تصمیم بانک مرکزی"},facts:[{statement:"دادهٔ رسمی تورم منتشر شده است.",source_ids:["news:1"]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:["داده رسمی کم است"],search_queries:["central bank inflation data policy"],provisional_conclusion:"نامشخص",confidence:.25,abstain:true},
-    {comprehension:{event:"گزارش داده تورم"},facts:[{statement:"یک گزارش مرتبط پیدا شد.",source_ids:["web:1"]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]}
+    {comprehension:{event:"تصمیم بانک مرکزی"},facts:[{statement:"دادهٔ رسمی تورم منتشر شده است.",source_ids:["news:1"],evidence:[]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:["داده رسمی کم است"],search_queries:["central bank inflation data policy"],provisional_conclusion:"نامشخص",confidence:.25,abstain:true},
+    {comprehension:{event:"گزارش داده تورم"},facts:[{statement:"یک گزارش مرتبط پیدا شد.",source_ids:["web:1"],evidence:[{source_id:"web:1",quote:"Central bank reports latest inflation and policy data in its official publication for the current reporting period."}]}],claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],source_assessment:[],unresolved_questions:[],conclusion:"هنوز برای نتیجه قطعی کافی نیست",confidence:.55,abstain:true,next_research:[]}
   ];
   const env={AI:{run:async()=>({response:JSON.stringify(outputs.shift())})}};
   const result=await analyzeNewsWithReasoning({
@@ -52,6 +53,8 @@ test("reasoner searches when first pass identifies an evidence gap and then revi
   assert.equal(result.abstained,true);
   assert.equal(result.analysis.conclusion,"هنوز برای نتیجه قطعی کافی نیست");
   assert.equal(result.evidence_audit.with_valid_references,1);
+  assert.equal(result.evidence_audit.with_verified_quotes,1);
+  assert.equal(result.evidence_sufficiency.verified_quote_coverage_pct,100);
   assert.equal(result.evidence_sufficiency.source_reference_coverage_pct,100);
 });
 
@@ -92,7 +95,7 @@ test("invalid reasoning structure fails closed instead of inventing an analysis"
 });
 
 test("unreferenced factual claims force abstention",async()=>{
-  const output={comprehension:{event:"خبر اقتصادی"},facts:[{statement:"ادعای بدون منبع",source_ids:[]}],
+  const output={comprehension:{event:"خبر اقتصادی"},facts:[{statement:"ادعای بدون منبع",source_ids:[],evidence:[]}],
     claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
     evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.95,abstain:false};
   const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
@@ -136,4 +139,49 @@ test("publisher reader follows a bounded redirect to a public publisher",async()
   });
   assert.match(result,/central bank/);
   assert.equal(calls,2);
+});
+
+test("source reference alone is not treated as verified evidence",async()=>{
+  const output={comprehension:{event:"خبر"},facts:[{statement:"ادعای دارای لینک اما بدون نقل‌قول",source_ids:["news:1"],evidence:[]}],
+    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
+  const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"خبر اقتصادی",original_text:"متن خبر دارای اطلاعات واقعی برای بررسی.",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.abstained,true);
+  assert.equal(result.evidence_audit.with_valid_references,1);
+  assert.equal(result.evidence_audit.with_verified_quotes,0);
+});
+
+test("fabricated quote does not pass source evidence verification",async()=>{
+  const output={comprehension:{event:"خبر"},facts:[{statement:"ادعای ساختگی",source_ids:["news:1"],
+    evidence:[{source_id:"news:1",quote:"این جمله در متن منبع وجود ندارد و ساختگی است."}]}],
+    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
+  const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"خبر اقتصادی",original_text:"بانک مرکزی گزارش رسمی شاخص قیمت را در روز دوشنبه منتشر کرد.",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.abstained,true);
+  assert.equal(result.evidence_audit.items[0].evidence_quotes[0].quote_verified,false);
+});
+
+test("evidence quote must refer to a declared source id",async()=>{
+  const output={comprehension:{event:"خبر"},facts:[{statement:"ادعا",source_ids:[],
+    evidence:[{source_id:"news:999",quote:"یک نقل قول فرضی با طول کافی برای بررسی تطبیق متن."}]}],
+    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.8,abstain:false};
+  const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"خبر اقتصادی",original_text:"بانک مرکزی گزارش رسمی شاخص قیمت را منتشر کرد.",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.abstained,true);
+  assert.equal(result.evidence_audit.items[0].evidence_quotes[0].source_exists,false);
 });
