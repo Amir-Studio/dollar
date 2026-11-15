@@ -65,3 +65,29 @@ test("unknown vocabulary endpoint rejects unsafe source URLs", async () => {
   });
   assert.equal(response.status, 400);
 });
+
+test("unknown vocabulary endpoint rejects oversized streamed bodies without content-length", async () => {
+  const request = new Request("https://worker.test/vocabulary/unknown", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-vocabulary-secret": "configured-secret" },
+    body: JSON.stringify({ term: "x", language: "en", context: "a".repeat(12000) })
+  });
+  const response = await worker.fetch(request, {
+    HISTORY_VOCABULARY_SECRET: "configured-secret",
+    HISTORY_GITHUB_TOKEN: "test-github-token"
+  });
+  assert.equal(response.status, 413);
+});
+
+test("unknown vocabulary endpoint requires JSON content type", async () => {
+  const request = new Request("https://worker.test/vocabulary/unknown", {
+    method: "POST",
+    headers: { "content-type": "text/plain", "x-vocabulary-secret": "configured-secret" },
+    body: '{"term":"stagflation","language":"en","context":"example"}'
+  });
+  const response = await worker.fetch(request, {
+    HISTORY_VOCABULARY_SECRET: "configured-secret",
+    HISTORY_GITHUB_TOKEN: "test-github-token"
+  });
+  assert.equal(response.status, 415);
+});
