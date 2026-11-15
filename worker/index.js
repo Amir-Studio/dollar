@@ -1,5 +1,6 @@
-import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates } from "./forecast-engine.js";
+import { handleForecastApi, runForecastCycle, isMarketRelevantHeadline, getMarketSnapshot, headlineConflictCandidates, runUnifiedNewsPipelineSelfTest } from "./forecast-engine.js";
 import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./language-engine.js";
+import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
@@ -342,6 +343,169 @@ function cleanNewsItems(items) {
   }).sort((a,b) => Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,30);
 }
 
+
+async function learningRest(env, path, options = {}) {
+  const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !key) throw Error("Learning storage is not configured");
+  const response = await fetch(base + "/rest/v1/" + path, {
+    method: options.method || "GET",
+    headers: { apikey:key, authorization:"Bearer "+key, accept:"application/json", "content-type":"application/json", ...(options.headers || {}) },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    signal: AbortSignal.timeout(10000)
+  });
+  const raw = await response.text();
+  if (!response.ok) throw Error("Learning storage HTTP " + response.status + ": " + raw.slice(0,180));
+  return raw ? JSON.parse(raw) : [];
+}
+function safeJsonSize(value) { try { return new TextEncoder().encode(JSON.stringify(value)).length; } catch { return Infinity; } }
+async function fingerprintLearningCase(title, excerpt, expected) {
+  const raw = [title,excerpt,JSON.stringify(expected)].join("\n").normalize("NFKC").toLocaleLowerCase("en-US").replace(/\s+/g," ").trim();
+  const digest = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
+  return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+function getPathValue(object, path) { return String(path||"").split(".").reduce((value,key)=>value == null ? undefined : value[key],object); }
+function compareLearningAssertions(analysis, expected) {
+  const assertions = Array.isArray(expected?.assertions) ? expected.assertions : [];
+  const results = assertions.map(assertion => {
+    const actual = getPathValue(analysis,assertion.path);
+    return {path:assertion.path,expected:assertion.equals,actual,passed:JSON.stringify(actual)===JSON.stringify(assertion.equals)};
+  });
+  return {total:results.length,passed:results.filter(x=>x.passed).length,failed:results.filter(x=>!x.passed).length,results};
+}
+
+function buildRuleChangeCandidates(evaluated) {
+  const groups = new Map();
+  for (const item of evaluated) {
+    for (const result of item.results || []) {
+      if (result.passed) continue;
+      const key = String(item.category || "other") + "::" + String(result.path || "unknown");
+      if (!groups.has(key)) groups.set(key,{category:item.category || "other",path:result.path || "unknown",caseIds:new Set(),examples:[]});
+      const group = groups.get(key);
+      group.caseIds.add(item.feedback_id || item.id);
+      if (group.examples.length < 3) group.examples.push({
+        expected:result.expected,
+        actual:result.actual
+      });
+    }
+  }
+  return [...groups.values()].map(group => ({
+    category:group.category,
+    output_path:group.path,
+    independent_case_count:group.caseIds.size,
+    status:group.caseIds.size >= 3 ? "recurring_candidate_needs_holdout_test" : "insufficient_recurrence",
+    examples:group.examples,
+    automatic_rule_change:false,
+    required_next_step:group.caseIds.size >= 3
+      ? "Draft a narrowly scoped rule, test on unseen holdout articles and the full regression suite, then require human approval."
+      : "Collect more independently verified cases before proposing a rule."
+  })).sort((a,b)=>b.independent_case_count-a.independent_case_count);
+}
+function evaluateNewsLearningCase(item) {
+  const parts=String(item.input_text||"").split("\n");
+  const title=parts[0]||"", body=parts.slice(1).join("\n");
+  if(item.category==="topic_classification") {
+    const actual=analyzeMarketLanguage([{title,original_title:title,original_text:body}]).per_news[0] || {};
+    return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:item.validation_status,...compareLearningAssertions(actual,item.expected_output)};
+  }
+  if(item.category==="contradiction") {
+    // A single article cannot establish a cross-source contradiction.
+    return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:"not_evaluable_single_article",total:0,passed:0,failed:0,results:[],evaluation_note:"Requires at least two independently sourced article claims; never mark a single-article case as passed."};
+  }
+  const actual=analyzeNewsReading(title,body);
+  return {id:item.id,feedback_id:item.feedback_id,category:item.category,status:item.validation_status,...compareLearningAssertions(actual,item.expected_output)};
+}
+
+function runNewsLearningEvaluationSelfTest() {
+  const topic=evaluateNewsLearningCase({id:"synthetic-topic",feedback_id:"synthetic-topic",category:"topic_classification",
+    input_text:"بازار ارز و نرخ دلار\nقیمت دلار آزاد در بازار ارز بررسی شد.",
+    expected_output:{assertions:[{path:"themes",equals:["fx_policy"]}]},validation_status:"verified"});
+  const contradiction=evaluateNewsLearningCase({id:"synthetic-conflict",feedback_id:"synthetic-conflict",category:"contradiction",
+    input_text:"دو خبر متناقض\nخبر اول می‌گوید نرخ ثابت ماند.",expected_output:{assertions:[{path:"possible_conflicts",equals:[]}]},validation_status:"verified"});
+  const results=[
+    {name:"topic_feedback_uses_topic_classifier",passed:topic.total===1&&topic.passed===1},
+    {name:"single_article_cannot_pass_cross_source_contradiction",passed:contradiction.total===0&&contradiction.status==="not_evaluable_single_article"},
+    {name:"wrong_expected_topic_is_counted_as_failure",passed:evaluateNewsLearningCase({id:"synthetic-wrong-topic",feedback_id:"synthetic-wrong-topic",category:"topic_classification",input_text:"بازار ارز و نرخ دلار\\nقیمت دلار آزاد در بازار ارز بررسی شد.",expected_output:{assertions:[{path:"themes",equals:["gold"]}]},validation_status:"verified"}).failed===1},
+    {name:"missing_assertions_is_not_a_pass",passed:evaluateNewsLearningCase({id:"synthetic-no-assertions",feedback_id:"synthetic-no-assertions",category:"topic_classification",input_text:"بازار ارز و نرخ دلار\\nقیمت دلار آزاد در بازار ارز بررسی شد.",expected_output:{themes:["fx_policy"]},validation_status:"verified"}).total===0}
+  ];
+  return {total:results.length,passed:results.filter(x=>x.passed).length,failed:results.filter(x=>!x.passed).length,results};
+}
+
+async function newsLearningReport(env) {
+  const [feedback,cases,cycles] = await Promise.all([
+    learningRest(env,"market_news_feedback?select=id,status,issue_categories,created_at,reviewed_at&order=created_at.desc&limit=200"),
+    learningRest(env,"market_news_learning_cases?select=id,feedback_id,category,input_text,expected_output,validation_status,created_at&order=created_at.desc&limit=200"),
+    learningRest(env,"market_news_learning_cycles?select=cycle_at,analyzer_version,feedback_seen,verified_cases,pending_cases,rejected_cases,benchmark_before,benchmark_after,actions,notes&order=cycle_at.desc&limit=20")
+  ]);
+  const benchmark=runNewsReadingBenchmark();
+  const learningEvaluationBenchmark=runNewsLearningEvaluationSelfTest();
+  const verifiedFeedbackIds=new Set(feedback.filter(x=>x.status==="verified").map(x=>x.id));
+  const evaluated=cases.filter(item=>verifiedFeedbackIds.has(item.feedback_id)).map(evaluateNewsLearningCase);
+  const checks=evaluated.flatMap(x=>x.results);
+  return {
+    ok:true,engine:"persistent-news-feedback-loop",
+    mode:"human_verified_supervised_error_memory_with_regression_evaluation",
+    versions:{language:LANGUAGE_ENGINE_VERSION,reading:NEWS_READING_VERSION},
+    summary:{
+      feedback_total:feedback.length,
+      feedback_submitted:feedback.filter(x=>x.status==="submitted").length,
+      feedback_verified:feedback.filter(x=>x.status==="verified").length,
+      feedback_rejected:feedback.filter(x=>x.status==="rejected").length,
+      learning_cases:cases.length,
+      verified_cases:evaluated.length,
+      evaluated_cases:evaluated.filter(x=>x.total>0).length,
+      cases_passed:evaluated.filter(x=>x.total>0&&x.failed===0).length,
+      cases_failed:evaluated.filter(x=>x.failed>0).length,
+      cases_unscorable:evaluated.filter(x=>x.total===0).length,
+      cases_pending_validation:cases.filter(x=>x.validation_status==="pending").length,
+      cases_with_assertions:evaluated.filter(x=>x.total>0).length,
+      real_case_assertions:checks.length,
+      real_case_assertions_passed:checks.filter(x=>x.passed).length,
+      real_case_assertions_failed:checks.filter(x=>!x.passed).length,
+      benchmark:{version:benchmark.version,total:benchmark.total,passed:benchmark.passed,failed:benchmark.failed,score_pct:benchmark.score_pct},
+      learning_evaluation_benchmark:learningEvaluationBenchmark
+    },
+    benchmark_failures:benchmark.failures,real_case_results:evaluated,
+    rule_change_candidates:buildRuleChangeCandidates(evaluated),
+    feedback:feedback.slice(0,30),cycles
+  };
+}
+
+
+export async function runNewsLearningCycle(env) {
+  try {
+    const report=await newsLearningReport(env);
+    const s=report.summary;
+    const actions=[];
+    if(s.feedback_submitted>0) actions.push({action:"human_review_required",count:s.feedback_submitted});
+    if(s.real_case_assertions_failed>0) actions.push({action:"review_failed_cases_before_rule_change",failed_assertions:s.real_case_assertions_failed});
+    if(s.cases_unscorable>0) actions.push({action:"add_explicit_test_assertions",unscorable_cases:s.cases_unscorable});
+    const ruleCandidates=report.rule_change_candidates.filter(x=>x.status==="recurring_candidate_needs_holdout_test");
+    if(ruleCandidates.length>0) actions.push({action:"candidate_requires_holdout_validation",count:ruleCandidates.length});
+    if(s.verified_cases<30) actions.push({action:"collect_more_verified_real_cases",current:s.verified_cases,minimum_target:30});
+    if(report.summary.benchmark.failed>0) actions.push({action:"regression_block",failures:report.summary.benchmark.failed});
+    if(!actions.length) actions.push({action:"no_change_required",reason:"current checked cases pass; keep monitoring unseen news"});
+    for(const item of report.real_case_results) {
+      await learningRest(env,"market_news_learning_cases?id=eq."+encodeURIComponent(item.id),{
+        method:"PATCH",headers:{"prefer":"return=minimal"},
+        body:{validation_report:{total:item.total,passed:item.passed,failed:item.failed,results:item.results,evaluation_status:item.total===0?"unscorable":item.failed>0?"failed":"passed"},
+          validation_status:item.total===0?"unscorable":item.failed>0?"needs_revision":"approved",validated_at:new Date().toISOString()}
+      });
+    }
+    const saved=await learningRest(env,"market_news_learning_cycles",{
+      method:"POST",headers:{"prefer":"return=representation"},
+      body:{analyzer_version:NEWS_READING_VERSION,feedback_seen:s.feedback_total,verified_cases:s.verified_cases,
+        pending_cases:s.cases_pending_validation,rejected_cases:s.feedback_rejected,
+        benchmark_before:report.summary.benchmark,benchmark_after:report.summary.benchmark,
+        actions,notes:"This cycle evaluates human-verified corrections against the current deterministic parser. It records learning evidence; it does not rewrite parser rules or train model weights automatically."}
+    });
+    return {ran:true,cycle_id:saved?.[0]?.id??null,summary:s,actions};
+  } catch(error) {
+    console.error("News learning cycle failed:",error?.message||error);
+    return {ran:false,error:String(error?.message||error).slice(0,180)};
+  }
+}
+
 async function readNewsFromSupabase(env) {
   const base = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -441,7 +605,7 @@ export async function refreshBackground(env) {
 
 export default {
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(refreshBackground(env).then(market => runForecastCycle(env,market)).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
+    ctx.waitUntil(refreshBackground(env).then(async market => { await runForecastCycle(env,market); await runNewsLearningCycle(env); }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
   },
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -462,7 +626,7 @@ export default {
       const result = analyzeConversationContext(turns,payload?.language);
       return reply({ok:true,engine:"dollar-conversation-context",version:CONVERSATION_CONTEXT_VERSION,result},200,{"cache-control":"no-store"});
     }
-    if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+    if (request.method !== "GET" && !(request.method === "POST" && ["/news/feedback","/news/learning/review"].includes(url.pathname))) return reply({error:"Method not allowed"},405);
     if (url.pathname === "/forecast/v2") {
       const asset = url.searchParams.get("asset") || "USD_IRR_FREE";
       if (!Object.hasOwn(ASSETS,asset)) return reply({error:"Unsupported asset"},400);
@@ -483,12 +647,30 @@ export default {
         data.decision_brief = null;
         data.decision_brief_error = String(error?.message || error).slice(0,120);
       }
+      const combinedLanguageAnalysis = analyzeMarketLanguage(news, []);
       data.news_context = {
         collected_at: cachedNews?.fetched_at || new Date().toISOString(),
         window_hours: 72,
         headline_count: news.length,
         recent_24h_count: news.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
         topics: newsTopics(news),
+        language_intelligence:{
+          engine:"dollar-domain-nlp",version:LANGUAGE_ENGINE_VERSION,mode:"deterministic_domain_nlp_not_llm",
+          analyzed_articles:combinedLanguageAnalysis.news_analyzed,
+          excerpt_articles:combinedLanguageAnalysis.news_with_excerpt,
+          excerpt_coverage_pct:combinedLanguageAnalysis.excerpt_coverage_pct,
+          themes:combinedLanguageAnalysis.themes,
+          events:combinedLanguageAnalysis.events,
+          possible_conflicts:combinedLanguageAnalysis.possible_conflicts,
+          formal_language:combinedLanguageAnalysis.formal_language,
+          bilingual_lexicon:combinedLanguageAnalysis.bilingual_lexicon,
+          hard_news_comprehension:combinedLanguageAnalysis.hard_news_comprehension,
+          news_reading_comprehension:combinedLanguageAnalysis.news_reading_comprehension,
+          structured_claim_conflicts:combinedLanguageAnalysis.structured_claim_conflicts,
+          structured_conflict_benchmark:combinedLanguageAnalysis.structured_conflict_benchmark,
+          theme_classification_benchmark:combinedLanguageAnalysis.theme_classification_benchmark,
+          quality:combinedLanguageAnalysis.quality
+        },
         headlines: news.slice(0,12)
       };
       if (!response.ok && !data.forecast) {
@@ -496,18 +678,67 @@ export default {
       }
       return reply(data,200,{"cache-control":"no-store"});
     }
+
+    if (url.pathname === "/news/feedback") {
+      if(request.method!=="POST") return reply({error:"Method not allowed"},405);
+      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      if(Number(request.headers.get("content-length")||0)>16000) return reply({error:"Feedback payload too large"},413);
+      let payload; try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
+      const title=String(payload?.article_title||"").trim(), excerpt=String(payload?.input_excerpt||"").trim();
+      const categories=Array.isArray(payload?.issue_categories)?[...new Set(payload.issue_categories.map(x=>String(x).trim()).filter(Boolean))].slice(0,8):[];
+      const allowed=new Set(["wrong_actor","wrong_action","negation","modality","conditionality","attribution","time_scope","numeric_value","unit_mismatch","causal_inference","topic_classification","contradiction","translation","missing_context","other"]);
+      if(!title||title.length>500||excerpt.length>5000||!payload?.predicted_output||!payload?.corrected_output||safeJsonSize(payload.predicted_output)>5000||safeJsonSize(payload.corrected_output)>5000||categories.some(x=>!allowed.has(x))) return reply({error:"Invalid feedback payload"},400);
+      try {
+        const saved=await learningRest(env,"market_news_feedback",{method:"POST",headers:{"prefer":"return=representation"},body:{
+          article_url:typeof payload.article_url==="string"?payload.article_url.slice(0,1500):null,
+          article_title:title,input_excerpt:excerpt,analyzer_version:String(payload.analyzer_version||LANGUAGE_ENGINE_VERSION).slice(0,80),
+          predicted_output:payload.predicted_output,corrected_output:payload.corrected_output,issue_categories:categories,
+          evidence_url:typeof payload.evidence_url==="string"?payload.evidence_url.slice(0,1500):null,
+          reviewer_note:String(payload.reviewer_note||"").slice(0,1500),status:"submitted"
+        }});
+        const item=Array.isArray(saved)?saved[0]:null;
+        if(item?.id) await learningRest(env,"market_news_learning_cases",{method:"POST",headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},body:{
+          feedback_id:item.id,category:categories[0]||"other",input_text:title+"\n"+excerpt,
+          expected_output:payload.corrected_output,case_fingerprint:await fingerprintLearningCase(title,excerpt,payload.corrected_output),validation_status:"pending"
+        }});
+        return reply({ok:true,feedback_id:item?.id||null,status:"submitted",note_fa:"بازخورد ذخیره شد؛ تا تأیید انسانی، برچسب حقیقت قطعی محسوب نمی‌شود و هیچ قاعده‌ای خودکار تغییر نمی‌کند."},201);
+      } catch(error) { console.error("News feedback write failed:",error); return reply({error:"Could not save feedback"},503); }
+    }
+    if (url.pathname === "/news/learning/review") {
+      if(request.method!=="POST") return reply({error:"Method not allowed"},405);
+      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      let payload; try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
+      const id=String(payload?.feedback_id||""), status=payload?.status;
+      if(!/^[0-9a-f-]{36}$/i.test(id)||!["verified","rejected"].includes(status)) return reply({error:"feedback_id and verified/rejected status are required"},400);
+      try {
+        const updated=await learningRest(env,"market_news_feedback?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:{"prefer":"return=representation"},body:{status,reviewed_at:new Date().toISOString(),reviewer_note:String(payload.reviewer_note||"").slice(0,1500)}});
+        if(!updated.length) return reply({error:"Feedback not found"},404);
+        return reply({ok:true,feedback_id:id,status,note_fa:status==="verified"?"بازخورد انسانی تأیید شد و وارد مجموعهٔ ارزیابی می‌شود؛ تغییر خودکار موتور انجام نشده است.":"بازخورد رد شد و در ارزیابی معتبر شمرده نمی‌شود."});
+      } catch(error) { console.error("News feedback review failed:",error); return reply({error:"Could not review feedback"},503); }
+    }
+    if (url.pathname === "/news/learning") {
+      if(request.method!=="GET") return reply({error:"Method not allowed"},405);
+      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      try { return reply(await newsLearningReport(env),200,{"cache-control":"no-store"}); }
+      catch(error) { console.error("News learning report failed:",error); return reply({error:"Learning report unavailable"},503); }
+    }
+
     if (url.pathname === "/news") {
       // Public GET requests are read-only. RSS ingestion runs only in the
       // scheduled refresh path, not on arbitrary visitor traffic.
       const stored = await readNewsFromSupabase(env).catch(() => []);
       const items = cleanNewsItems(stored);
       const conflicts = headlineConflictCandidates(items);
+      const languageAnalysis = analyzeMarketLanguage(items, []);
       return reply({
         ok:true,window_hours:72,headline_count:items.length,
         recent_24h_count:items.filter(x => Date.now()-Date.parse(x.published_at) <= 24*60*60*1000).length,
         source_count:new Set(items.map(x=>x.source_id||x.domain)).size,
         potential_conflicts:conflicts,
         potential_conflict_count:conflicts.length,
+        language_intelligence:{engine:"dollar-domain-nlp",version:LANGUAGE_ENGINE_VERSION,mode:"deterministic_domain_nlp_not_llm",analyzed_articles:languageAnalysis.news_analyzed,excerpt_articles:languageAnalysis.news_with_excerpt,excerpt_coverage_pct:languageAnalysis.excerpt_coverage_pct,themes:languageAnalysis.themes,
+          topic_evidence:languageAnalysis.per_news.map(article=>({title:article.title,source:article.source,themes:article.theme_evidence||[],input_mode:article.input_mode,content_chars:article.content_chars})),
+          events:languageAnalysis.events,possible_conflicts:languageAnalysis.possible_conflicts,structured_claim_conflicts:languageAnalysis.structured_claim_conflicts,structured_conflict_benchmark:languageAnalysis.structured_conflict_benchmark,formal_language:languageAnalysis.formal_language,bilingual_lexicon:languageAnalysis.bilingual_lexicon,hard_news_comprehension:languageAnalysis.hard_news_comprehension,news_reading_comprehension:languageAnalysis.news_reading_comprehension,quality:languageAnalysis.quality,theme_classification_benchmark:languageAnalysis.theme_classification_benchmark},
         refreshed:false,
         refresh_mode:"scheduled_only",
         topics:newsTopics(items),items
@@ -549,6 +780,7 @@ export default {
         service: "dollar-market-intelligence",
         configured: databaseConfigured,
         llm_configured: false,
+        translation_pipeline:{enabled:false,reason:"No translation-provider secret is configured; English source text is analyzed directly without fabricating a Persian translation."},
         model: null,
         language_model: {
           enabled: false,
@@ -558,6 +790,7 @@ export default {
           note_fa: "مدل زبانی مولد مستقلی مستقر نیست."
         },
         history_parser_self_test: runHistoryParserSelfTest(),
+        unified_news_pipeline_self_test: runUnifiedNewsPipelineSelfTest(),
         decision_engine: {
           enabled: true,
           name: "Dollar Evidence Decision Engine",

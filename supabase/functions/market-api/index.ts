@@ -1,4 +1,4 @@
-import worker, { refreshBackground } from "./worker/index.js";
+import worker, { refreshBackground, runNewsLearningCycle } from "./worker/index.js";
 import { runForecastCycle } from "./worker/forecast-engine.js";
 
 const env = {
@@ -61,12 +61,14 @@ Deno.serve(async (request: Request) => {
       if (!(await verifyRefreshSecret(request))) return json({ error: "Unauthorized" }, 401);
       const market = await refreshBackground(env);
       const forecastCycle = await runForecastCycle(env, market);
+      const newsLearningCycle = await runNewsLearningCycle(env);
       return json({
         ok: true,
         service: "dollar-market-intelligence",
         refreshed_at: new Date().toISOString(),
         quotes: Array.isArray(market?.data) ? market.data.length : 0,
         forecast_cycle: forecastCycle,
+        news_learning_cycle: newsLearningCycle,
       });
     } catch (error) {
       console.error("Dollar scheduled refresh failed:", error);
@@ -74,6 +76,17 @@ Deno.serve(async (request: Request) => {
     }
   }
 
+  if (((route === "/news/feedback" || route === "/news/learning/review") && request.method === "POST") ||
+      (route === "/news/learning" && request.method === "GET")) {
+    try { if (!(await verifyRefreshSecret(request))) return json({ error: "Unauthorized" }, 401); }
+    catch (error) { console.error("News learning authorization failed:", error); return json({ error: "Authorization check failed" }, 503); }
+    const headers = new Headers(request.headers);
+    headers.delete("x-cron-secret");
+    headers.set("x-internal-learning-authorized", "1");
+    const body = request.method === "GET" || request.method === "HEAD" ? null : await request.arrayBuffer();
+    const target = new URL(route + url.search, "https://dollar-api.internal");
+    return worker.fetch(new Request(target, { method: request.method, headers, body }), env);
+  }
   const target = new URL(route + url.search, "https://dollar-api.internal");
   const forwarded = new Request(target, request);
   return worker.fetch(forwarded, env);
