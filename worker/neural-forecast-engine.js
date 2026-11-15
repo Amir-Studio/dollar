@@ -1,7 +1,7 @@
 // Deterministic supervised MLP for market-return forecasting.
 // Training uses only matured labels available at the forecast origin.
 // This is a price-series model, not a language model or a trading instruction.
-export const NEURAL_MODEL_VERSION = "dollar-price-mlp-2.0.0";
+export const NEURAL_MODEL_VERSION = "dollar-price-mlp-2.1.0";
 const INPUTS = 9;
 const HIDDEN = 6;
 const MAX_TRAINING_ROWS = 120;
@@ -123,11 +123,16 @@ function validationLoss(net,scaler,rows,labels) {
   for(let i=0;i<rows.length;i++) total+=huber(forward(net,scaler.apply(rows[i])).output-labels[i]);
   return total/Math.max(1,rows.length);
 }
-function chooseEpochs(rows,labels) {
-  const split=Math.floor(rows.length*0.8);
-  const trainRows=rows.slice(0,split),trainLabels=labels.slice(0,split);
-  const validRows=rows.slice(split),validLabels=labels.slice(split);
-  if(trainRows.length<45||validRows.length<12) return {epochs:MAX_EPOCHS,validation_loss:null};
+function chooseEpochs(examples,labels,horizonDays) {
+  const split=Math.floor(examples.length*0.8);
+  const validStart=examples[split]?.origin_time;
+  // Purge training labels whose realization window overlaps the validation era.
+  const trainIndices=examples.slice(0,split).map((item,index)=>({item,index}))
+    .filter(x=>x.item.target_time < validStart-horizonDays*DAY*0.25).map(x=>x.index);
+  const validIndices=examples.slice(split).map((_,index)=>split+index);
+  const trainRows=trainIndices.map(i=>examples[i].features),trainLabels=trainIndices.map(i=>labels[i]);
+  const validRows=validIndices.map(i=>examples[i].features),validLabels=validIndices.map(i=>labels[i]);
+  if(trainRows.length<35||validRows.length<12) return {epochs:MAX_EPOCHS,validation_loss:null,baseline_loss:null,purged_training_samples:trainRows.length};
   const scaler=fitScaler(trainRows),x=trainRows.map(scaler.apply),net=makeNetwork();
   let best=Infinity,bestEpoch=1,stale=0;
   for(let epoch=1;epoch<=MAX_EPOCHS;epoch++) {
@@ -136,7 +141,11 @@ function chooseEpochs(rows,labels) {
     if(score<best-1e-7){best=score;bestEpoch=epoch;stale=0;} else stale++;
     if(stale>=PATIENCE) break;
   }
-  return {epochs:bestEpoch,validation_loss:Number(best.toFixed(8))};
+  const baseline=validLabels.reduce((sum,y)=>sum+huber(y),0)/validLabels.length;
+  return {epochs:bestEpoch,validation_loss:Number(best.toFixed(8)),
+    baseline_loss:Number(baseline.toFixed(8)),
+    validation_skill:Number((baseline>0?1-best/baseline:0).toFixed(6)),
+    purged_training_samples:trainRows.length,validation_samples:validRows.length};
 }
 function targetScale(labels) {
   const sorted=labels.map(Math.abs).sort((a,b)=>a-b);
@@ -156,7 +165,7 @@ function buildExamples(points,horizonDays) {
     const target=logReturn(Number(points[j].p),Number(points[i].p));
     const features=featuresAt(points,i);
     if(Number.isFinite(target)&&features.every(Number.isFinite))
-      examples.push({features,target:clamp(target,-0.30,0.30)});
+      examples.push({features,target:clamp(target,-0.30,0.30),origin_time:Number(points[i].t),target_time:Number(points[j].t)});
   }
   return examples.slice(-MAX_TRAINING_ROWS);
 }
@@ -170,7 +179,7 @@ export function trainNeuralReturnModel(points,horizonDays) {
     training_samples:examples.length,required_samples:MIN_TRAINING_ROWS,version:NEURAL_MODEL_VERSION};
   const rows=examples.map(x=>x.features),rawTargets=examples.map(x=>x.target);
   const scale=targetScale(rawTargets),labels=rawTargets.map(x=>clamp(x/scale,-0.98,0.98));
-  const selection=chooseEpochs(rows,labels);
+  const selection=chooseEpochs(examples,labels,horizon);
   const fitted=fitCore(rows,labels,selection.epochs);
   const prediction=forward(fitted.net,fitted.scaler.apply(featuresAt(points,points.length-1))).output*scale;
   const recent=points.slice(-31),returns=[];
@@ -185,9 +194,11 @@ export function trainNeuralReturnModel(points,horizonDays) {
     available:true,predicted_log_return:clamp(prediction,-volatilityCap,volatilityCap),
     training_samples:examples.length,architecture:`${INPUTS}-${HIDDEN}-1`,
     epochs:selection.epochs,validation_huber_loss:selection.validation_loss,
+    validation_baseline_huber_loss:selection.baseline_loss,validation_skill:selection.validation_skill,
+    purged_training_samples:selection.purged_training_samples,validation_samples:selection.validation_samples,
     final_training_huber_loss:Number(fitted.loss.toFixed(8)),target_scale:Number(scale.toFixed(6)),
     volatility_cap:Number(volatilityCap.toFixed(6)),horizon_days:horizon,
-    version:NEURAL_MODEL_VERSION,training_method:"chronological_holdout_early_stopping_huber_backprop_walk_forward"
+    version:NEURAL_MODEL_VERSION,training_method:"purged_chronological_holdout_early_stopping_huber_backprop_walk_forward"
   };
 }
 export function runNeuralForecastSelfTest() {
