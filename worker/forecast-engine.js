@@ -227,7 +227,7 @@ function candidates(points,h,options={}) {
     regimeWeighted+=regimeSample[i].value*weight;regimeTotal+=weight;
   }
   raw.regime_ewma_5=clamp((regimeTotal?regimeWeighted/regimeTotal:0)*h*regimeShrink,cap);
-  const neural=trainNeuralReturnModel(p,h);
+  const neural=options.includeNeural===false?{available:false,reason:"sparse_walk_forward_schedule"}:trainNeuralReturnModel(p,h);
   if(neural.available) raw.neural_mlp=neural.predicted_log_return;
   return {raw,dailyVol,neural};
 }
@@ -241,23 +241,23 @@ function baselineWeights(keys) {
 export function selectWeightsFromErrorSums(keys,sampleCount,baselineErrorSum,candidateErrorSums,candidateSampleCounts={}) {
   if(sampleCount<40) return baselineWeights(keys);
   const baselineMae=baselineErrorSum/sampleCount;
-  const ranked=keys.filter(k=>k!=="no_change").map(k=>({
-    key:k,mae:(Number(candidateErrorSums?.[k])||0)/sampleCount
-  })).filter(x=>x.mae<baselineMae*0.95).sort((a,b)=>a.mae-b.mae).slice(0,3);
+  const ranked=keys.filter(k=>k!=="no_change").map(k=>{
+    const count=Number(candidateSampleCounts?.[k])||sampleCount;
+    return {key:k,count,mae:(Number(candidateErrorSums?.[k])||0)/count};
+  }).filter(x=>x.count>=40&&x.mae<baselineMae*0.95).sort((a,b)=>a.mae-b.mae).slice(0,3);
   if(!ranked.length) return baselineWeights(keys);
   const inverse=ranked.map(x=>1/Math.pow(0.05+x.mae,2));
   const sum=inverse.reduce((a,b)=>a+b,0);
   const weights=Object.fromEntries(keys.map(k=>[k,0]));
   weights.no_change=0.15;
   ranked.forEach((x,i)=>weights[x.key]=0.85*inverse[i]/sum);
-  // Keep the selected model from taking nearly all weight on a small sample.
   for(let pass=0;pass<6;pass++){
     const over=ranked.filter(x=>weights[x.key]>0.60);
     if(!over.length) break;
     let excess=0;
     over.forEach(x=>{excess+=weights[x.key]-0.60;weights[x.key]=0.60;});
     const under=ranked.filter(x=>weights[x.key]<0.60);
-    const underTotal=under.reduce((s,x)=>s+weights[x.key],0);
+    const underTotal=under.reduce((sum,x)=>sum+weights[x.key],0);
     if(!underTotal) break;
     under.forEach(x=>weights[x.key]+=excess*weights[x.key]/underTotal);
   }
@@ -266,17 +266,15 @@ export function selectWeightsFromErrorSums(keys,sampleCount,baselineErrorSum,can
 }
 function selectWeights(sample,keys) {
   if(sample.length<40) return baselineWeights(keys);
-  const baselineErrorSum=sample.reduce((s,r)=>s+relativeErrorPct(0,r.actual),0);
+  const baselineErrorSum=sample.reduce((sum,r)=>sum+relativeErrorPct(0,r.actual),0);
+  const candidateSampleCounts=Object.fromEntries(keys.map(k=>[k,sample.filter(r=>Number.isFinite(r.preds[k])).length]));
   const candidateErrorSums=Object.fromEntries(keys.map(k=>[
-    k,sample.reduce((s,r)=>s+relativeErrorPct(r.preds[k]??0,r.actual),0)
+    k,sample.reduce((sum,r)=>sum+(Number.isFinite(r.preds[k])?relativeErrorPct(r.preds[k],r.actual):0),0)
   ]));
-  return selectWeightsFromErrorSums(keys,sample.length,baselineErrorSum,candidateErrorSums);
+  return selectWeightsFromErrorSums(keys,sample.length,baselineErrorSum,candidateErrorSums,candidateSampleCounts);
 }
 
 function backtest(points,h) {
-  // Evaluate the latest 730 calendar days, with at least 260 prior observations
-  // available for feature construction. Origins are advanced by observed target
-  // timestamps, not row counts, so missing dates cannot create overlapping tests.
   const evaluationWindowDays=730;
   const latestTime=points[points.length-1]?.t||0;
   const cutoff=latestTime-evaluationWindowDays*DAY;
@@ -284,7 +282,7 @@ function backtest(points,h) {
   while(start<points.length&&points[start].t<cutoff) start++;
   start=Math.max(260,start);
   const records=[];
-  let nextAllowedOrigin=-Infinity;
+  let nextAllowedOrigin=-Infinity,lastNeuralOrigin=-Infinity;
   const targetToleranceDays=1.5;
   for(let i=start;i<points.length-1;i++){
     const origin=points[i];
@@ -293,97 +291,81 @@ function backtest(points,h) {
     let j=i+1;
     while(j<points.length&&points[j].t<targetTime) j++;
     if(j>=points.length) continue;
-    const targetDelayDays=(points[j].t-targetTime)/DAY;
-    if(targetDelayDays>targetToleranceDays) continue;
+    if((points[j].t-targetTime)/DAY>targetToleranceDays) continue;
     const actual=Math.log(points[j].p/origin.p);
-    const preds=candidates(points.slice(0,i+1),h).raw;
-    records.push({
-      originTime:origin.t,targetTime,actualTime:points[j].t,
-      effectiveHorizonDays:(points[j].t-origin.t)/DAY,actual,preds
-    });
-    // Do not start the next test until the actual target observation has arrived.
+    // Neural retraining is expensive. Score it every 14 days, while lightweight
+    // statistical experts remain evaluated at every non-overlapping origin.
+    const includeNeural=origin.t-lastNeuralOrigin>=14*DAY;
+    const preds=candidates(points.slice(0,i+1),h,{includeNeural}).raw;
+    if(Number.isFinite(preds.neural_mlp)) lastNeuralOrigin=origin.t;
+    records.push({originTime:origin.t,targetTime,actualTime:points[j].t,
+      effectiveHorizonDays:(points[j].t-origin.t)/DAY,actual,preds});
     nextAllowedOrigin=points[j].t;
   }
   const keys=records.length?[...new Set(records.flatMap(r=>Object.keys(r.preds)))]:["no_change"];
   const n=records.length;
-  if(n<30) return {
-    eligible:false,samples:n,evaluation_method:"non_overlapping_rolling_origin",
+  if(n<30) return {eligible:false,samples:n,evaluation_method:"non_overlapping_rolling_origin",
     evaluation_window_days:evaluationWindowDays,target_tolerance_days:targetToleranceDays,
-    overlapping_test_windows:false,
-    reason:"برای ارزیابی معتبر حداقل ۳۰ نمونهٔ خارج از نمونه و تاریخچهٔ کافی لازم است."
-  };
-  const candidateMae=Object.fromEntries(keys.map(k=>[
-    k,records.reduce((s,r)=>s+relativeErrorPct(r.preds[k]??0,r.actual),0)/n
-  ]));
+    overlapping_test_windows:false,reason:"برای ارزیابی معتبر حداقل ۳۰ نمونهٔ خارج از نمونه و تاریخچهٔ کافی لازم است."};
+  const candidateMae=Object.fromEntries(keys.map(k=>{
+    const available=records.filter(r=>Number.isFinite(r.preds[k]));
+    return [k,available.length?available.reduce((sum,r)=>sum+relativeErrorPct(r.preds[k],r.actual),0)/available.length:null];
+  }));
   const ensembleErrors=[],baselineErrors=[];
   let hits=0,directionalN=0,within1=0,within2=0,within5=0;
-  // Accumulate errors only when their target timestamp has matured. This preserves
-  // the walk-forward information boundary without rescanning every future row.
   const candidateErrorSums=Object.fromEntries(keys.map(k=>[k,0]));
+  const candidateSampleCounts=Object.fromEntries(keys.map(k=>[k,0]));
   let baselineErrorSum=0,maturedCount=0;
   for(let i=0;i<n;i++){
     const origin=records[i].originTime;
-    // Critical maturity guard: only outcomes whose actual observation timestamp
-    // was already available at this origin may train the ensemble weights.
     while(maturedCount<i&&records[maturedCount].actualTime<=origin){
       const matured=records[maturedCount];
       baselineErrorSum+=relativeErrorPct(0,matured.actual);
-      for(const key of keys) if(Number.isFinite(matured.preds[key])) {
+      for(const key of keys) if(Number.isFinite(matured.preds[key])){
         candidateErrorSums[key]+=relativeErrorPct(matured.preds[key],matured.actual);
         candidateSampleCounts[key]++;
       }
       maturedCount++;
     }
-    const weights=selectWeightsFromErrorSums(keys,maturedCount,baselineErrorSum,candidateErrorSums);
-    const blend=keys.reduce((s,k)=>s+(weights[k]||0)*(records[i].preds[k]??0),0);
-    const actual=records[i].actual;
-    const error=relativeErrorPct(blend,actual);
-    ensembleErrors.push(error);
-    baselineErrors.push(relativeErrorPct(0,actual));
-    if(error<=1) within1++;
-    if(error<=2) within2++;
-    if(error<=5) within5++;
-    const actualMove=Math.expm1(actual), predictedMove=Math.expm1(blend);
+    const weights=selectWeightsFromErrorSums(keys,maturedCount,baselineErrorSum,candidateErrorSums,candidateSampleCounts);
+    const activeKeys=keys.filter(k=>Number.isFinite(records[i].preds[k])&&(weights[k]||0)>0);
+    const activeWeight=activeKeys.reduce((sum,k)=>sum+(weights[k]||0),0);
+    const blend=activeWeight>0?activeKeys.reduce((sum,k)=>sum+(weights[k]||0)*records[i].preds[k],0)/activeWeight:0;
+    const actual=records[i].actual,error=relativeErrorPct(blend,actual);
+    ensembleErrors.push(error);baselineErrors.push(relativeErrorPct(0,actual));
+    if(error<=1) within1++;if(error<=2) within2++;if(error<=5) within5++;
+    const actualMove=Math.expm1(actual),predictedMove=Math.expm1(blend);
     if(Math.abs(actualMove)>0.001&&Math.abs(predictedMove)>0.0005){
-      directionalN++;
-      if(Math.sign(actualMove)===Math.sign(predictedMove)) hits++;
+      directionalN++;if(Math.sign(actualMove)===Math.sign(predictedMove)) hits++;
     }
   }
-  const mae=ensembleErrors.reduce((s,v)=>s+v,0)/n;
-  const naiveMae=baselineErrors.reduce((s,v)=>s+v,0)/n;
+  const mae=ensembleErrors.reduce((sum,v)=>sum+v,0)/n;
+  const naiveMae=baselineErrors.reduce((sum,v)=>sum+v,0)/n;
   const skill=naiveMae>0?(1-mae/naiveMae)*100:0;
   const maturedAll=records.filter(r=>r.actualTime<=latestTime);
   const liveWeights=selectWeights(maturedAll,keys);
   const effectiveHorizons=records.map(r=>r.effectiveHorizonDays);
   const directionalAccuracy=directionalN?hits/directionalN*100:null;
-  // Do not issue directional forecasts when a sufficiently large directional
-  // holdout has failed to beat a coin-flip threshold.
   const directionalGatePassed=directionalN<20||directionalAccuracy>=50;
   const eligible=n>=30&&skill>=2&&directionalGatePassed;
   const selected=Object.entries(liveWeights).filter(([k,v])=>k!=="no_change"&&v>0).map(([model,weight])=>({model,weight:Number(weight.toFixed(3))}));
-  return {
-    eligible,samples:n,mae_pct:Number(mae.toFixed(4)),naive_mae_pct:Number(naiveMae.toFixed(4)),
-    evaluation_method:"non_overlapping_rolling_origin_maturity_guard",
-    evaluation_window_days:evaluationWindowDays,
-    target_tolerance_days:targetToleranceDays,
+  return {eligible,samples:n,mae_pct:Number(mae.toFixed(4)),naive_mae_pct:Number(naiveMae.toFixed(4)),
+    evaluation_method:"non_overlapping_rolling_origin_maturity_guard_sparse_neural",
+    evaluation_window_days:evaluationWindowDays,target_tolerance_days:targetToleranceDays,
     effective_horizon_days:{min:Number(Math.min(...effectiveHorizons).toFixed(3)),max:Number(Math.max(...effectiveHorizons).toFixed(3)),mean:Number((effectiveHorizons.reduce((a,b)=>a+b,0)/n).toFixed(3))},
-    overlapping_test_windows:false,
-    skill_vs_no_change_pct:Number(skill.toFixed(2)),
+    overlapping_test_windows:false,skill_vs_no_change_pct:Number(skill.toFixed(2)),
     directional_accuracy_pct:directionalAccuracy===null?null:Number(directionalAccuracy.toFixed(1)),
     directional_gate_min_accuracy_pct:50,directional_gate_min_samples:20,directional_gate_passed:directionalGatePassed,
-    directional_samples:directionalN,
-    directional_coverage_pct:Number((directionalN/n*100).toFixed(1)),
-    within_1pct_pct:Number((within1/n*100).toFixed(1)),
-    within_2pct_pct:Number((within2/n*100).toFixed(1)),
+    directional_samples:directionalN,directional_coverage_pct:Number((directionalN/n*100).toFixed(1)),
+    within_1pct_pct:Number((within1/n*100).toFixed(1)),within_2pct_pct:Number((within2/n*100).toFixed(1)),
     within_5pct_pct:Number((within5/n*100).toFixed(1)),
     median_error_pct:Number((quantile(ensembleErrors,0.5)??0).toFixed(4)),
     range_error_p80_pct:Number((quantile(ensembleErrors,0.8)??0).toFixed(4)),
-    candidate_mae_pct:Object.fromEntries(Object.entries(candidateMae).map(([k,v])=>[k,Number(v.toFixed(4))])),
-    selected_models:selected,weights:liveWeights,
+    candidate_mae_pct:Object.fromEntries(Object.entries(candidateMae).map(([k,v])=>[k,v===null?null:Number(v.toFixed(4))])),
+    candidate_sample_counts:candidateSampleCounts,selected_models:selected,weights:liveWeights,
     reason:eligible?null:!directionalGatePassed?"دقت جهت در نمونه‌های کافی به حداقل ۵۰٪ نرسیده؛ پیش‌بینی جهت‌دار متوقف شد.":"هیچ ترکیب/مدل منتخب در آزمون walk-forward دست‌کم ۲٪ بهتر از پیش‌بینی بدون تغییر نشده؛ خروجی جهت‌دار منتشر نمی‌شود."
   };
 }
-
 function buildForecastPoint(points,price,horizon,newsContext=null) {
   const min={1:300,3:300,7:300}[horizon]||300;
   if(points.length<min) return {eligible:false,reason:"تاریخچه برای این افق کافی نیست.",observations:points.length,required:min};
