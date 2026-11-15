@@ -207,3 +207,36 @@ test("semantic verifier rejects a quote that contradicts the claim",async()=>{
   assert.equal(result.evidence_audit.items[0].support_verified_source_ids.length,0);
   assert.equal(result.abstained,true);
 });
+
+test("numeric claims cannot pass when cited evidence contains a different number",async()=>{
+  const sourceQuote="بانک مرکزی نرخ تورم را ۵ درصد اعلام کرد.";
+  const output={comprehension:{event:"اعلام نرخ تورم"},facts:[{statement:"بانک مرکزی نرخ تورم را ۱۰ درصد اعلام کرد.",
+    source_ids:["news:1"],evidence:[{source_id:"news:1",quote:sourceQuote}]}],
+    claims:[],causal_hypotheses:[],alternatives:[],counter_evidence_needed:[],history_usage:[],
+    evidence_gaps:[],search_queries:[],provisional_conclusion:"نامشخص",confidence:.99,abstain:false};
+  const verifier={items:[{field:"facts",index:0,source_id:"news:1",verdict:"supports",reason:"فرض پاسخ‌دهندهٔ آزمون؛ باید کنترل عددی آن را رد کند."}]};
+  const outputs=[output,verifier];
+  const env={AI:{run:async()=>({response:JSON.stringify(outputs.shift())})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"نرخ تورم",original_text:sourceQuote,language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.evidence_audit.items[0].evidence_quotes[0].numeric_fidelity,false);
+  assert.equal(result.evidence_audit.items[0].support_verified_source_ids.length,0);
+  assert.equal(result.abstained,true);
+});
+
+test("causal hypotheses require a mechanism, time order, confounders and falsification test",async()=>{
+  const output={comprehension:{event:"تغییر نرخ بهره"},facts:[],claims:[],
+    causal_hypotheses:[{statement:"افزایش نرخ بهره باعث تغییر ارز شد.",source_ids:[],evidence:[]}],
+    alternatives:[],counter_evidence_needed:[],history_usage:[],evidence_gaps:[],search_queries:[],
+    provisional_conclusion:"نامشخص",confidence:.3,abstain:true};
+  const env={AI:{run:async()=>({response:JSON.stringify(output)})}};
+  const result=await analyzeNewsWithReasoning({
+    news:[{id:"1",title:"نرخ بهره و ارز",original_text:"متن گزارش",language_code:"fa",domain:"example.org"}],
+    env,fetchImpl:mockFetch
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.status,"initial_reasoning_failed");
+});
