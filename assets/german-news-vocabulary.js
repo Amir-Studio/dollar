@@ -89,8 +89,8 @@ function answerQuiz(choice){
  buttons.forEach((b,i)=>{if(quiz.options[i].id===quiz.target.id)b.classList.add('correct');else if(i===choice)b.classList.add('wrong');});
 }
 function renderReview(){
- const ids=(progress.due||[]).map(x=>x.id);const due=words.filter(w=>ids.includes(w.id));
- if(!due.length){$('germanContent').innerHTML='<div class="german-empty"><h3>مرور زمان‌بندی‌شده‌ای نداری.</h3><p>واژه‌هایی که «نیاز به مرور» می‌زنند، در این بخش ظاهر می‌شوند.</p><button class="german-action primary" id="germanReviewStart">شروع آزمون</button></div>';$('germanReviewStart').onclick=()=>{mode='quiz';renderTabs();quiz=chooseQuizQuestion();renderQuiz();};return;}
+ const dueRows=(progress.due||[]).filter(x=>Number(x.at)<=now());const ids=dueRows.map(x=>x.id);const due=words.filter(w=>ids.includes(w.id));
+ if(!due.length){const upcoming=(progress.due||[]).length;$('germanContent').innerHTML='<div class="german-empty"><h3>واژه‌ای برای مرور در این لحظه سررسید نشده است.</h3><p>'+(upcoming?upcoming+' واژه برای مرور بعدی زمان‌بندی شده‌اند.':'واژه‌هایی که «نیاز به مرور» می‌زنند، در این بخش ظاهر می‌شوند.')+'</p><button class="german-action primary" id="germanReviewStart">شروع آزمون</button></div>';$('germanReviewStart').onclick=()=>{mode='quiz';renderTabs();quiz=chooseQuizQuestion();renderQuiz();};return;}
  $('germanContent').innerHTML='<div class="german-workspace-head"><span class="german-kicker">SPACED REVIEW</span><span class="german-sync">'+due.length+' واژه در صف مرور</span></div>'+due.map(w=>'<article class="german-example"><h3 class="german-word" lang="de">'+esc(w.word)+'</h3><p class="translation">'+esc(w.fa)+'</p><p lang="de">'+esc(w.example)+'</p><p class="translation">'+esc(w.example_fa)+'</p><div class="german-card-actions"><button class="german-action primary" data-reviewed="'+w.id+'">مرور شد</button></div></article>').join('');
  $('germanContent').querySelectorAll('[data-reviewed]').forEach(b=>b.onclick=()=>{const id=b.dataset.reviewed;progress.due=progress.due.filter(x=>x.id!==id);progress.known=[...new Set([...progress.known,id])];writeLocal();sync('POST');renderReview();});
 }
