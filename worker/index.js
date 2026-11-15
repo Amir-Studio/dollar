@@ -648,15 +648,16 @@ async function runVocabularyLearningCycle(env) {
       const newSources=incoming.filter(x=>!previous.includes(x));
       if(existing && newSources.length===0) continue;
       const meaning=await lookupVocabularyMeaning(candidate.term,candidate.language);
-      if(!meaning.ok) continue;
+      const found=Boolean(meaning.ok);
       const now=new Date().toISOString();
       const sourceUrls=[...new Set([...previous,...incoming])].slice(-30);
       const contexts=[...new Set([...(Array.isArray(existing?.contexts)?existing.contexts:[]),...candidate.contexts])].slice(-8);
       const row={
         language_code:candidate.language,term:candidate.term,normalized_term:candidate.normalized_term,
-        definition_en:meaning.definition_en,part_of_speech:meaning.part_of_speech,
-        source_provider:meaning.source_provider,source_url:meaning.source_url,
-        confidence:meaning.confidence,status:"candidate_review",concept_id:meaning.concept_id||null,
+        definition_en:found?meaning.definition_en:null,part_of_speech:found?meaning.part_of_speech:null,
+        source_provider:found?meaning.source_provider:"dictionary_"+String(meaning.status||"unavailable"),
+        source_url:found?meaning.source_url:null,
+        confidence:found?meaning.confidence:0,status:"candidate_review",concept_id:found?(meaning.concept_id||null):null,
         evidence_count:Number(existing?.evidence_count||0)+Math.max(1,newSources.length),
         source_urls:sourceUrls,contexts,first_seen_at:existing?.first_seen_at||now,last_seen_at:now,updated_at:now
       };
