@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot } from '../worker/forecast-engine.js';
+import { buildForecast, isMarketRelevantHeadline, headlineConflictCandidates, getMarketSnapshot, directionMatches } from '../worker/forecast-engine.js';
 
 const DAY = 86_400_000;
 function series(count, dailyLogReturn) {
@@ -88,4 +88,15 @@ test('NerkhAra snapshot is normalized with provider quality metadata and UTC tim
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+
+test('forecast direction scoring uses persisted direction and production deadband', () => {
+  assert.equal(directionMatches(0.11, 'up'), true);
+  assert.equal(directionMatches(-0.11, 'down'), true);
+  assert.equal(directionMatches(0.1, 'sideways'), true);
+  assert.equal(directionMatches(-0.1, 'sideways'), true);
+  assert.equal(directionMatches(0.11, 'down'), false);
+  assert.equal(directionMatches(0.11, null), false);
+  assert.equal(directionMatches(Number.NaN, 'up'), false);
 });

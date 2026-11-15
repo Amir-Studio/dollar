@@ -36,7 +36,7 @@ jobs:
         if: steps.credentials.outputs.configured == 'true'
         run: |
           mkdir -p supabase/functions/market-api/worker
-          cp worker/index.js worker/forecast-engine.js supabase/functions/market-api/worker/
+          cp worker/*.js supabase/functions/market-api/worker/
 
       - name: Deploy market and news API
         if: steps.credentials.outputs.configured == 'true'
