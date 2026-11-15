@@ -48,3 +48,34 @@ test("no unverified cases means no memory guidance", async () => {
   assert.equal(result.indexed, 0);
   assert.equal((await retrieveNeuralErrorGuidance("central bank rate", env)).status, "no_verified_error_memory");
 });
+
+test("Supabase fallback persists and retrieves neural correction vectors", async () => {
+  const originalFetch = globalThis.fetch;
+  const row = { id:"1", feedback_id:"f1", category:"wrong_action",
+    expected_output:{ action:"increase" }, validation_report:{} };
+  globalThis.fetch = async (url, init = {}) => {
+    if (String(url).includes("market_news_learning_cases?id=eq.")) {
+      row.validation_report = JSON.parse(init.body).validation_report;
+      return new Response(null, { status:204 });
+    }
+    if (String(url).includes("market_news_learning_cases?select=")) {
+      return new Response(JSON.stringify([row]), { status:200, headers:{"content-type":"application/json"} });
+    }
+    throw new Error("Unexpected Supabase test request: " + url);
+  };
+  try {
+    const env = { AI:mockAi(), SUPABASE_URL:"https://db.example", SUPABASE_SERVICE_ROLE_KEY:"test-key" };
+    const saved = await refreshNeuralErrorMemory([
+      { id:"1", feedback_id:"f1", total:1, passed:0, failed:1, category:"wrong_action",
+        input_text:"Central bank raised interest rates", expected_output:{ action:"increase" },
+        results:[{path:"action",expected:"increase",actual:"decrease",passed:false}] }
+    ], env);
+    assert.equal(saved.storage, "supabase_validation_report");
+    assert.equal(Array.isArray(row.validation_report.neural_error_memory.vector), true);
+    const result = await retrieveNeuralErrorGuidance("The monetary authority increased borrowing costs.", env, { minimumScore:0.5 });
+    assert.equal(result.status, "verified_error_memory_matches_found");
+    assert.equal(result.matches[0].feedback_id, "f1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
