@@ -132,7 +132,7 @@ async function fetchFullArticleText(url) {
         element(element){
           current="";
           element.onEndTag(()=>{
-            const paragraph=current.replaceAll("\\n"," ").replaceAll("\\r"," ").split(" ").filter(Boolean).join(" ").trim();
+            const paragraph=current.replaceAll("\n"," ").replaceAll("\r"," ").split(" ").filter(Boolean).join(" ").trim();
             if(paragraph.length>=35 && !seen.has(paragraph)){seen.add(paragraph);paragraphs.push(paragraph);}
             current="";
           });
@@ -146,16 +146,16 @@ async function fetchFullArticleText(url) {
       return paragraphs.join(String.fromCharCode(10)).slice(0,16000);
     }
     const html=await response.text();
-    const body=html.replace(/<(script|style|noscript|svg)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi," ");
-    const paragraphs=[...body.matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)].map(match=>
+    const body=html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ");
+    const paragraphs=[...body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(match=>
       match[1]
         .replace(/<[^>]+>/g," ")
         .replace(/&nbsp;|&#160;/gi," ")
         .replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'")
         .replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
-        .replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(Number(n)))
+        .replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n)))
         .replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)))
-        .replace(/\\s+/g," ").trim()
+        .replace(/\s+/g," ").trim()
     ).filter(paragraph=>paragraph.length>=35);
     return [...new Set(paragraphs)].join(String.fromCharCode(10)).slice(0,16000);
   } catch(error) {
