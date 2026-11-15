@@ -503,7 +503,7 @@ async function makeFreeAnalysis(env, asset) {
   let englishNeuralAnalysis = null;
   if (englishLearningText && env.AI?.run) {
     try {
-      englishNeuralAnalysis = await analyzeEnglishNewsNeurally(englishLearningText,env,{limit:20,unknownLimit:8});
+      englishNeuralAnalysis = await analyzeEnglishNewsNeurally(englishLearningText,env,{limit:20,unknownLimit:8,researchUnknown:true,researchLimit:2});
     } catch(error) {
       englishNeuralAnalysis = {status:"neural_analysis_unavailable",model:"@cf/baai/bge-m3",detail:String(error?.message||error).slice(0,160)};
     }
