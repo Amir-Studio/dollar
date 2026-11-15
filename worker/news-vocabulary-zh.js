@@ -1,7 +1,7 @@
 // Curated Chinese-language news vocabulary, batch 1/10.
 // Each row: [id, category, English concept, Simplified Chinese, pinyin, Persian meaning].
 // Entries are specialist news terms, not everyday vocabulary.
-export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.0.0";
+export const CHINESE_NEWS_VOCABULARY_VERSION = "zh-news-vocabulary-1.1.0";
 export const CHINESE_NEWS_VOCABULARY = [
 ["zh001","macroeconomics","consumer price index","居民消费价格指数","jūmín xiāofèi jiàgé zhǐshù","شاخص قیمت مصرف‌کننده"],
 ["zh002","macroeconomics","producer price index","工业生产者出厂价格指数","gōngyè shēngchǎnzhě chūchǎng jiàgé zhǐshù","شاخص قیمت تولیدکننده"],
@@ -103,6 +103,26 @@ export const CHINESE_NEWS_VOCABULARY = [
 ["zh098","diplomacy","non-aggression pact","互不侵犯条约","hùbù qīnfàn tiáoyuē","پیمان عدم تجاوز"],
 ["zh099","diplomacy","diplomatic recognition","外交承认","wàijiāo chéngrèn","به‌رسمیت‌شناختن دیپلماتیک"],
 ["zh100","diplomacy","consular relations","领事关系","lǐngshì guānxì","روابط کنسولی"]
+["zh101","sanctions","secondary sanctions","次级制裁","cìjí zhìcái","تحریم‌های ثانویه"],
+["zh102","sanctions","sanctions relief","制裁减免","zhìcái jiǎnmiǎn","کاهش یا لغو بخشی از تحریم‌ها"],
+["zh103","sanctions","sanctions evasion","规避制裁","guībì zhìcái","دور زدن تحریم‌ها"],
+["zh104","sanctions","asset freeze","资产冻结","zīchǎn dòngjié","مسدودسازی دارایی‌ها"],
+["zh105","sanctions","export controls","出口管制","chūkǒu guǎnzhì","کنترل صادرات"],
+["zh106","sanctions","financial restrictions","金融限制","jīnróng xiànzhì","محدودیت‌های مالی"],
+["zh107","sanctions","trade embargo","贸易禁运","màoyì jìnyùn","ممنوعیت تجاری"],
+["zh108","sanctions","humanitarian exemption","人道主义豁免","réndào zhǔyì huòmiǎn","معافیت بشردوستانه"],
+["zh109","geopolitics","sphere of influence","势力范围","shìlì fànwéi","حوزه نفوذ"],
+["zh110","geopolitics","strategic autonomy","战略自主","zhànlüè zìzhǔ","خودمختاری راهبردی"],
+["zh111","geopolitics","great-power competition","大国竞争","dàguó jìngzhēng","رقابت قدرت‌های بزرگ"],
+["zh112","geopolitics","geopolitical tension","地缘政治紧张局势","dìyuán zhèngzhì jǐnzhāng júshì","تنش ژئوپلیتیکی"],
+["zh113","geopolitics","strategic ambiguity","战略模糊","zhànlüè móhu","ابهام راهبردی"],
+["zh114","geopolitics","deterrence","威慑","wēishè","بازدارندگی"],
+["zh115","geopolitics","security guarantee","安全保障","ānquán bǎozhàng","تضمین امنیتی"],
+["zh116","conflict_security","ceasefire agreement","停火协议","tínghuǒ xiéyì","توافق آتش‌بس"],
+["zh117","conflict_security","peacekeeping mission","维和任务","wéihé rènwù","مأموریت حفظ صلح"],
+["zh118","conflict_security","cross-border attack","跨境袭击","kuàjìng xíjí","حمله فرامرزی"],
+["zh119","conflict_security","military mobilization","军事动员","jūnshì dòngyuán","بسیج نظامی"],
+["zh120","conflict_security","arms control","军备控制","jūnbèi kòngzhì","کنترل تسلیحات"]
 ];
 
 const ids = new Set();
@@ -124,11 +144,11 @@ export function getChineseNewsVocabulary({category=null, query=null, limit=1000}
     version:CHINESE_NEWS_VOCABULARY_VERSION,
     language:"zh",
     script:"Simplified Chinese",
-    batch:1,
-    batch_size:100,
+    batch:2,
+    batch_size:120,
     target_total:1000,
     previously_covered_concepts:78,
-    current_batch_new:CHINESE_NEWS_VOCABULARY.length,
+    current_batch_new:CHINESE_NEWS_VOCABULARY.length-100,
     current_total:78+CHINESE_NEWS_VOCABULARY.length,
     coverage_pct:(78+CHINESE_NEWS_VOCABULARY.length)/10,
     categories:[...new Set(CHINESE_NEWS_VOCABULARY.map(x=>x[1]))],
