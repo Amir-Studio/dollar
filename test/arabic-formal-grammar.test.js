@@ -147,3 +147,19 @@ test("Curated multilingual lexicon benchmark has no misses", () => {
   const result=runMarketLexiconBenchmark();
   assert.equal(result.failed,0,JSON.stringify(result.cases.filter(x=>!x.passed)));
 });
+
+test("previously defined English market synonyms map to canonical action concepts", () => {
+  const rise=analyzeMarketLexicon("Oil prices surged and gold climbed.","en");
+  const fall=analyzeMarketLexicon("The dollar plunged and crude prices slid.","en");
+  const hold=analyzeMarketLexicon("The central bank held rates unchanged.","en");
+  assert.ok(rise.matched_concept_ids.includes("market_rise"));
+  assert.ok(fall.matched_concept_ids.includes("market_fall"));
+  assert.ok(hold.matched_concept_ids.includes("price_stability"));
+});
+
+test("lexicon output distinguishes English synonyms from cross-language equivalents", () => {
+  const english=analyzeMarketLexicon("The market surged.","en").matches.find(x=>x.concept_id==="market_rise");
+  const persian=analyzeMarketLexicon("قیمت‌ها افزایش یافت.","fa").matches.find(x=>x.concept_id==="market_rise");
+  assert.equal(english.relation,"english_synonym_or_inflection");
+  assert.equal(persian.relation,"contextual_equivalent");
+});
