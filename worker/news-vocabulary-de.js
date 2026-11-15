@@ -71,7 +71,7 @@ export const GERMAN_NEWS_VOCABULARY = [
 ["de063","foreign_policy","das Abkommen","die Abkommen","توافق‌نامه","/ˈapˌkɔmən/","Beide Seiten unterzeichnen ein neues Abkommen.","هر دو طرف توافق‌نامه جدیدی امضا می‌کنند.","noun"],
 ["de064","foreign_policy","die Delegation","die Delegationen","هیئت نمایندگی","/delegat͡si̯ˈoːn/","Eine Delegation reist zu Gesprächen nach Berlin.","هیئتی برای گفت‌وگو به برلین سفر می‌کند.","noun"],
 ["de065","foreign_policy","die Sanktion","die Sanktionen","تحریم","/zaŋkˈt͡si̯oːn/","Die Sanktionen bleiben vorerst in Kraft.","تحریم‌ها فعلاً به قوت خود باقی می‌مانند.","noun"],
-["de066","foreign_policy","die Waffenruhe","die Waffenruhen","آتش‌بس","/ˈvafn̩ˌʁuːə/","Die Parteien vereinbaren eine vorläufige Waffenruhe.","طرف‌ها بر سر آتش‌بس موقت توافق می‌کنند.","noun"],
+["de066","foreign_policy","die Gipfelkonferenz","die Gipfelkonferenzen","کنفرانس سران","/ˈɡɪpfl̩kɔnfeˌʁɛnt͡s/","Die Gipfelkonferenz beginnt am Montag in Berlin.","کنفرانس سران روز دوشنبه در برلین آغاز می‌شود.","noun"],
 ["de067","foreign_policy","die Vermittlung","die Vermittlungen","میانجی‌گری","/fɛɐ̯ˈmɪtlʊŋ/","Mehrere Staaten bieten ihre Vermittlung an.","چند کشور پیشنهاد میانجی‌گری می‌دهند.","noun"],
 ["de068","foreign_policy","die Zusammenarbeit","—","همکاری","/t͡suˈzamənˌaʁbaɪ̯t/","Beide Länder wollen ihre Zusammenarbeit vertiefen.","هر دو کشور می‌خواهند همکاری خود را گسترش دهند.","noun"],
 ["de069","foreign_policy","die Beziehungen","—","روابط","/bəˈt͡siːʊŋən/","Die diplomatischen Beziehungen sind angespannt.","روابط دیپلماتیک پرتنش است.","noun"],
