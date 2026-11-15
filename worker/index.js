@@ -5,7 +5,7 @@ import { runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-e
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
-import { NEWS_SOURCES as CURATED_NEWS_SOURCES } from "./news-sources.js";
+import { COUNTRY_NEWS_SOURCES as CURATED_NEWS_SOURCES, validateCountryNewsSources } from "./country-news-sources.js";
 import { GLOBAL_TEST_COUNTRIES } from "./global-country-test.js";
 import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
@@ -115,7 +115,7 @@ function googleNewsUrl(query, locale) {
 }
 const NEWS_SOURCES = CURATED_NEWS_SOURCES;
 const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
-  .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
+  .map(({source_id,country_code,country_name,language_code,feed_url}) => ({source_id,country_code,country_name,language_code,url:feed_url}));
 function isMarketNews(title) { return isMarketRelevantHeadline(title); }
 function rssTag(block, tag) {
   const safe = tag.replace(/[.*+?^$()|[\]\\]/g,"\\$&");
@@ -285,12 +285,12 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
       lead.article_chars=currentText.length;
     }
   }
-  console.log("News feed parsed:",feed.source_id,"http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
+  console.log("News feed parsed:",feed.source_id,"country",feed.country_code||"unknown","language",feed.language_code||"unknown","http",response.status,"raw",blocks.length,"accepted",items.length,"invalid",invalid,"outside_archive_window_hours",maxAgeHours,"outside_window",outsideWindow,"irrelevant",irrelevant);
   return items;
 }
 async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
-  // Rotate through four feed batches to keep 50-source collection within Worker limits.
-  // Every feed is probed once per hour when the scheduled refresh runs at least every 15 minutes.
+  // Rotate 30 country feeds through four batches to keep each scheduled run bounded.
+  // Each country feed is probed once per hour when refresh runs every 15 minutes.
   const batchIndex=Math.floor(Date.now()/(15*60*1000))%4;
   const selectedFeeds=NEWS_FEEDS.filter((_,index)=>index%4===batchIndex);
   const results=await Promise.allSettled(selectedFeeds.map(feed => readNewsFeed(feed,maxAgeHours)));
@@ -301,7 +301,7 @@ async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
       console.error("News feed failed:",sourceId,String(result.reason?.message || result.reason).slice(0,180));
       return;
     }
-    console.log("News feed completed:",sourceId,"items",result.value.length);
+    console.log("News feed completed:",sourceId,"country",selectedFeeds[index].country_code||"unknown","items",result.value.length);
     for(const item of result.value){
       const urlKey=item.url.toLowerCase().replace(/[?#].*$/,"");
       const titleKey=item.title.toLocaleLowerCase().replace(/\s+/g," ").trim();
@@ -311,7 +311,7 @@ async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
     }
   });
   const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,Math.max(1,Math.min(200,Number(limit)||50)));
-  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"batch",batchIndex+1,"of",4,"unique",sorted.length);
+  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"batch",batchIndex+1,"of",4,"countries",selectedFeeds.map(x=>x.country_code),"unique",sorted.length);
   return sorted;
 }
 function newsTopics(items) {
