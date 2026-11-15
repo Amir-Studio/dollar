@@ -160,11 +160,14 @@ async function searchEvidence(queries, fetchImpl=fetch) {
   return [...enriched,...unique.slice(4)];
 }
 function normalizeNews(news) {
-  return (Array.isArray(news)?news:[]).slice(0,16).map((x,i)=>({
-    id:x.id||String(i),title:clean(x.title||x.original_title,260),text:clean(x.translated_text_fa||x.original_text,2200),
-    language:x.language_code||"und",source:clean(x.domain||x.source_id,120),url:clean(x.url,500),
-    published_at:x.published_at||null
-  }));
+  return (Array.isArray(news)?news:[]).slice(0,16).map((x,i)=>{
+    const text=clean(x.translated_text_fa||x.original_text,2200);
+    return {id:x.id||String(i),title:clean(x.title||x.original_title,260),text,
+      source_text_available:normalizeEvidenceText(text).length>=60,
+      text_characters:normalizeEvidenceText(text).length,
+      language:x.language_code||"und",source:clean(x.domain||x.source_id,120),url:clean(x.url,500),
+      published_at:x.published_at||null};
+  });
 }
 function parseModelJson(result) {
   const raw=typeof result==="string"?result:(result?.response||result?.result?.response||result?.output_text||"");
@@ -417,6 +420,17 @@ export async function saveReasoningFeedback(env,input={}) {
 export async function analyzeNewsWithReasoning({news,languageAnalysis=null,contradictions=null,env,fetchImpl=fetch}={}) {
   const articles=normalizeNews(news);
   if(!articles.length) return {ok:false,status:"no_news",version:REASONING_VERSION};
+  const usableArticles=articles.filter(article=>article.source_text_available);
+  if(!usableArticles.length) return {ok:true,status:"insufficient_source_text",version:REASONING_VERSION,
+    model:MODEL,created_at:new Date().toISOString(),abstained:true,confidence:0,
+    reason:"فقط تیتر یا فرادادهٔ خبر موجود است؛ متن منبع برای راستی‌آزمایی و تحلیل علّی دریافت نشده است.",
+    source_coverage:{total_articles:articles.length,with_usable_text:0,title_or_metadata_only:articles.length},
+    analysis:{comprehension:{event:"متن منبع در دسترس نیست"},facts:[],claims:[],causal_hypotheses:[],market_implications:[],
+      alternatives:[],counter_evidence_needed:["متن کامل یا سند اولیهٔ ناشر"],history_usage:[],evidence_gaps:["متن قابل استناد خبر موجود نیست"],
+      search_queries:[],provisional_conclusion:"به دلیل نبود متن منبع، نتیجه‌گیری انجام نشد.",confidence:0,abstain:true},
+    evidence_catalog:evidenceCatalog(articles,{documents:[],news_archive:[]}),evidence_audit:{total:0,with_valid_references:0,
+      with_verified_quotes:0,without_valid_references:0,unsupported_or_unverified:0,quote_verification_count:0,items:[]},
+    safeguards:["تیتر خبر به‌تنهایی سند کافی برای تأیید ادعا یا استنتاج اثر بازار نیست."]};
   if(!env?.AI?.run) return {ok:false,status:"workers_ai_unavailable",version:REASONING_VERSION};
   const history=await retrieveHistoryContext(news||[],fetchImpl);
   const reviewedLessons=await loadReviewedLessons(env);
@@ -446,7 +460,7 @@ const evidenceAudit=auditEvidenceReferences(final,finalCatalog);
   const confidence=Math.min(modelConfidence,evidenceStrength.score);
   const referenceCoverage=evidenceAudit.total?evidenceAudit.with_valid_references/evidenceAudit.total:0;
   const supportedCount=evidenceAudit.items.filter(x=>(x.support_verified_source_ids||[]).length>0).length;
-  const abstained=final.abstain===true||(evidenceAudit.total>0&&supportedCount===0)||(entailmentAudit.status==="failed")||(secondPass==="failed")||(queries.length>0&&searched.length===0&&(first.evidence_gaps||[]).length>0);
+  const abstained=final.abstain===true||evidenceAudit.total===0||supportedCount===0||(entailmentAudit.status==="failed")||(secondPass==="failed")||(queries.length>0&&searched.length===0&&(first.evidence_gaps||[]).length>0);
   if(!final.conclusion) final.conclusion=final.provisional_conclusion||"شواهد برای نتیجه‌گیری نهایی کافی نیست."; 
   final.analysis_stage=secondPass==="completed"?"two_pass_evidence_review":"first_pass_only";
   return {ok:true,status:"analyzed",version:REASONING_VERSION,model:MODEL,
