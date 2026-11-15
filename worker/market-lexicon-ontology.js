@@ -94,7 +94,7 @@ fa:["شکست مذاکرات","فروپاشی گفت‌وگوها"],ar:["انه�
 C("armed_conflict","armed conflict","Organized hostilities between states or organized armed groups; the term describes a conflict, not its legal classification.",{
 fa:["درگیری مسلحانه"],ar:["نزاع مسلح"],de:["bewaffneter Konflikt"],fr:["conflit armé"],ru:["вооружённый конфликт"],zh:["武装冲突"],ja:["武力紛争"],ko:["무력 충돌"],hi:["सशस्त्र संघर्ष"],es:["conflicto armado"],it:["conflitto armato"],pt:["conflito armado"],tr:["silahlı çatışma"],nl:["gewapend conflict"],pl:["konflikt zbrojny"]},{category:"conflict"}),
 C("ceasefire","ceasefire","An agreed or declared pause or cessation of fighting, which may be temporary or conditional.",{
-fa:["آتش‌بس"],ar:["وقف إطلاق النار","الهدنة"],de:["Waffenstillstand","Waffenruhe"],fr:["cessez-le-feu","trêve"],ru:["прекращение огня","перемирие"],zh:["停火"],ja:["停戦"],ko:["휴전"],hi:["युद्धविराम"],es:["alto el fuego","cese del fuego"],it:["cessate il fuoco","tregua"],pt:["cessar-fogo","trégua"],tr:["ateşkes"],nl:["staakt-het-vuren"],pl:["zawieszenie broni"]},{category:"conflict"}),
+fa:["آتش بس"],ar:["وقف إطلاق النار","الهدنة"],de:["Waffenstillstand","Waffenruhe"],fr:["cessez-le-feu","trêve"],ru:["прекращение огня","перемирие"],zh:["停火"],ja:["停戦"],ko:["휴전"],hi:["युद्धविराम"],es:["alto el fuego","cese del fuego"],it:["cessate il fuoco","tregua"],pt:["cessar-fogo","trégua"],tr:["ateşkes"],nl:["staakt-het-vuren"],pl:["zawieszenie broni"]},{category:"conflict"}),
 C("armistice","armistice","A formal agreement to suspend hostilities, often preceding a final peace settlement.",{
 fa:["متارکه جنگ"],ar:["هدنة رسمية"],de:["Waffenstillstandsabkommen"],fr:["armistice"],ru:["перемирие"],zh:["停战协定"],ja:["休戦協定"],ko:["정전 협정"],hi:["युद्धविराम समझौता"],es:["armisticio"],it:["armistizio"],pt:["armistício"],tr:["mütareke"],nl:["wapenstilstand"],pl:["rozejm"]},{category:"conflict"}),
 C("peace_negotiations","peace negotiations","Diplomatic talks intended to end a conflict or establish terms for a durable settlement.",{
@@ -162,7 +162,7 @@ fa:["رخداد سایبری"],ar:["حادث سيبراني"],de:["Cybervorfall"
 C("blockade","blockade","An action intended to prevent or restrict access to a place, commonly by controlling routes or entry; legal status depends on context.",{
 fa:["محاصره","محاصره دریایی"],ar:["حصار","حصار بحري"],de:["Blockade"],fr:["blocus"],ru:["блокада"],zh:["封锁"],ja:["封鎖"],ko:["봉쇄"],hi:["नाकाबंदी"],es:["bloqueo"],it:["blocco"],pt:["bloqueio"],tr:["abluka"],nl:["blokkade"],pl:["blokada"]},{category:"conflict"}),
 C("ceasefire_violation","ceasefire violation","An alleged or verified act that breaches the terms of a ceasefire arrangement.",{
-fa:["نقض آتش‌بس"],ar:["خرق وقف إطلاق النار"],de:["Verletzung des Waffenstillstands"],fr:["violation du cessez-le-feu"],ru:["нарушение режима прекращения огня"],zh:["违反停火协议"],ja:["停戦違反"],ko:["휴전 위반"],hi:["युद्धविराम उल्लंघन"],es:["violación del alto el fuego"],it:["violazione del cessate il fuoco"],pt:["violação do cessar-fogo"],tr:["ateşkes ihlali"],nl:["schending van het staakt-het-vuren"],pl:["naruszenie zawieszenia broni"]},{category:"conflict"})
+fa:["نقض آتش بس"],ar:["خرق وقف إطلاق النار"],de:["Verletzung des Waffenstillstands"],fr:["violation du cessez-le-feu"],ru:["нарушение режима прекращения огня"],zh:["违反停火协议"],ja:["停戦違反"],ko:["휴전 위반"],hi:["युद्धविराम उल्लंघन"],es:["violación del alto el fuego"],it:["violazione del cessate il fuoco"],pt:["violação do cessar-fogo"],tr:["ateşkes ihlali"],nl:["schending van het staakt-het-vuren"],pl:["naruszenie zawieszenia broni"]},{category:"conflict"})
 
 ];
 
@@ -185,6 +185,7 @@ const ENGLISH_FORMS = [
 ["price_stability",["hold","holds","held","keep unchanged","keeps unchanged","leave unchanged","left unchanged","stand pat","maintain","maintains","maintained"]],
 ["monetary_tightening",["tighten","tightens","tightened","tightening","raise rates","raises rates","raised rates","rate hike"]],
 ["monetary_easing",["ease policy","eases policy","eased policy","loosen policy","loosens policy","rate cut","cuts rates","cut rates"]],
+["sanctions",["sanctions","economic sanctions"]],
 ["sanctions_relief",["lift sanctions","lifts sanctions","lifted sanctions","ease sanctions","eases sanctions","sanctions relief","waive sanctions","waives sanctions"]],
 ["sanctions_imposition",["impose sanctions","imposes sanctions","imposed sanctions","tighten sanctions","tightens sanctions","new sanctions","sanctions package"]],
 ["negotiation_progress",["resume talks","resumes talks","talks resume","restart negotiations","restarts negotiations","reach an agreement","deal reached","make progress in talks"]],
