@@ -26,6 +26,18 @@ test("English pivot uses multilingual neural embeddings and returns ranked ontol
   assert.ok(result.matches.every(x=>x.match_type==="pretrained_multilingual_neural_embedding"));
 });
 
+test("one BGE-M3 concept index analyzes non-English news groups without English token mining",async()=>{
+  const result=await analyzeEnglishNewsNeurally("The central bank raises its interest rate.",{AI:mockAI(),MARKET_CACHE:cache()},{
+    minimumScore:0,extractUnknown:false,
+    additionalQueries:[{language:"ar",article_count:2,text:"البنك المركزي يرفع سعر الفائدة"}]
+  });
+  assert.equal(result.analyzed_language_count,2);
+  assert.equal(result.cross_language_analyses[0].language,"ar");
+  assert.equal(result.cross_language_analyses[0].article_count,2);
+  assert.ok(result.cross_language_analyses[0].matches.length>0);
+  assert.equal(result.unknown_candidates.length,0);
+});
+
 test("English neural self-test distinguishes a financial paraphrase from unrelated text",async()=>{
   const result=await runEnglishNeuralSelfTest(mockAI());
   assert.equal(result.passed,true,JSON.stringify(result));
