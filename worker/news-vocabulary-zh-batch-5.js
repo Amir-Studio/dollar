@@ -82,7 +82,25 @@ export const CHINESE_NEWS_VOCABULARY_BATCH_5 = [
 ["zh479","public_finance","subsidy reform","补贴改革","bǔtiē gǎigé","اصلاح یارانه‌ها"],
 ["zh480","public_finance","budget allocation","预算拨款","yùsuàn bōkuǎn","تخصیص بودجه"],
 ["zh481","public_finance","contingent liability","或有负债","huòyǒu fùzhài","بدهی احتمالی"],
-["zh482","public_finance","fiscal rule","财政规则","cáizhèng guīzé","قاعده مالی"]
+["zh482","public_finance","fiscal rule","财政规则","cáizhèng guīzé","قاعده مالی"],
+ ["zh483","monetary_policy","exchange rate pass-through","汇率传导效应","huìlǜ chuándǎo xiàoyìng","اثر انتقال نرخ ارز به قیمت‌ها"],
+ ["zh484","monetary_policy","inflation persistence","通胀持续性","tōngzhàng chíxùxìng","ماندگاری تورم"],
+ ["zh485","monetary_policy","disinflation","通胀回落","tōngzhàng huíluò","کاهش نرخ تورم"],
+ ["zh486","monetary_policy","deflationary pressure","通缩压力","tōngsuō yālì","فشار کاهش سطح عمومی قیمت‌ها"],
+ ["zh487","monetary_policy","monetary aggregate","货币总量","huòbì zǒngliàng","حجم کل پول"],
+ ["zh488","monetary_policy","money supply growth","货币供应量增长","huòbì gōngyìngliàng zēngzhǎng","رشد عرضه پول"],
+ ["zh489","monetary_policy","policy rate decision","政策利率决议","zhèngcè lìlǜ juéyì","تصمیم درباره نرخ سیاستی"],
+ ["zh490","banking","wholesale funding","批发融资","pīfā róngzī","تأمین مالی عمده بانکی"],
+ ["zh491","banking","deposit outflow","存款流出","cúnkuǎn liúchū","خروج سپرده"],
+ ["zh492","banking","loan restructuring","贷款重组","dàikuǎn chóngzǔ","تجدید ساختار وام"],
+ ["zh493","banking","debt restructuring","债务重组","zhàiwù chóngzǔ","تجدید ساختار بدهی"],
+ ["zh494","banking","credit rating downgrade","信用评级下调","xìnyòng píngjí xiàtiáo","کاهش رتبه اعتباری"],
+ ["zh495","banking","credit rating upgrade","信用评级上调","xìnyòng píngjí shàngtiáo","ارتقای رتبه اعتباری"],
+ ["zh496","banking","bank recapitalization","银行资本重组","yínháng zīběn chóngzǔ","افزایش و بازسازی سرمایه بانک"],
+ ["zh497","capital_markets","market correction","市场回调","shìchǎng huítiáo","اصلاح بازار"],
+ ["zh498","capital_markets","bear market","熊市","xióngshì","بازار نزولی"],
+ ["zh499","capital_markets","bull market","牛市","niúshì","بازار صعودی"],
+ ["zh500","public_finance","government spending multiplier","政府支出乘数","zhèngfǔ zhīchū chéngshù","ضریب فزاینده مخارج دولت"]
 ];
 
 export function runChineseVocabularyBatch5SelfTest() {
