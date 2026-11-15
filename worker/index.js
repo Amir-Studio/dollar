@@ -360,6 +360,9 @@ function analyzeSupportedLanguageNews(items) {
         dialect:result.arabic_academic_analysis.dialect_profile,
         finance_concepts:result.arabic_academic_analysis.finance_domain.concepts,
         semantic_families:result.arabic_academic_analysis.root_and_semantic_families,
+        morphology_candidate_counts:{imperfect_prefixes:result.arabic_academic_analysis.morphology.imperfect_prefix_candidates.length,derived_patterns:result.arabic_academic_analysis.morphology.derived_pattern_candidates.length,weak_letter_forms:result.arabic_academic_analysis.morphology.weak_letter_candidates.length},
+        sentence_type_candidate:result.arabic_academic_analysis.syntax_and_discourse.grammar.sentence_type_candidate,
+        grammatical_construction_candidates:result.arabic_academic_analysis.syntax_and_discourse.grammar.construction_candidates.map(x=>x.type),
         clause_count:result.arabic_academic_analysis.quality.clause_count,
         speech_acts:result.arabic_academic_analysis.speech_acts,
         requires_human_review:true
