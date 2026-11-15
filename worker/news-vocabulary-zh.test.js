@@ -6,7 +6,7 @@ import {
   runChineseNewsVocabularySelfTest
 } from "./news-vocabulary-zh.js";
 
-test("Chinese news vocabulary batch has 100 unique specialist entries", () => {
+test("Chinese news vocabulary has 120 unique specialist entries", () => {
   assert.equal(CHINESE_NEWS_VOCABULARY.length, 120);
   assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 100);
   assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 100);
@@ -26,7 +26,7 @@ test("category and query filters return relevant vocabulary", () => {
   assert.equal(economics.items.length, 20);
   assert.ok(economics.items.every(x => x.category === "macroeconomics"));
   const search = getChineseNewsVocabulary({ query: "sanctions" });
-  assert.ok(search.items.length === 8); // sanctions is not in this first tranche
+  assert.ok(search.items.length === 8); // sanctions terms are in the second tranche
   const politics = getChineseNewsVocabulary({ category: "politics" });
   assert.equal(politics.items.length, 10);
 });
