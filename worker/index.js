@@ -185,7 +185,7 @@ async function fetchFullArticleText(url) {
   try {
     const response=await fetch(url,{
       headers:{accept:"text/html,application/xhtml+xml","user-agent":"Mozilla/5.0 (compatible; DollarNewsReader/1.0)"},
-      signal:AbortSignal.timeout(9000)
+      signal:AbortSignal.timeout(7000)
     });
     if(!response.ok || !response.headers.get("content-type")?.includes("text/html")) return "";
     if (typeof HTMLRewriter !== "undefined") {
@@ -469,6 +469,19 @@ async function learningRest(env, path, options = {}) {
   if (!response.ok) throw Error("Learning storage HTTP " + response.status + ": " + raw.slice(0,180));
   return raw ? JSON.parse(raw) : [];
 }
+async function verifyWorkerCronSecret(request,env) {
+  const supplied=request.headers.get("x-cron-secret")||"";
+  if(!supplied) return false;
+  const rows=await learningRest(env,"market_refresh_gate?select=secret_sha256&id=eq.1&limit=1");
+  const expected=String(rows?.[0]?.secret_sha256||"");
+  if(!expected) return false;
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(supplied));
+  const actual=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+  if(actual.length!==expected.length) return false;
+  let mismatch=0;
+  for(let i=0;i<actual.length;i++) mismatch|=actual.charCodeAt(i)^expected.charCodeAt(i);
+  return mismatch===0;
+}
 function safeJsonSize(value) { try { return new TextEncoder().encode(JSON.stringify(value)).length; } catch { return Infinity; } }
 async function fingerprintLearningCase(title, excerpt, expected) {
   const raw = [title,excerpt,JSON.stringify(expected)].join("\n").normalize("NFKC").toLocaleLowerCase("en-US").replace(/\s+/g," ").trim();
@@ -715,7 +728,7 @@ async function fetchCountryNewsArticle(country) {
   if(!response.ok){const detail=(await response.text()).slice(0,180);throw Error("GDELT HTTP "+response.status+(response.headers.get("retry-after")?" retry-after "+response.headers.get("retry-after"):"")+": "+detail);}
   const payload=await response.json();
   const articles=Array.isArray(payload?.articles)?payload.articles:[];
-  for(const article of articles.slice(0,3)){
+  for(const article of articles.slice(0,2)){
     const language=normalizeGdeltLanguage(article.language);
     const url=String(article.url||"");
     if(!language || !(url.startsWith("https://") || url.startsWith("http://")) || !article.title) continue;
@@ -855,6 +868,19 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null,{status:204,headers:H});
+    if (url.pathname === "/news/global-test/refresh" || url.pathname === "/news/global-test/reanalyze") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      try {
+        if (!(await verifyWorkerCronSecret(request,env))) return reply({error:"Unauthorized"},401);
+        const result=url.pathname.endsWith("/reanalyze")
+          ? await reanalyzeCountryTestBatch(env,10)
+          : await collectGlobalCountryTestBatch(env);
+        return reply({ok:true,service:"global-country-news-test",...result},200,{"cache-control":"no-store"});
+      } catch(error) {
+        console.error("Global country test endpoint failed:",error?.message||error);
+        return reply({ok:false,error:"Global country test endpoint failed",detail:String(error?.message||error).slice(0,220)},502);
+      }
+    }
     if (url.pathname === "/news/global-test/status") {
       try {
         const [rows,state]=await Promise.all([
