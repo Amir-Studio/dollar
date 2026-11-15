@@ -20,8 +20,8 @@ test("unknown short words without context are not promoted as learned gaps",()=>
  assert.equal(result.length,0);
 });
 test("multiword market terminology is surfaced as a candidate",()=>{
- const result=extractUnknownVocabularyCandidates("The central bank discussed quantitative tightening and liquidity risk.","en",{limit:20});
- assert.ok(result.some(x=>x.normalized_term==="quantitative tightening"));
+ const result=extractUnknownVocabularyCandidates("The central bank discussed geopolitical spillover and liquidity risk.","en",{limit:20});
+ assert.ok(result.some(x=>x.normalized_term==="geopolitical spillover"));
 });
 test("cross-language ontology resolves known concepts without a web request",async()=>{
  const result=await lookupVocabularyMeaning("geldpolitische Straffung","de",async()=>{throw Error("should not fetch");});
