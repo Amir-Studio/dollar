@@ -2,9 +2,6 @@
 // Editorial examples are original teaching sentences, not quotations from publishers.
 // Frequency ranks are intentionally not fabricated; corpus ranking is pending a licensed
 // Leipzig deu_news_2025_1M lemma/POS import and review.
-export const GERMAN_NEWS_VOCABULARY_VERSION = "de-news-vocabulary-0.1.0";
-export const GERMAN_NEWS_VOCABULARY_TARGET = 1000;
-export const GERMAN_NEWS_LESSON_TARGET = 100;
 window.GERMAN_NEWS_VOCABULARY = [
 ["de001","politics","die Regierung","die Regierungen","دولت","/ɡəˈʁiːʁʊŋ/","Die Regierung stellt heute ihren neuen Plan vor.","دولت امروز برنامه جدید خود را معرفی می‌کند.","noun"],
 ["de002","politics","das Parlament","die Parlamente","پارلمان","/paʁlaˈmɛnt/","Das Parlament stimmt am Freitag über den Gesetzentwurf ab.","پارلمان روز جمعه درباره پیش‌نویس قانون رأی‌گیری می‌کند.","noun"],
