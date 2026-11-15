@@ -31,7 +31,12 @@ const MARKET_NEWS_TERMS = [
   "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
   "market volatility","tariffs","export prices","import prices","sanctions","sanction relief","iran sanctions",
   "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency",
-  "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market"
+  "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market",
+  "الدولار","اليورو","الذهب","سعر الذهب","التضخم","البنك المركزي","البنوك المركزية","سعر الفائدة","أسعار الفائدة",
+  "سعر الصرف","أسعار الصرف","النفط","أسعار النفط","الاقتصاد","الأسواق المالية","العملة","العملات","الريال",
+  "goldpreis","zentralbank","leitzins","wechselkurs","ölpreis","wirtschaft","devisen","finanzmarkt","anleihen","rohöl","aktienmarkt","geldpolitik","eurokurs","dollarkurs",
+  "prix de l'or","cours de l'or","banque centrale","taux d'intérêt","taux de change","prix du pétrole","économie","marchés financiers","devises","obligations","bourse","pétrole brut","politique monétaire","cours du dollar",
+  "美元","欧元","黄金","金价","通胀","中央银行","利率","汇率","油价","原油","经济","金融市场","外汇","股市","债券","货币政策","人民币"
 ];
 const EXCLUDED_NEWS_TERMS = [
   "missile","casualties","killed","shooting","armed","police","explosion","bombing","court case",
