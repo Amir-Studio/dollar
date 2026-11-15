@@ -17,6 +17,9 @@ test('market search accepts relevant queries and normalizes Persian variants',()
   assert.equal(result.query,'قیمت دلار');
   assert.equal(normalizeMarketNewsSearchQuery('x').ok,false);
   assert.equal(normalizeMarketNewsSearchQuery('football scores').ok,false);
+  assert.equal(normalizeMarketNewsSearchQuery('gold medal').ok,false);
+  assert.equal(normalizeMarketNewsSearchQuery('gold').searchQuery,'gold price OR spot gold OR gold market OR gold futures');
+  assert.equal(normalizeMarketNewsSearchQuery('oil').searchQuery,'oil prices OR crude oil OR Brent crude OR oil market');
 });
 
 test('market search rejects non-market and control-character input',()=>{
