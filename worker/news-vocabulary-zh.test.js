@@ -6,10 +6,10 @@ import {
   runChineseNewsVocabularySelfTest
 } from "./news-vocabulary-zh.js";
 
-test("Chinese news vocabulary has 220 unique specialist entries", () => {
+test("Chinese news vocabulary has 320 unique specialist entries", () => {
   assert.equal(CHINESE_NEWS_VOCABULARY.length, 400);
   assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[0])).size, 400);
-  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 220);
+  assert.equal(new Set(CHINESE_NEWS_VOCABULARY.map(x => x[3])).size, 320);
 });
 
 test("all vocabulary entries have Chinese, pinyin, English and Persian fields", () => {
