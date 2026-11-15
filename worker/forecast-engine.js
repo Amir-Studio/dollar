@@ -83,6 +83,8 @@ export function buildForecastErrorDiagnostic(forecast) {
   const selected=Array.isArray(validation.selected_models)?validation.selected_models:[];
   if(mode==="baseline_only") add("baseline_only_mode","Forecast intentionally used the no-change baseline; this is not evidence of a directional-model failure.");
   if(errorPct>baselineErrorPct+0.1) add("underperformed_no_change","Absolute forecast error exceeded the same-row no-change baseline.");
+  if(signedErrorPct>0.5) add("systematic_overprediction_candidate","Prediction exceeded the realized price by more than 0.5%; compare with other matured forecasts before treating this as persistent bias.");
+  if(signedErrorPct< -0.5) add("systematic_underprediction_candidate","Prediction fell more than 0.5% below the realized price; compare with other matured forecasts before treating this as persistent bias.");
   if(Number.isFinite(quoteAge)&&quoteAge>6) add("quote_age_elevated","Reference quote age exceeded six hours.");
   if(Number.isFinite(sourceCount)&&sourceCount<=1) add("limited_quote_sources","Quote context reports one or fewer independent sources.");
   if(Number.isFinite(spread)&&spread>2) add("quote_spread_elevated","Observed quote spread exceeded two percent.");
@@ -96,6 +98,8 @@ export function buildForecastErrorDiagnostic(forecast) {
     error_metrics:{
       absolute_error_pct:Number(errorPct.toFixed(5)),no_change_error_pct:Number(baselineErrorPct.toFixed(5)),
       improvement_vs_no_change_pct:Number(improvement.toFixed(3)),signed_error_pct:Number(signedErrorPct.toFixed(5)),
+      error_log_ratio:Number(Math.log(predicted/actual).toFixed(7)),
+      error_direction:signedErrorPct>0.5?"overprediction":signedErrorPct< -0.5?"underprediction":"within_0_5pct",
       predicted_change_pct:Number(Number(forecast.predicted_change_pct??((predicted/reference-1)*100)).toFixed(5)),
       actual_change_pct:Number(actualChangePct.toFixed(5)),
       direction_correct:typeof forecast.direction_correct==="boolean"?forecast.direction_correct:null,
@@ -929,9 +933,15 @@ export function summarizeLearningEvidence(rows, diagnosticRows=[]) {
     if(sample.length){
       const errors=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.predicted_price)-1)*100));
       const baseline=sample.map(r=>Math.abs((Number(r.actual_price)/Number(r.reference_price)-1)*100));
+      const signedErrors=sample.map(r=>(Number(r.predicted_price)/Number(r.actual_price)-1)*100);
       const mae=errors.reduce((a,b)=>a+b,0)/errors.length,baselineMae=baseline.reduce((a,b)=>a+b,0)/baseline.length;
       const skill=baselineMae>0?(1-mae/baselineMae)*100:0;
       const directional=sample.filter(r=>typeof r.direction_correct==="boolean");
+      const overpredictions=signedErrors.filter(x=>x>0.5).length;
+      const underpredictions=signedErrors.filter(x=>x< -0.5).length;
+      const baselineWins=errors.filter((error,i)=>error<=baseline[i]).length;
+      const medianSignedBias=medianValue(signedErrors);
+      const p90AbsoluteError=quantile(errors,0.9);
       const accuracy=directional.length?directional.filter(r=>r.direction_correct).length/directional.length*100:null;
       const recent=errors.slice(0,20),older=errors.slice(20);
       const recentMae=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:null;
@@ -939,6 +949,12 @@ export function summarizeLearningEvidence(rows, diagnosticRows=[]) {
       const drift=recent.length>=10&&older.length>=10&&olderMae>0&&recentMae>olderMae*1.5;
       Object.assign(metrics,{mae_pct:Number(mae.toFixed(5)),no_change_mae_pct:Number(baselineMae.toFixed(5)),
         skill_vs_no_change_pct:Number(skill.toFixed(3)),directional_accuracy_pct:accuracy===null?null:Number(accuracy.toFixed(2)),
+        signed_bias_median_pct:Number(medianSignedBias.toFixed(5)),
+        overprediction_rate_pct:Number((overpredictions/sample.length*100).toFixed(2)),
+        underprediction_rate_pct:Number((underpredictions/sample.length*100).toFixed(2)),
+        baseline_win_rate_pct:Number((baselineWins/sample.length*100).toFixed(2)),
+        p90_absolute_error_pct:Number((p90AbsoluteError??0).toFixed(5)),
+        bias_state:Math.abs(medianSignedBias)<=0.15?"balanced":medianSignedBias>0?"overpredicting":"underpredicting",
         directional_samples:directional.length,recent_20_mae_pct:recentMae===null?null:Number(recentMae.toFixed(5)),
         previous_40_mae_pct:olderMae===null?null:Number(olderMae.toFixed(5)),performance_drift:drift});
       if(sample.length>=30&&skill>=2) learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"retain_validated_model",reason:"rolling live MAE beats same-row no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
@@ -947,6 +963,8 @@ export function summarizeLearningEvidence(rows, diagnosticRows=[]) {
       if(drift) learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
     }else{
       Object.assign(metrics,{mae_pct:null,no_change_mae_pct:null,skill_vs_no_change_pct:null,directional_accuracy_pct:null,
+        signed_bias_median_pct:null,overprediction_rate_pct:null,underprediction_rate_pct:null,
+        baseline_win_rate_pct:null,p90_absolute_error_pct:null,bias_state:"insufficient_samples",
         directional_samples:0,recent_20_mae_pct:null,previous_40_mae_pct:null,performance_drift:null});
       learningActions.push({asset,horizon_days:Number(horizonText),model_version:modelVersion,action:"collect_more_live_evidence",
         reason:"no matured forecasts exist for this model and horizon",samples:0,required:30});
