@@ -1,6 +1,6 @@
 // Dollar multilingual market-news comprehension engine v1.0
 // Deterministic, auditable linguistic feature extraction; not a generative model or a translation engine.
-export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.1.0";
+export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.2.0";
 
 const LANGS = {
   ar: {
@@ -328,6 +328,57 @@ function extractQuantities(text) {
   return out;
 }
 
+function splitSemanticClauses(text, language) {
+  const separators = {
+    ar: /،|؛| لكن | غير أن | بينما | في المقابل /g,
+    zh: /，|；|但是|然而|不过|相比之下|另一方面/g,
+    de: /,|;|\baber\b|\bjedoch\b|\bwährend\b|\ballerdings\b/gi,
+    fr: /,|;|\bmais\b|\bcependant\b|\btandis que\b|\ben revanche\b/gi,
+    ru: /,|;|\bно\b|\bоднако\b|\bтем не менее\b|\bтогда как\b/gi,
+    ja: /、|，|しかし|一方|ただし|が、/g,
+    ko: /,|，|그러나|하지만|반면|한편|지만/g,
+    hi: /,|，|लेकिन|हालांकि|जबकि|दूसरी ओर/g,
+    es: /,|;|\bpero\b|\bsin embargo\b|\bmientras que\b/gi,
+    it: /,|;|\bma\b|\btuttavia\b|\bmentre\b/gi,
+    pt: /,|;|\bmas\b|\bporém\b|\benquanto\b/gi,
+    tr: /,|;|\bancak\b|\bfakat\b|\boysa\b/gi,
+    nl: /,|;|\bmaar\b|\bechter\b|\bterwijl\b/gi,
+    pl: /,|;|\bale\b|\bjednak\b|\bpodczas gdy\b/gi,
+    en: /,|;|\bbut\b|\bhowever\b|\bwhile\b/gi,
+    fa: /،|؛| اما | ولی | درحالی‌که | با این حال /g
+  };
+  const splitter=separators[language]||/[,;،؛]/g;
+  return String(text||"").split(splitter).map(x=>x.trim()).filter(Boolean).slice(0,12);
+}
+
+function localActionEvidence(text, cfg, language) {
+  const normalized=normalize(text,language);
+  const clauses=splitSemanticClauses(normalized,language);
+  const evidence=[];
+  for (const clause of clauses) {
+    for (const [concept,pattern] of cfg.actions) {
+      const re=new RegExp(pattern.source,pattern.flags.includes("i")?pattern.flags:pattern.flags+"i");
+      const matches=[...clause.matchAll(new RegExp(re.source,re.flags.includes("g")?re.flags:re.flags+"g"))];
+      for (const match of matches) {
+        const at=match.index??0;
+        const before=clause.slice(Math.max(0,at-90),at);
+        const after=clause.slice(at+match[0].length,Math.min(clause.length,at+match[0].length+55));
+        const local=before+" "+match[0]+" "+after;
+        const negated=cfg.negation.test(before.slice(-65));
+        const modal=cfg.modality.test(before.slice(-75))||cfg.forecast.test(before.slice(-75))||cfg.modality.test(after.slice(0,45));
+        evidence.push({
+          concept,matched_form:match[0],clause,
+          polarity:negated?"negated":"affirmed_or_unspecified",
+          modality:modal?"possible_or_forecast":"not_locally_marked",
+          local_negation_detected:negated,
+          evidence_window:local.slice(-150)
+        });
+      }
+    }
+  }
+  return evidence.slice(0,40);
+}
+
 function inspect(text, language, index) {
   const cfg=LANGS[language];
   const t=normalize(text,language);
@@ -343,13 +394,16 @@ function inspect(text, language, index) {
   const forecast=cfg.forecast.test(t);
   const tense=cfg.future.test(t)?"future":cfg.past.test(t)?"past":"unspecified";
   const quantities=extractQuantities(t);
+  const actionEvidence=localActionEvidence(text,cfg,language);
   const features=[modality,conditional,negated,attributed,causal,contrast,comparison,forecast,actions.length>0,actors.length>0,quantities.length>0].filter(Boolean).length;
   return {
     sentence_index:index+1,text,language,actors,action_concepts:actions,
+    action_evidence:actionEvidence,
+    clause_count:splitSemanticClauses(text,language).length,
     modality,conditional,negated,attributed,causal,contrast,comparison,forecast,tense,
     quantities,
     assertion_class:conditional?"conditional":modality||forecast?"possible_or_forecast":negated?"negated_or_denied":attributed?"attributed_statement":"asserted_in_text",
-    ambiguity_flags:[...(quantities.some(q=>!q.unit)?["quantity_without_explicit_unit"]:[]),...(text.length>360?["long_sentence_requires_clause_review"]:[])],
+    ambiguity_flags:[...(quantities.some(q=>!q.unit)?["quantity_without_explicit_unit"]:[]),...(text.length>360?["long_sentence_requires_clause_review"]:[]),...(actionEvidence.some(x=>x.local_negation_detected)&&actionEvidence.some(x=>!x.local_negation_detected)?["mixed_polarity_within_sentence"]:[])],
     feature_coverage_pct:Number((features/11*100).toFixed(1)),
     verification_state:"linguistic_features_only_claim_not_fact_checked"
   };
