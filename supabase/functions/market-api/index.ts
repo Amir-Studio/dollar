@@ -13,7 +13,7 @@ const env = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "access-control-allow-origin": "https://amir-studio.github.io", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "Content-Type, apikey, x-learner-id, x-learner-token" },
   });
 
 function routePath(url: URL) {
@@ -54,6 +54,51 @@ async function verifyRefreshSecret(request: Request) {
 Deno.serve(async (request: Request) => {
   const url = new URL(request.url);
   const route = routePath(url);
+
+  if (route === "/language/german-progress") {
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: {
+      "access-control-allow-origin": "https://amir-studio.github.io",
+      "access-control-allow-methods": "GET, POST, OPTIONS",
+      "access-control-allow-headers": "Content-Type, apikey, x-learner-id, x-learner-token",
+      "access-control-max-age": "86400",
+    }});
+    if (request.method !== "GET" && request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    const learnerId = request.headers.get("x-learner-id") || "";
+    const learnerToken = request.headers.get("x-learner-token") || "";
+    if (!/^[0-9a-f-]{36}$/i.test(learnerId) || !/^[A-Za-z0-9_-]{40,100}$/.test(learnerToken)) {
+      return json({ error: "Invalid learner credentials" }, 400);
+    }
+    const tokenHash = await sha256Hex(learnerToken);
+    const base = env.SUPABASE_URL.replace(/\\/+$/, "");
+    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!base || !serviceKey) return json({ error: "Progress storage unavailable" }, 503);
+    const tableUrl = base + "/rest/v1/german_news_vocabulary_progress";
+    const headers = { apikey: serviceKey, authorization: "Bearer " + serviceKey, "content-type": "application/json", accept: "application/json" };
+    if (request.method === "GET") {
+      const query = new URLSearchParams({ select: "progress,updated_at", learner_id: "eq." + learnerId, token_sha256: "eq." + tokenHash, limit: "1" });
+      const response = await fetch(tableUrl + "?" + query.toString(), { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) return json({ error: "Progress lookup failed" }, 502);
+      const rows = await response.json();
+      return json({ ok: true, progress: rows[0]?.progress || null, updated_at: rows[0]?.updated_at || null });
+    }
+    const declaredLength = Number(request.headers.get("content-length") || 0);
+    if (declaredLength > 65536) return json({ error: "Progress payload too large" }, 413);
+    let payload: any;
+    try { payload = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+    const progress = payload?.progress;
+    if (!progress || typeof progress !== "object" || Array.isArray(progress)) return json({ error: "Invalid progress object" }, 400);
+    const ids = ["known", "learning", "due"].flatMap((key) => Array.isArray(progress[key]) ? progress[key] : []);
+    if (ids.length > 1000 || ids.some((id) => typeof id !== "string" || !/^de\\d{3}$/.test(id))) {
+      return json({ error: "Progress contains invalid vocabulary identifiers" }, 400);
+    }
+    const body = { learner_id: learnerId, token_sha256: tokenHash, progress, updated_at: new Date().toISOString() };
+    const response = await fetch(tableUrl + "?on_conflict=learner_id", {
+      method: "POST", headers: { ...headers, prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return json({ error: "Progress save failed" }, 502);
+    return json({ ok: true, saved: true });
+  }
 
   if (route === "/news/global-test/verify") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
