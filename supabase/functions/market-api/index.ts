@@ -1,4 +1,4 @@
-import worker, { collectGlobalCountryTestBatch, refreshBackground, runNewsLearningCycle } from "./worker/index.js";
+import worker, { collectGlobalCountryTestBatch, reanalyzeCountryTestBatch, refreshBackground, runNewsLearningCycle } from "./worker/index.js";
 import { runForecastCycle } from "./worker/forecast-engine.js";
 
 const env = {
@@ -54,6 +54,18 @@ async function verifyRefreshSecret(request: Request) {
 Deno.serve(async (request: Request) => {
   const url = new URL(request.url);
   const route = routePath(url);
+
+  if (route === "/news/global-test/reanalyze") {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    try {
+      if (!(await verifyRefreshSecret(request))) return json({ error: "Unauthorized" }, 401);
+      const result = await reanalyzeCountryTestBatch(env, 10);
+      return json({ ok: true, service: "global-country-news-test", ...result });
+    } catch (error) {
+      console.error("Global country article reanalysis failed:", error);
+      return json({ ok: false, error: "Global country article reanalysis failed", detail: String(error?.message ?? error).slice(0, 220) }, 502);
+    }
+  }
 
   if (route === "/news/global-test/refresh") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
