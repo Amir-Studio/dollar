@@ -53,3 +53,5 @@
 .market-news-item>a:hover{color:#e3c879}
 .market-news-foot,.market-news-empty{margin:14px 0 0;color:#9b9b94;font-size:11px;line-height:1.9}
 @media(max-width:640px){.market-news-panel{padding:16px}.market-news-heading{align-items:flex-start;flex-direction:column;gap:7px}.market-news-list{grid-template-columns:1fr}.market-news-item{padding:12px}}
+
+.ai-deep-analysis{margin-top:14px;border:1px solid #34382e;border-radius:10px;background:#0d100d;overflow:hidden}.ai-deep-analysis>summary{cursor:pointer;list-style:none;padding:13px 15px;color:#e3d39b;font-size:11px}.ai-deep-analysis>summary::-webkit-details-marker{display:none}.ai-deep-analysis>summary:after{content:"＋";float:left;color:#c8ad62}.ai-deep-analysis[open]>summary:after{content:"−"}.ai-deep-analysis>.ai-driver{margin:0;border:0;border-top:1px solid #292e27;border-radius:0;background:transparent;padding:14px}.ai-deep-analysis h4{margin-top:16px}
