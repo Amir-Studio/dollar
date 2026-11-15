@@ -1140,10 +1140,16 @@ export default {
       if(!secretMatches) return reply({error:"Unauthorized"},401);
       const githubToken=String(env.HISTORY_GITHUB_TOKEN||"");
       if(!githubToken) return reply({error:"History vocabulary integration is not configured"},503);
+      const contentType=String(request.headers.get("content-type")||"").toLowerCase();
+      if(!contentType.includes("application/json")) return reply({error:"Content-Type must be application/json"},415);
       const declaredLength=Number(request.headers.get("content-length")||0);
       if(declaredLength>10000) return reply({error:"Payload too large"},413);
+      let rawBody;
+      try{rawBody=await request.text();}catch{return reply({error:"Invalid request body"},400);}
+      if(new TextEncoder().encode(rawBody).byteLength>10000) return reply({error:"Payload too large"},413);
       let payload;
-      try{payload=await request.json();}catch{return reply({error:"Invalid JSON"},400);}
+      try{payload=JSON.parse(rawBody);}catch{return reply({error:"Invalid JSON"},400);}
+      if(!payload || typeof payload!=="object" || Array.isArray(payload)) return reply({error:"JSON object required"},400);
       const term=String(payload?.term||"").trim().normalize("NFKC");
       const language=String(payload?.language||"").trim().toLowerCase();
       const context=String(payload?.context||"").trim();
