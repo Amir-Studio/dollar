@@ -75,12 +75,12 @@ C("safe_haven","safe-haven asset","An asset investors may favor during periods o
 fa:["دارایی امن","پناهگاه امن سرمایه"],ar:["أصل ملاذ آمن"],de:["sicherer Hafen"],fr:["valeur refuge"],ru:["защитный актив","актив-убежище"],zh:["避险资产"],ja:["安全資産"],ko:["안전자산"],hi:["सुरक्षित निवेश परिसंपत्ति"],es:["activo refugio"],it:["bene rifugio"],pt:["ativo de refúgio"],tr:["güvenli liman varlığı"],nl:["veilige haven"],pl:["bezpieczna przystań"]})
 ];
 
-const ENGLISH_FORMS = [\n["interest_rate",["interest rates","rate of interest"]],
+const ENGLISH_FORMS = [
 ["inflation",["inflationary","inflation-adjusted"]],
 ["interest_rate",["interest rates","rate of interest"]],
 ["policy_rate",["benchmark rate","key rate","official rate"]],
-["rate_hike",["hike rates","raise interest rates","tightening move"]],
-["rate_cut",["cut rates","lower interest rates","easing move"]],
+["rate_hike",["hike rates","raise interest rates","tightening move","interest rate increase","interest-rate increase"]],
+["rate_cut",["cut rates","lower interest rates","easing move","interest rate reduction","interest-rate reduction"]],
 ["exchange_rate",["FX rate","foreign-exchange rate"]],
 ["central_bank",["monetary authority"]],
 ["monetary_policy",["monetary stance"]],
