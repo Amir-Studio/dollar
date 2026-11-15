@@ -5,6 +5,7 @@ import { runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-e
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
+import { NEWS_SOURCES as CURATED_NEWS_SOURCES } from "./news-sources.js";
 const ORIGIN = "https://amir-studio.github.io";
 const MARKET_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/popular.json";
 const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.github.io/main/data/history/";
@@ -105,26 +106,7 @@ function googleNewsUrl(query, locale) {
   });
   return "https://news.google.com/rss/search?" + params.toString();
 }
-const NEWS_SOURCES = [
-  {source_id:"google-news-fa",name:"Google News · Persian search (temporarily unavailable)",country_code:"IR",language_code:"fa",site_url:"https://news.google.com",feed_url:googleNewsUrl("(اقتصاد ایران OR بازار ارز OR دلار OR طلا OR تورم OR بانک مرکزی OR نرخ بهره OR نفت) when:3d","fa"),active:false,trust_tier:"unrated"},
-  {source_id:"google-news-en",name:"Google News · Iran economy (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(Iran economy OR Iranian rial OR Iran currency OR Iran sanctions OR Iran oil OR Iran gold) when:3d","en"),active:false,trust_tier:"unrated"},
-  {source_id:"google-news-global",name:"Google News · Global markets (temporarily unavailable)",country_code:"US",language_code:"en",site_url:"https://news.google.com",feed_url:googleNewsUrl("(gold price OR oil price OR inflation OR central bank OR interest rates OR currency markets) when:3d","en"),active:false,trust_tier:"unrated"},
-  {source_id:"irna-fa",name:"IRNA Persian",country_code:"IR",language_code:"fa",site_url:"https://www.irna.ir",feed_url:"https://www.irna.ir/rss",active:true,trust_tier:"unrated"},
-  {source_id:"isna-fa",name:"ISNA",country_code:"IR",language_code:"fa",site_url:"https://www.isna.ir",feed_url:"https://www.isna.ir/rss",active:true,trust_tier:"unrated"},
-  {source_id:"yjc-fa",name:"YJC News",country_code:"IR",language_code:"fa",site_url:"https://www.yjc.ir",feed_url:"https://www.yjc.ir/fa/rss/allnews",active:true,trust_tier:"unrated"},
-  {source_id:"tabnak-fa",name:"Tabnak",country_code:"IR",language_code:"fa",site_url:"https://www.tabnak.ir",feed_url:"https://www.tabnak.ir/fa/rss/allnews",active:true,trust_tier:"unrated"},
-  {source_id:"khabaronline-fa",name:"Khabaronline",country_code:"IR",language_code:"fa",site_url:"https://www.khabaronline.ir",feed_url:"https://www.khabaronline.ir/rss",active:true,trust_tier:"unrated"},
-  {source_id:"asriran-fa",name:"Asr Iran",country_code:"IR",language_code:"fa",site_url:"https://www.asriran.com",feed_url:"https://www.asriran.com/fa/rss/allnews",active:true,trust_tier:"unrated"},
-  {source_id:"tasnim-fa",name:"Tasnim Persian (temporarily unavailable)",country_code:"IR",language_code:"fa",site_url:"https://www.tasnimnews.com",feed_url:"https://www.tasnimnews.com/fa/rss/feed/0/8/0/%D9%85%D9%87%D9%85%D8%AA%D8%B1%DB%8C%D9%86-%D8%A7%D8%AE%D8%A8%D8%A7%D8%B1-%D8%AA%D8%B3%D9%86%DB%8C%D9%85",active:false,trust_tier:"unrated"},
-  {source_id:"mehr-fa",name:"Mehr News",country_code:"IR",language_code:"fa",site_url:"https://www.mehrnews.com",feed_url:"https://www.mehrnews.com/rss",active:true,trust_tier:"unrated"},
-  {source_id:"irna-en",name:"IRNA English",country_code:"IR",language_code:"en",site_url:"https://en.irna.ir",feed_url:"https://en.irna.ir/rss",active:true,trust_tier:"unrated"},
-  {source_id:"tasnim-en",name:"Tasnim English",country_code:"IR",language_code:"en",site_url:"https://www.tasnimnews.ir/en",feed_url:"https://www.tasnimnews.ir/en/rss",active:false,trust_tier:"unrated"},
-  {source_id:"bbc-business",name:"BBC Business",country_code:"GB",language_code:"en",site_url:"https://www.bbc.com/news/business",feed_url:"https://feeds.bbci.co.uk/news/business/rss.xml",active:true,trust_tier:"unrated"},
-  {source_id:"aljazeera-all",name:"Al Jazeera",country_code:"QA",language_code:"en",site_url:"https://www.aljazeera.com",feed_url:"https://www.aljazeera.com/xml/rss/all.xml",active:true,trust_tier:"unrated"},
-  {source_id:"guardian-business",name:"The Guardian · Business",country_code:"GB",language_code:"en",site_url:"https://www.theguardian.com/business",feed_url:"https://www.theguardian.com/business/rss",active:true,trust_tier:"unrated"},
-  {source_id:"marketwatch-top",name:"MarketWatch",country_code:"US",language_code:"en",site_url:"https://www.marketwatch.com",feed_url:"https://feeds.marketwatch.com/marketwatch/topstories",active:true,trust_tier:"unrated"},
-  {source_id:"cnbc-markets",name:"CNBC Markets",country_code:"US",language_code:"en",site_url:"https://www.cnbc.com/markets",feed_url:"https://www.cnbc.com/id/10001147/device/rss/rss.html",active:true,trust_tier:"unrated"}
-];
+const NEWS_SOURCES = CURATED_NEWS_SOURCES;
 const NEWS_FEEDS = NEWS_SOURCES.filter(source => source.active)
   .map(({source_id,language_code,feed_url}) => ({source_id,language_code,url:feed_url}));
 function isMarketNews(title) { return isMarketRelevantHeadline(title); }
@@ -170,10 +152,14 @@ async function readNewsFeed(feed, maxAgeHours = 72) {
   return items;
 }
 async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
-  const results=await Promise.allSettled(NEWS_FEEDS.map(feed => readNewsFeed(feed,maxAgeHours)));
+  // Rotate through four feed batches to keep 50-source collection within Worker limits.
+  // Every feed is probed once per hour when the scheduled refresh runs at least every 15 minutes.
+  const batchIndex=Math.floor(Date.now()/(15*60*1000))%4;
+  const selectedFeeds=NEWS_FEEDS.filter((_,index)=>index%4===batchIndex);
+  const results=await Promise.allSettled(selectedFeeds.map(feed => readNewsFeed(feed,maxAgeHours)));
   const seenUrls=new Set(),items=[];
   results.forEach((result,index)=>{
-    const sourceId=NEWS_FEEDS[index].source_id;
+    const sourceId=selectedFeeds[index].source_id;
     if(result.status!=="fulfilled"){
       console.error("News feed failed:",sourceId,String(result.reason?.message || result.reason).slice(0,180));
       return;
@@ -188,7 +174,7 @@ async function collectNews({ maxAgeHours = 72, limit = 50 } = {}) {
     }
   });
   const sorted=items.sort((a,b)=>Date.parse(b.published_at)-Date.parse(a.published_at)).slice(0,Math.max(1,Math.min(200,Number(limit)||50)));
-  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"unique",sorted.length);
+  console.log("News collection completed:","feeds",results.filter(x=>x.status==="fulfilled").length,"failed",results.filter(x=>x.status==="rejected").length,"batch",batchIndex+1,"of",4,"unique",sorted.length);
   return sorted;
 }
 function newsTopics(items) {
