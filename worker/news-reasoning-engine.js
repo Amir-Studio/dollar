@@ -336,6 +336,10 @@ final=validatePass(await infer(env,SYSTEM_FINAL,{initial_analysis:first,articles
 const finalCatalog=evidenceCatalog(articles,history,searched);
 const evidenceAudit=auditEvidenceReferences(final,finalCatalog);
 const confidence=clamp(final.confidence);
+  const referenceCoverage=evidenceAudit.total?evidenceAudit.with_valid_references/evidenceAudit.total:0;
+  const abstained=final.abstain===true||(evidenceAudit.total>0&&evidenceAudit.with_valid_references===0)||(secondPass==="failed")||(queries.length>0&&searched.length===0&&(first.evidence_gaps||[]).length>0);
+  if(!final.conclusion) final.conclusion=final.provisional_conclusion||"شواهد برای نتیجه‌گیری نهایی کافی نیست."; 
+  final.analysis_stage=secondPass==="completed"?"two_pass_evidence_review":"first_pass_only";
   return {ok:true,status:"analyzed",version:REASONING_VERSION,model:MODEL,
     created_at:new Date().toISOString(),history_status:history.status,
     history_documents:(history.documents||[]).map(x=>({id:x.id,title:x.title,status:x.status,relevance:x.relevance})),
