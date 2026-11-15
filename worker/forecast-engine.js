@@ -6,7 +6,7 @@ const HISTORY_URL = "https://raw.githubusercontent.com/iran-market/iran-market.g
 const NERKHARA_URL = "https://nerkhara.com/api/v1/latest.json";
 const NERKHARA_HISTORY_URL = "https://nerkhara.com/api/v1/history/";
 const NERKHARA_IDS = {USD_IRR_FREE:"usd",EUR_IRR_FREE:"eur",GOLD_18K_IRR:"gold-18k",COIN_EMAMI_IRR:"coin-emami"};
-const MODEL_VERSION = "iran-ensemble-wf-2.7-maturity-safe-walkforward";
+const MODEL_VERSION = "iran-ensemble-wf-2.8-live-component-feedback";
 const ASSETS = new Set(["USD_IRR_FREE","EUR_IRR_FREE","GOLD_18K_IRR","COIN_EMAMI_IRR"]);
 const HORIZONS = [1,3,7];
 const DAY = 86400000;
@@ -367,6 +367,8 @@ function buildForecastPoint(points,price,horizon,newsContext=null) {
     return {...validation,observations:points.length};
   }
   const {raw,dailyVol}=candidates(points,horizon);
+  // Store the exact component outputs so matured live outcomes can score each expert.
+  validation.candidate_predictions_log=raw;
   const logChange=Object.keys(validation.weights).reduce((s,k)=>s+validation.weights[k]*raw[k],0);
   const change=Math.expm1(logChange);
   const eventRisk=Math.max(0,Math.min(100,Number(newsContext?.event_risk_score)||0));
@@ -641,6 +643,67 @@ function evaluateBiasAdjustment(rows) {
     holdout_improvement_pct:Number(improvementPct.toFixed(3)),
     method:"older_train_newer_holdout_median_mad_winsorized_v2",
     reason:accepted?"validated_on_newer_holdout":"adjustment_failed_holdout_improvement_gate"};
+}
+function normalizedWeights(weights,keys) {
+  const values=Object.fromEntries(keys.map(key=>[key,Math.max(0,Number(weights?.[key])||0)]));
+  const total=Object.values(values).reduce((a,b)=>a+b,0);
+  return total>0?Object.fromEntries(keys.map(key=>[key,values[key]/total])):baselineWeights(keys);
+}
+function blendWeights(base,learned,alpha,keys) {
+  const a=normalizedWeights(base,keys),b=normalizedWeights(learned,keys);
+  return normalizedWeights(Object.fromEntries(keys.map(key=>[key,(1-alpha)*a[key]+alpha*b[key]])),keys);
+}
+function weightedLogPrediction(predictions,weights,keys) {
+  return keys.reduce((sum,key)=>sum+(Number(weights[key])||0)*(Number(predictions[key])||0),0);
+}
+export function evaluateComponentWeightAdjustment(rows,baseWeights={}) {
+  const valid=(Array.isArray(rows)?rows:[]).filter(row=>{
+    const preds=row?.validation?.candidate_predictions_log;
+    return Number(row?.actual_price)>0&&Number(row?.reference_price)>0&&preds&&typeof preds==="object"&&!Array.isArray(preds);
+  });
+  if(valid.length<60) return {samples:valid.length,applied:false,reason:"minimum_60_matured_component_forecasts_required"};
+  const keys=Object.keys(valid[0].validation.candidate_predictions_log).filter(key=>
+    valid.every(row=>Number.isFinite(Number(row.validation.candidate_predictions_log[key]))));
+  if(keys.length<2) return {samples:valid.length,applied:false,reason:"insufficient_common_component_predictions"};
+  const holdoutCount=Math.max(15,Math.floor(valid.length/3));
+  const holdout=valid.slice(0,holdoutCount),training=valid.slice(holdoutCount);
+  if(training.length<40) return {samples:valid.length,applied:false,reason:"minimum_40_training_rows_required"};
+  const trainingRecords=training.map(row=>({
+    actual:Math.log(Number(row.actual_price)/Number(row.reference_price)),
+    preds:row.validation.candidate_predictions_log
+  }));
+  const learnedWeights=selectWeights(trainingRecords,keys);
+  const before=[],after=[];
+  for(const row of holdout){
+    const actual=Math.log(Number(row.actual_price)/Number(row.reference_price));
+    const rowBase=normalizedWeights(row.model_weights||row.validation.weights,keys);
+    const adjusted=blendWeights(rowBase,learnedWeights,0.5,keys);
+    before.push(relativeErrorPct(weightedLogPrediction(row.validation.candidate_predictions_log,rowBase,keys),actual));
+    after.push(relativeErrorPct(weightedLogPrediction(row.validation.candidate_predictions_log,adjusted,keys),actual));
+  }
+  const maeBefore=before.reduce((a,b)=>a+b,0)/before.length;
+  const maeAfter=after.reduce((a,b)=>a+b,0)/after.length;
+  const improvementPct=maeBefore>0?(1-maeAfter/maeBefore)*100:0;
+  const absoluteGain=maeBefore-maeAfter;
+  const accepted=improvementPct>=3&&absoluteGain>=0.02&&
+    Object.entries(learnedWeights).some(([key,value])=>Math.abs(value-(baseWeights?.[key]||0))>=0.05);
+  const appliedWeights=accepted?blendWeights(baseWeights,learnedWeights,0.5,keys):normalizedWeights(baseWeights,keys);
+  return {samples:valid.length,training_samples:training.length,holdout_samples:holdout.length,
+    applied:accepted,weights:appliedWeights,learned_weights:learnedWeights,
+    holdout_mae_before_pct:Number(maeBefore.toFixed(5)),holdout_mae_after_pct:Number(maeAfter.toFixed(5)),
+    holdout_improvement_pct:Number(improvementPct.toFixed(3)),absolute_gain_pct_points:Number(absoluteGain.toFixed(5)),
+    method:"older_train_newer_holdout_blended_expert_weights_v1",
+    reason:accepted?"component_weights_validated_on_unseen_live_holdout":"component_weight_change_failed_holdout_gate"};
+}
+async function liveComponentWeightCalibration(env,asset,horizon,baseWeights) {
+  try {
+    const rows=await db(env,"market_forecast_runs?select=reference_price,actual_price,model_weights,validation,actual_at&asset=eq."+encodeURIComponent(asset)+
+      "&horizon_days=eq."+horizon+"&status=eq.evaluated&actual_price=not.is.null&model_version=eq."+encodeURIComponent(MODEL_VERSION)+
+      "&order=actual_at.desc&limit=90");
+    return evaluateComponentWeightAdjustment(rows,baseWeights);
+  } catch(error) {
+    return {samples:0,applied:false,reason:"component_calibration_data_unavailable",error:String(error?.message||error).slice(0,100)};
+  }
 }
 async function liveBiasCalibration(env,asset,horizon) {
   try {
