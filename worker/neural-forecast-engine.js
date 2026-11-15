@@ -257,8 +257,9 @@ export function trainNeuralReturnModel(points,horizonDays,options={}) {
   const ensembleMean=memberPredictions.reduce((sum,x)=>sum+x,0)/memberPredictions.length;
   const ensembleStd=Math.sqrt(memberPredictions.reduce((sum,x)=>sum+(x-ensembleMean)**2,0)/memberPredictions.length);
   const fitted=members[0];
-  const validationSkill=Number(selection.validation_skill);
-  const skillGate=Number.isFinite(validationSkill)?clamp((validationSkill+0.05)/0.55,0,1):0;
+  const validationSkill=Number.isFinite(selection.validation_skill)?selection.validation_skill:null;
+  const validationEligible=validationSkill!==null&&selection.validation_folds>=2&&selection.validation_samples>=20;
+  const skillGate=validationEligible?clamp((validationSkill+0.05)/0.55,0,1):0;
   const prediction=ensembleMean*skillGate;
   const recent=points.slice(-31),returns=[];
   for(let i=1;i<recent.length;i++){
@@ -270,7 +271,7 @@ export function trainNeuralReturnModel(points,horizonDays,options={}) {
   const volatilityCap=clamp(3.5*vol*Math.sqrt(horizon),0.01,0.30);
   return {
     available:true,predicted_log_return:clamp(prediction,-volatilityCap,volatilityCap),
-    training_samples:examples.length,architecture:`${INPUTS}-${HIDDEN}-${HIDDEN2}-1`,ensemble_size:ENSEMBLE_SIZE,
+    training_samples:examples.length,architecture:`${INPUTS}-${HIDDEN}-${HIDDEN2}-1`,ensemble_size:memberCount,
     epochs:selection.epochs,validation_huber_loss:selection.validation_loss,
     validation_baseline_huber_loss:selection.baseline_loss,validation_skill:selection.validation_skill,
     ensemble_prediction_std:Number(ensembleStd.toFixed(8)),validation_skill_gate:Number(skillGate.toFixed(4)),
@@ -296,5 +297,5 @@ export function runNeuralForecastSelfTest() {
     {name:"non_positive_price_is_rejected",passed:!trainNeuralReturnModel(sample.map((x,i)=>i===100?{...x,p:0}:x),3).available}
   ];
   return {version:NEURAL_MODEL_VERSION,total:checks.length,passed:checks.filter(x=>x.passed).length,
-    failed:checks.filter(x=>!x.passed),architecture:`${INPUTS}-${HIDDEN}-1`,ensemble_size:ENSEMBLE_SIZE};
+    failed:checks.filter(x=>!x.passed),architecture:`${INPUTS}-${HIDDEN}-${HIDDEN2}-1`,ensemble_size:ENSEMBLE_SIZE};
 }
