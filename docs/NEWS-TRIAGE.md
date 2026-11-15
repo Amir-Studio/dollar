@@ -60,3 +60,5 @@
 - Regression tests cover fabricated quotes, unknown source IDs, reference-only claims and directly contradictory quotations.
 
 - Version `1.2.2` adds numeric-token fidelity checks between claims and exact cited quotations. A mismatch blocks evidence support even if the semantic verifier mistakenly labels the quote as supporting. Causal hypotheses now require an explicit mechanism, temporal order, confounders, and a falsification test.
+
+- Version `1.3.0` adds structured market-transmission implications for tracked assets: impact direction, horizon, transmission channel, causal chain, preconditions and disconfirming signals. These are conditional explanations, not price targets or price forecasts. `/news` exposes the latest cached reasoning result; `/health` reports reasoning-engine diagnostics and its structural self-test.
