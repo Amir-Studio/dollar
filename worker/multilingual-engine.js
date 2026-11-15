@@ -262,7 +262,7 @@ const LANGS = {
   pl: {
     name:"Polish",script:/[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/g,
     cues:["gospodarka","bank centralny","rząd","ceny","ropa","złoto","dolar","wzrosła","spadła","prognoza","może","jednak","według","nie","stopy"],
-    modality:/(?:może|prawdopodobnie|oczekuje się|przewiduje|jest możliwe)/i,
+    modality:/(?:może|mogą|prawdopodobnie|oczekuje się|przewiduje|jest możliwe)/i,
     conditional:/(?:\bjeśli\b|\bgdyby\b|pod warunkiem|chyba że)/i,
     negation:/(?:\bnie\b|nigdy|zaprzeczył|nie potwierdził|nie zatwierdził)/i,
     attribution:/(?:według|powiedział|ogłosił|poinformował|ostrzegł|jak wynika z)/i,
