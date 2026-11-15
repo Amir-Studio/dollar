@@ -1075,10 +1075,14 @@ export async function runNewsTriageCycle(env,limit=10) {
   const key=env.SUPABASE_SERVICE_ROLE_KEY;
   if(!base||!key) return {ran:false,reason:"supabase_service_role_not_configured"};
   const modelState=await refreshNewsTriageModel(env);
-  const queue=await learningRest(env,"market_news_items?select=id,url,title,domain,published_at,source_id,language_code,original_title,original_text,translated_text_fa,summary_fa,article_status,extraction_method,content_hash,duplicate_of,triage_status&triage_status=eq.pending&order=published_at.desc&limit="+Math.max(1,Math.min(20,Number(limit)||10)));
+  const batchLimit=Math.max(1,Math.min(12,Number(limit)||10));
+  const selectFields="select=id,url,title,domain,published_at,source_id,language_code,original_title,original_text,translated_text_fa,summary_fa,article_status,extraction_method,content_hash,duplicate_of,triage_status";
+  const pending=await learningRest(env,"market_news_items?"+selectFields+"&triage_status=eq.pending&order=published_at.desc&limit="+batchLimit);
+  const quarantineBefore=new Date(Date.now()-14*86400000).toISOString();
+  const staleQuarantine=await learningRest(env,"market_news_items?"+selectFields+"&triage_status=eq.quarantine&triage_score=lt.22&triaged_at=lt."+encodeURIComponent(quarantineBefore)+"&order=triaged_at.asc&limit="+Math.max(1,Math.min(8,Math.floor(batchLimit/2))));
+  const queueItems=[...(Array.isArray(pending)?pending:[]),...(Array.isArray(staleQuarantine)?staleQuarantine:[])];
   const counts={keep:0,summarize:0,quarantine:0,discard:0,failed:0};
   const seenHashes=new Map();
-  const queueItems=Array.isArray(queue)?queue:[];
   const articleText=item=>[item.title,item.original_title,item.original_text,item.translated_text_fa].filter(Boolean).join("\n").slice(0,6000);
   let neuralBatch=null;
   if(queueItems.length){
