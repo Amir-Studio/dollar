@@ -1,6 +1,6 @@
 // Dollar multilingual market-news comprehension engine v1.0
 // Deterministic, auditable linguistic feature extraction; not a generative model or a translation engine.
-export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.0.0";
+export const MULTILINGUAL_VERSION = "dollar-multilingual-news-1.1.0";
 
 const LANGS = {
   ar: {
@@ -433,6 +433,17 @@ const BENCHMARK_CASES = [
   {lang:"fr",text:"La banque centrale a maintenu le taux d'intérêt inchangé.",checks:{actions:["hold"],actors:["central_bank"]}},
   {lang:"fr",text:"Le gouvernement a annoncé un nouvel investissement dans le secteur pétrolier.",checks:{attributed:true,actions:["invest","oil"]}},
   {lang:"fr",text:"Bien que la demande augmente, les prix restent stables.",checks:{contrast:true,actions:["increase","hold"]}}
+
+  {lang:"ru",text:"Центральный банк заявил, что цены на нефть выросли на 3%, однако прогноз может измениться.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","oil"],actors:["central_bank"]}},
+  {lang:"ja",text:"中央銀行は原油価格が上昇したと発表したが、来週は下落する可能性がある。",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"ko",text:"한국은행은 원유 가격이 상승했다고 발표했지만 다음 주 하락할 가능성이 있다.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"hi",text:"केंद्रीय बैंक ने कहा कि तेल की कीमत बढ़ी, लेकिन अगले सप्ताह गिरावट की संभावना है।",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"es",text:"El banco central anunció que el precio del petróleo subió un 3%, pero podría caer la próxima semana.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"it",text:"La banca centrale ha annunciato che il prezzo del petrolio è aumentato, tuttavia potrebbe diminuire la prossima settimana.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"pt",text:"O banco central anunciou que o preço do petróleo aumentou, mas poderia cair na próxima semana.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"tr",text:"Merkez bankası petrol fiyatının yükseldiğini açıkladı, ancak gelecek hafta düşebilir.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"nl",text:"De centrale bank meldde dat de olieprijs steeg, maar volgende week mogelijk kan dalen.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}},
+  {lang:"pl",text:"Bank centralny ogłosił, że ceny ropy wzrosły, jednak w przyszłym tygodniu mogą spaść.",checks:{attributed:true,contrast:true,modality:true,actions:["increase","decrease","oil"],actors:["central_bank"]}}
 ];
 
 export function runMultilingualBenchmark() {
@@ -450,7 +461,7 @@ export function runMultilingualBenchmark() {
     return {id:index+1,language:item.lang,passed:checks.every(x=>x.passed),checks,text:item.text};
   });
   const byLanguage={};
-  for (const lang of ["ar","zh","de","fr"]) {
+  for (const lang of ["ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"]) {
     const subset=results.filter(x=>x.language===lang);
     byLanguage[lang]={total:subset.length,passed:subset.filter(x=>x.passed).length,failed:subset.filter(x=>!x.passed).length};
   }
