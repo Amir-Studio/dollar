@@ -3,13 +3,20 @@ import assert from "node:assert/strict";
 import { COUNTRY_NEWS_SOURCES, validateCountryNewsSources } from "../worker/country-news-sources.js";
 import { analyzeMultilingualNews } from "../worker/multilingual-engine.js";
 
-test("country registry contains exactly one unique primary feed for each of 30 countries", () => {
+test("country registry contains Iran, the US, and exactly 16 priority-country feeds", () => {
   const result=validateCountryNewsSources();
   assert.equal(result.passed,true,JSON.stringify(result.errors));
-  assert.equal(result.total,30);
-  assert.equal(result.unique_countries,30);
-  assert.equal(new Set(COUNTRY_NEWS_SOURCES.map(x=>x.country_code)).size,30);
+  assert.equal(result.total,18);
+  assert.equal(result.unique_countries,18);
+  assert.equal(new Set(COUNTRY_NEWS_SOURCES.map(x=>x.country_code)).size,18);
   assert.ok(COUNTRY_NEWS_SOURCES.every(x=>x.active && x.trust_tier==="unrated"));
+  const quotas=result.daily_quotas;
+  assert.equal(quotas.IR,30);
+  assert.equal(quotas.US,10);
+  const other=Object.entries(quotas).filter(([code])=>code!=="IR"&&code!=="US");
+  assert.equal(other.length,16);
+  assert.ok(other.every(([,quota])=>quota===2));
+  assert.equal(result.total_daily_quota,72);
 });
 
 test("every country feed declares a supported language and HTTPS endpoint", () => {
