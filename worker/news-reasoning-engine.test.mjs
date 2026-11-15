@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { analyzeNewsWithReasoning, retrieveHistoryContext, runReasoningSelfTest, REASONING_VERSION } from "./news-reasoning-engine.js";
+import { analyzeNewsWithReasoning, retrieveHistoryContext, runReasoningSelfTest, saveReasoningFeedback, REASONING_VERSION } from "./news-reasoning-engine.js";
 
 const json = value => new Response(JSON.stringify(value),{status:200,headers:{"content-type":"application/json"}});
 const rss = `<?xml version="1.0"?><rss><channel><item><title>Central bank releases new inflation data</title><link>https://example.org/report</link><pubDate>Sun, 15 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>`;
@@ -49,4 +49,24 @@ test("reasoner fails closed when AI binding is missing",async()=>{
   const result=await analyzeNewsWithReasoning({news:[{title:"خبر"}],env:{},fetchImpl:mockFetch});
   assert.equal(result.ok,false);
   assert.equal(result.status,"workers_ai_unavailable");
+});
+
+test("only evidence-backed human corrections enter persistent reasoning memory",async()=>{
+  const store=new Map();
+  const env={MARKET_CACHE:{
+    get:async key=>store.has(key)?JSON.parse(store.get(key)):null,
+    put:async(key,value)=>store.set(key,value)
+  }};
+  const saved=await saveReasoningFeedback(env,{
+    article_title:"گزارش نرخ بهره",issue_category:"causal_inference",
+    correction:"هم‌زمانی دو رویداد برای اثبات رابطه علّی کافی نیست.",
+    evidence_url:"https://example.org/primary-document"
+  });
+  assert.equal(saved.ok,true);
+  assert.equal(saved.stored,1);
+  const invalid=await saveReasoningFeedback(env,{
+    article_title:"خبر",issue_category:"other",correction:"اصلاح کوتاه",
+    evidence_url:"not-a-url"
+  });
+  assert.equal(invalid.ok,false);
 });
