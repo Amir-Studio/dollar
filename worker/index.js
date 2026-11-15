@@ -1835,7 +1835,7 @@ export default {
     }
     if (url.pathname === "/news/reason/feedback") {
       if(request.method!=="POST") return reply({error:"Method not allowed"},405);
-      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      if(!(await verifyWorkerCronSecret(request))) return reply({error:"Unauthorized"},401);
       if(Number(request.headers.get("content-length")||0)>12000) return reply({error:"Feedback payload too large"},413);
       let payload; try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
       try {
