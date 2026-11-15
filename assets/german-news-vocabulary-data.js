@@ -106,4 +106,4 @@ window.GERMAN_NEWS_VOCABULARY = [
 ["de098","technology","die Cyberattacke","die Cyberattacken","حمله سایبری","/ˈsaɪ̯bɐʔaˌtakə/","Die Behörde untersucht eine mögliche Cyberattacke.","نهاد مربوط یک حمله سایبری احتمالی را بررسی می‌کند.","noun"],
 ["de099","technology","veröffentlichen","veröffentlicht · veröffentlichte · hat veröffentlicht","منتشر کردن","/fɛɐ̯ˈʔœfntlɪçn̩/","Das Ministerium veröffentlicht neue Zahlen.","وزارتخانه آمار جدیدی منتشر می‌کند.","verb"],
 ["de100","technology","hinweisen","weist hin · wies hin · hat hingewiesen","اشاره کردن؛ هشدار دادن","/ˈhɪnˌvaɪ̯zn̩/","Der Bericht weist auf erhebliche Risiken hin.","این گزارش به خطرات قابل‌توجهی اشاره می‌کند.","verb"]
-];
+].map(([id,category,word,form,fa,ipa,example,example_fa,pos])=>({id,category,word,form,fa,ipa,example,example_fa,pos,lesson:Math.ceil(Number(id.slice(2))/10),dictionary_url:"https://www.dwds.de/wb/"+encodeURIComponent(word.replace(/^der |^die |^das /,""))}));
