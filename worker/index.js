@@ -812,14 +812,14 @@ function runNewsLearningEvaluationSelfTest() {
 async function newsLearningReport(env) {
   const [feedback,cases,cycles] = await Promise.all([
     learningRest(env,"market_news_feedback?select=id,status,issue_categories,created_at,reviewed_at&order=created_at.desc&limit=200"),
-    learningRest(env,"market_news_learning_cases?select=id,feedback_id,category,input_text,expected_output,validation_status,created_at&order=created_at.desc&limit=200"),
+    learningRest(env,"market_news_learning_cases?select=id,feedback_id,category,input_text,expected_output,validation_status,validation_report,created_at&order=created_at.desc&limit=200"),
     learningRest(env,"market_news_learning_cycles?select=cycle_at,analyzer_version,feedback_seen,verified_cases,pending_cases,rejected_cases,benchmark_before,benchmark_after,actions,notes&order=cycle_at.desc&limit=20")
   ]);
   const benchmark=runNewsReadingBenchmark();
   const contradictionBenchmark=runNewsContradictionBenchmark();
   const learningEvaluationBenchmark=runNewsLearningEvaluationSelfTest();
   const verifiedFeedbackIds=new Set(feedback.filter(x=>x.status==="verified").map(x=>x.id));
-  const evaluated=cases.filter(item=>verifiedFeedbackIds.has(item.feedback_id)).map(item=>({...evaluateNewsLearningCase(item),input_text:item.input_text,expected_output:item.expected_output,validation_status:item.validation_status}));
+  const evaluated=cases.filter(item=>verifiedFeedbackIds.has(item.feedback_id)).map(item=>({...evaluateNewsLearningCase(item),input_text:item.input_text,expected_output:item.expected_output,validation_status:item.validation_status,validation_report:item.validation_report}));
   const checks=evaluated.flatMap(x=>x.results);
   return {
     ok:true,engine:"persistent-news-feedback-loop",
@@ -858,9 +858,6 @@ export async function runNewsLearningCycle(env) {
     const s=report.summary;
     const actions=[];
     let neuralMemoryRefresh={refreshed:false,reason:"not_attempted",indexed:0};
-    try { neuralMemoryRefresh=await refreshNeuralErrorMemory(report.real_case_results,env); }
-    catch(error) { neuralMemoryRefresh={refreshed:false,reason:"refresh_failed",indexed:0,error:String(error?.message||error).slice(0,120)}; }
-    if(neuralMemoryRefresh.indexed>0) actions.push({action:"neural_verified_error_memory_refreshed",indexed:neuralMemoryRefresh.indexed,cache_hit:neuralMemoryRefresh.cache_hit===true});
     if(s.feedback_submitted>0) actions.push({action:"human_review_required",count:s.feedback_submitted});
     if(s.real_case_assertions_failed>0) actions.push({action:"review_failed_cases_before_rule_change",failed_assertions:s.real_case_assertions_failed});
     if(s.cases_unscorable>0) actions.push({action:"add_explicit_test_assertions",unscorable_cases:s.cases_unscorable});
@@ -876,6 +873,9 @@ export async function runNewsLearningCycle(env) {
           validation_status:item.total===0?"unscorable":item.failed>0?"needs_revision":"approved",validated_at:new Date().toISOString()}
       });
     }
+    try { neuralMemoryRefresh=await refreshNeuralErrorMemory(report.real_case_results,env); }
+    catch(error) { neuralMemoryRefresh={refreshed:false,reason:"refresh_failed",indexed:0,error:String(error?.message||error).slice(0,120)}; }
+    if(neuralMemoryRefresh.indexed>0) actions.push({action:"neural_verified_error_memory_refreshed",indexed:neuralMemoryRefresh.indexed,cache_hit:neuralMemoryRefresh.cache_hit===true,storage:neuralMemoryRefresh.storage||null});
     const saved=await learningRest(env,"market_news_learning_cycles",{
       method:"POST",headers:{"prefer":"return=representation"},
       body:{analyzer_version:NEWS_READING_VERSION,feedback_seen:s.feedback_total,verified_cases:s.verified_cases,
@@ -1610,7 +1610,8 @@ export default {
         translation_pipeline:{enabled:false,reason:"No translation-provider secret is configured; English source text is analyzed directly without fabricating a Persian translation."},
         model: null,
         neural_error_learning: {
-          enabled: Boolean(env.AI?.run && env.MARKET_CACHE),
+          enabled: Boolean(env.AI?.run && (env.MARKET_CACHE || (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY))),
+          storage: env.MARKET_CACHE ? "cloudflare_kv" : "supabase_validation_report",
           version: NEURAL_ERROR_MEMORY_VERSION,
           model: "@cf/baai/bge-m3",
           mode: "pretrained_neural_semantic_retrieval_over_human_verified_corrections",
