@@ -388,7 +388,9 @@ final=validatePass(await infer(env,SYSTEM_FINAL,{initial_analysis:first,articles
   }
 const finalCatalog=evidenceCatalog(articles,history,searched);
 const evidenceAudit=auditEvidenceReferences(final,finalCatalog);
-const confidence=clamp(final.confidence);
+  const modelConfidence=clamp(final.confidence);
+  const evidenceStrength=calculateEvidenceStrength(evidenceAudit,finalCatalog);
+  const confidence=Math.min(modelConfidence,evidenceStrength.score);
   const referenceCoverage=evidenceAudit.total?evidenceAudit.with_valid_references/evidenceAudit.total:0;
   const abstained=final.abstain===true||(evidenceAudit.total>0&&evidenceAudit.with_verified_quotes===0)||(secondPass==="failed")||(queries.length>0&&searched.length===0&&(first.evidence_gaps||[]).length>0);
   if(!final.conclusion) final.conclusion=final.provisional_conclusion||"شواهد برای نتیجه‌گیری نهایی کافی نیست."; 
