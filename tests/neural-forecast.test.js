@@ -6,7 +6,7 @@ test("neural forecast model passes deterministic and safety checks", () => {
   const report = runNeuralForecastSelfTest();
   assert.equal(report.failed.length, 0, JSON.stringify(report.failed));
   assert.equal(report.passed, report.total);
-  assert.equal(report.architecture, "9-6-1");
+  assert.equal(report.architecture, "9-8-1");
 });
 
 test("neural model refuses unsupported horizons", () => {
@@ -24,7 +24,10 @@ test("trained model exposes auditable holdout and training metadata", () => {
   const result = trainNeuralReturnModel(points, 7);
   assert.equal(result.available, true);
   assert.ok(result.training_samples >= 60);
-  assert.equal(result.architecture, "9-6-1");
+  assert.equal(result.architecture, "9-8-1");
+  assert.equal(result.ensemble_size, 5);
+  assert.ok(Number.isFinite(result.ensemble_prediction_std));
+  assert.ok(result.validation_skill_gate >= 0 && result.validation_skill_gate <= 1);
   assert.ok(Number.isFinite(result.predicted_log_return));
   assert.ok(Number.isFinite(result.final_training_huber_loss));
   assert.ok(Number.isFinite(result.validation_huber_loss));
