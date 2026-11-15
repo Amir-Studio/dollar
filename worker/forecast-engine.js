@@ -30,7 +30,7 @@ const MARKET_NEWS_TERMS = [
   "dollar rate","dollar price","eurozone","euro currency","euro exchange rate","sterling exchange rate",
   "pound sterling","economic growth","recession","cpi","ppi","employment report","jobs report",
   "market volatility","tariffs","export prices","import prices","sanctions","sanction relief","iran sanctions",
-  "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency",
+  "iran talks","iran negotiations","iran nuclear","iranian economy","iranian rial","iran currency","chinese yuan","yuan exchange rate","renminbi",
   "foreign exchange","currency market","exchange market","oil market","iran economy","iran oil","iran gold","fx market",
   "الدولار","اليورو","الذهب","سعر الذهب","التضخم","البنك المركزي","البنوك المركزية","سعر الفائدة","أسعار الفائدة",
   "سعر الصرف","أسعار الصرف","النفط","أسعار النفط","الاقتصاد","الأسواق المالية","العملة","العملات","الريال",
