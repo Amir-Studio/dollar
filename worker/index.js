@@ -664,8 +664,13 @@ async function fetchCountryNewsArticle(country) {
   };
 }
 async function collectGlobalCountryTestBatch(env) {
+  const attemptAt = new Date().toISOString();
   try {
-    const state=await learningRest(env,"market_news_country_test_state?select=next_index,total_countries&id=eq.1&limit=1");
+    await learningRest(env,"market_news_country_test_state?id=eq.1",{
+      method:"PATCH",headers:{prefer:"return=minimal"},
+      body:{last_attempt_at:attemptAt,last_error:null,updated_at:attemptAt}
+    });
+    const state=await learningRest(env,"market_news_country_test_state?select=next_index,total_countries,last_attempt_at,last_error&id=eq.1&limit=1");
     const start=Math.max(0,Number(state?.[0]?.next_index)||0);
     if(start>=GLOBAL_TEST_COUNTRIES.length) return {ran:false,complete:true,next_index:start};
     const batch=GLOBAL_TEST_COUNTRIES.slice(start,start+10);
@@ -691,8 +696,17 @@ async function collectGlobalCountryTestBatch(env) {
     console.log("Global country news test batch:",start+1,"-",next,"full_articles",full,"failed_or_missing",rows.length-full);
     return {ran:true,start,next,batch_size:batch.length,full_articles:full};
   } catch(error) {
-    console.error("Global country news test batch failed:",error?.message||error);
-    return {ran:false,error:String(error?.message||error).slice(0,180)};
+    const message=String(error?.message||error).slice(0,500);
+    console.error("Global country news test batch failed:",message);
+    try {
+      await learningRest(env,"market_news_country_test_state?id=eq.1",{
+        method:"PATCH",headers:{prefer:"return=minimal"},
+        body:{last_attempt_at:attemptAt,last_error:message,updated_at:new Date().toISOString()}
+      });
+    } catch(stateError) {
+      console.error("Could not persist global country test error:",stateError?.message||stateError);
+    }
+    return {ran:false,error:message.slice(0,180)};
   }
 }
 export async function refreshBackground(env) {
@@ -731,7 +745,9 @@ export async function refreshBackground(env) {
 export default {
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(refreshBackground(env).then(async market => { await runForecastCycle(env,market); await runNewsLearningCycle(env); }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
-    ctx.waitUntil(collectGlobalCountryTestBatch(env));
+    ctx.waitUntil(collectGlobalCountryTestBatch(env).then(result => {
+      console.log("Global country test scheduled result:",JSON.stringify(result));
+    }).catch(error => console.error("Global country test scheduled task crashed:",error?.message||error)));
   },
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -742,7 +758,7 @@ export default {
           learningRest(env,"market_news_country_test_corpus?select=country_code,country_name,language_code,publisher_domain,title,article_chars,extraction_status,evaluation_status,collected_at&order=country_name.asc&limit=120"),
           learningRest(env,"market_news_country_test_state?select=next_index,total_countries&id=eq.1&limit=1")
         ]);
-        return reply({ok:true,total_countries:GLOBAL_TEST_COUNTRIES.length,processed_countries:state?.[0]?.next_index||0,
+        return reply({ok:true,total_countries:GLOBAL_TEST_COUNTRIES.length,processed_countries:state?.[0]?.next_index||0,last_attempt_at:state?.[0]?.last_attempt_at||null,last_error:state?.[0]?.last_error||null,
           full_articles:rows.filter(x=>x.extraction_status==="full_article_extracted").length,
           pending_review:rows.filter(x=>x.evaluation_status==="pending_review").length,
           not_evaluable:rows.filter(x=>x.evaluation_status==="not_evaluable").length,
