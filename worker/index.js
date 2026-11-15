@@ -729,6 +729,28 @@ async function learningRest(env, path, options = {}) {
   if (!response.ok) throw Error("Learning storage HTTP " + response.status + ": " + raw.slice(0,180));
   return raw ? JSON.parse(raw) : [];
 }
+async function queueHistoryVocabularyRecord(env,record) {
+  const token=String(env.HISTORY_GITHUB_TOKEN||"");
+  if(!token) return {queued:false,reason:"history_github_token_missing"};
+  try {
+    const response=await fetch("https://api.github.com/repos/Amir-Studio/History/dispatches",{
+      method:"POST",
+      headers:{authorization:"Bearer "+token,accept:"application/vnd.github+json","content-type":"application/json","x-github-api-version":"2022-11-28","user-agent":"Dollar-History-Vocabulary-Bridge"},
+      body:JSON.stringify({event_type:"unknown-vocabulary",client_payload:{record}}),
+      signal:AbortSignal.timeout(10000)
+    });
+    if(!response.ok) {
+      const detail=(await response.text()).slice(0,160);
+      console.error("History vocabulary dispatch failed:",response.status,detail);
+      return {queued:false,reason:"github_dispatch_http_"+response.status};
+    }
+    return {queued:true,status:"queued",history_page:"https://amir-studio.github.io/History/vocabulary.html"};
+  } catch(error) {
+    console.error("History vocabulary dispatch error:",String(error?.message||error).slice(0,160));
+    return {queued:false,reason:"dispatch_network_error"};
+  }
+}
+
 async function runVocabularyLearningCycle(env) {
   try {
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return {ran:false,reason:"database_not_configured"};
@@ -742,10 +764,14 @@ async function runVocabularyLearningCycle(env) {
       const text=(String(article.original_title||article.title||"")+" "+body).slice(0,12000);
       for(const candidate of extractUnknownVocabularyCandidates(text,language,{limit:8})) {
         const key=language+"::"+candidate.normalized_term;
-        if(!grouped.has(key)) grouped.set(key,{...candidate,language,source_urls:new Set(),contexts:[]});
+        if(!grouped.has(key)) grouped.set(key,{...candidate,language,source_urls:new Set(),contexts:[],context_records:[]});
         const item=grouped.get(key);
         if(article.url) item.source_urls.add(String(article.url).slice(0,1000));
-        if(item.contexts.length<4) item.contexts.push(text.slice(0,420));
+        if(item.contexts.length<4) {
+          const contextText=text.slice(0,1200);
+          item.contexts.push(contextText.slice(0,420));
+          item.context_records.push({text:contextText,source_url:article.url?String(article.url).slice(0,1000):null,source_title:String(article.title||"").slice(0,300)||null});
+        }
       }
     }
     const candidates=[...grouped.values()].filter(x=>x.source_urls.size>=2 || x.confidence_hint>=0.82)
@@ -776,7 +802,23 @@ async function runVocabularyLearningCycle(env) {
       await learningRest(env,"market_vocabulary_memory?on_conflict=language_code,normalized_term",{
         method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},body:row
       });
-      saved.push({language:candidate.language,term:candidate.term,source_provider:meaning.source_provider,evidence_count:row.evidence_count,status:row.status});
+      const contextRecord=candidate.context_records?.[0]||{};
+      const historyDispatch=await queueHistoryVocabularyRecord(env,{
+        term:candidate.term,
+        language:candidate.language,
+        context:contextRecord.text||candidate.contexts?.[0]||candidate.term,
+        captured_at:now,
+        source_url:contextRecord.source_url||incoming[0]||null,
+        source_title:contextRecord.source_title||null,
+        candidate_meaning:found?String(meaning.definition_en||"").slice(0,1200)||null:null,
+        part_of_speech:found?meaning.part_of_speech||null:null,
+        domain:Array.isArray(candidate.domain)?candidate.domain:[]
+      });
+      saved.push({
+        language:candidate.language,term:candidate.term,source_provider:meaning.source_provider,
+        evidence_count:row.evidence_count,status:row.status,
+        history_saved:historyDispatch.queued,history_status:historyDispatch.status||historyDispatch.reason
+      });
     }
     return {ran:true,articles_scanned:(articles||[]).length,candidates_considered:candidates.length,saved};
   } catch(error) {
