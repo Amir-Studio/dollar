@@ -78,11 +78,18 @@ function parseRss(xml, query) {
       publisher:(()=>{try{return new URL(url).hostname.replace(/^www\./,"")}catch{return ""}})(),search_query:query};
   }).filter(x=>x.title&&/^https?:\/\//i.test(x.url));
 }
+function safePublisherUrl(value) {
+  try {
+    const parsed=new URL(value),host=parsed.hostname.toLowerCase();
+    if(!["http:","https:"].includes(parsed.protocol)||!host.includes(".")||host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||/^[\\d.]+$/.test(host)||host.includes(":")) return null;
+    return parsed;
+  } catch { return null; }
+}
 async function fetchArticleExcerpt(url,fetchImpl=fetch) {
   try {
-    const parsed=new URL(url);
-    if(!["http:","https:"].includes(parsed.protocol)) return "";
-    const response=await fetchImpl(parsed.href,{headers:{accept:"text/html,application/xhtml+xml","user-agent":"DollarReasoningReader/1.0"},signal:AbortSignal.timeout(5000)});
+    const parsed=safePublisherUrl(url);
+    if(!parsed) return "";
+    const response=await fetchImpl(parsed.href,{redirect:"manual",headers:{accept:"text/html,application/xhtml+xml","user-agent":"DollarReasoningReader/1.0"},signal:AbortSignal.timeout(5000)});
     if(!response.ok||!String(response.headers.get("content-type")||"").includes("text/html")) return "";
     const html=(await response.text()).slice(0,180000);
     const paragraphs=[...html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi," ").matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
