@@ -573,6 +573,14 @@ async function syncNewsToSupabase(env) {
     body:JSON.stringify(NEWS_SOURCES),signal:AbortSignal.timeout(12000)
   });
   if (!sourceResponse.ok) throw Error("Supabase news source registry HTTP " + sourceResponse.status + ": " + (await sourceResponse.text()).slice(0,180));
+  // Keep the database registry aligned with the exact 50 curated feeds.
+  // Older legacy rows remain stored for history but are no longer polled.
+  const curatedIds = NEWS_SOURCES.map(source => source.source_id);
+  const staleSources = await fetch(
+    base + "/rest/v1/market_news_sources?source_id=not.in.(" + curatedIds.map(encodeURIComponent).join(",") + ")",
+    {method:"PATCH",headers:{...headers,prefer:"return=minimal"},body:JSON.stringify({active:false}),signal:AbortSignal.timeout(12000)}
+  );
+  if (!staleSources.ok) throw Error("Supabase stale news source deactivation HTTP " + staleSources.status);
   const stateResponse = await fetch(base + "/rest/v1/market_news_sync_state?select=last_fetched_at&id=eq.1&limit=1", {
     headers, signal:AbortSignal.timeout(12000)
   });
