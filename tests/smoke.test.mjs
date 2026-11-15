@@ -176,6 +176,6 @@ test('production market intelligence runs without an external AI key and preserv
   assert.match(forecastEngine, /fetchNewsContext/);
   assert.match(forecastEngine, /selectWeights/);
   assert.match(forecastEngine, /isMarketRelevantHeadline/);
-  assert.match(aiJs, /بدون API خارجی/);
+  assert.match(aiJs, /بدون کلید API هوش مصنوعی/);
   assert.match(aiJs, /baseline_only/);
 });
