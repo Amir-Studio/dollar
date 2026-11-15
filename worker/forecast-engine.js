@@ -762,6 +762,17 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
       const group=groups.get(key);
       if (group.length<60 && Number(row.predicted_price)>0 && Number(row.reference_price)>0 && Number(row.actual_price)>0) group.push(row);
     }
+    const diagnosticRows=await db(env,"market_forecast_error_diagnostics?select=asset,horizon_days,root_cause_candidates,diagnosed_at&order=diagnosed_at.desc&limit=1000").catch(()=>[]);
+    const diagnosticGroups=new Map();
+    for(const row of (Array.isArray(diagnosticRows)?diagnosticRows:[])){
+      const key=row.asset+":"+row.horizon_days;
+      if(!diagnosticGroups.has(key)) diagnosticGroups.set(key,{diagnoses:0,codes:{}});
+      const group=diagnosticGroups.get(key);group.diagnoses++;
+      for(const candidate of (Array.isArray(row.root_cause_candidates)?row.root_cause_candidates:[])){
+        const code=String(candidate?.code||"unknown");
+        group.codes[code]=(group.codes[code]||0)+1;
+      }
+    }
     const assetMetrics={}, actions=[];
     for (const [key,sample] of groups) {
       if (!sample.length) continue;
@@ -777,8 +788,16 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
       const olderMae=older.length?older.reduce((a,b)=>a+b,0)/older.length:null;
       const drift=recent.length>=10&&older.length>=10&&recentMae!==null&&olderMae!==null&&olderMae>0&&recentMae>olderMae*1.5;
       const [asset,horizonText]=key.split(":");
+      const diagnosticPattern=diagnosticGroups.get(key)||{diagnoses:0,codes:{}};
+      const recurringPatterns=Object.entries(diagnosticPattern.codes)
+        .filter(([code,count])=>count>=3&&count/Math.max(1,diagnosticPattern.diagnoses)>=0.2)
+        .map(([code,count])=>({code,count,share_pct:Number((count/Math.max(1,diagnosticPattern.diagnoses)*100).toFixed(1)),
+          interpretation:"repeated_association_not_proven_cause"}))
+        .sort((a,b)=>b.count-a.count).slice(0,8);
       assetMetrics[key]={
         samples:sample.length,mae_pct:Number(mae.toFixed(5)),
+        diagnostic_sample_count:diagnosticPattern.diagnoses,
+        recurring_error_patterns:recurringPatterns,
         no_change_mae_pct:Number(baselineMae.toFixed(5)),
         skill_vs_no_change_pct:Number(skill.toFixed(3)),
         directional_accuracy_pct:accuracy===null?null:Number(accuracy.toFixed(2)),
@@ -791,6 +810,11 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
       else if(sample.length>=30) actions.push({asset,horizon_days:Number(horizonText),action:"keep_directional_signal_withheld",reason:"live model has not beaten no-change baseline by the 2% safety margin",skill_pct:Number(skill.toFixed(3))});
       else actions.push({asset,horizon_days:Number(horizonText),action:"collect_more_live_evidence",reason:"at least 30 matured forecasts are required before validation",samples:sample.length,required:30});
       if(drift) actions.push({asset,horizon_days:Number(horizonText),action:"performance_drift_warning",reason:"recent 20 forecasts have >1.5x MAE of previous sample"});
+      for(const pattern of recurringPatterns){
+        actions.push({asset,horizon_days:Number(horizonText),action:"investigate_recurring_error_signal",
+          error_code:pattern.code,diagnoses:pattern.count,share_pct:pattern.share_pct,
+          reason:"Repeated diagnostic association; evidence for investigation only, not an automatic causal correction."});
+      }
     }
     const payload={
       model_version:MODEL_VERSION,evaluated_count:newEvaluations.length,
