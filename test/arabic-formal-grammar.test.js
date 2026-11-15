@@ -101,7 +101,7 @@ import {
 test("English-pivot market lexicon has broad language coverage and stable sense IDs", () => {
   assert.ok(MARKET_CONCEPTS.length >= 25);
   assert.equal(SUPPORTED_LEXICON_LANGUAGES.length,16);
-  assert.equal(MARKET_LEXICON_VERSION,"market-lexicon-ontology-1.0.0");
+  assert.equal(MARKET_LEXICON_VERSION,"market-lexicon-ontology-1.1.0");
   assert.ok(MARKET_CONCEPTS.every(x=>x.id&&x.pivot?.term&&x.pivot?.definition&&x.equivalents?.fa&&x.equivalents?.ar));
 });
 
@@ -162,4 +162,37 @@ test("lexicon output distinguishes English synonyms from cross-language equivale
   const persian=analyzeMarketLexicon("قیمت نفت افزایش یافت.","fa").matches.find(x=>x.concept_id==="market_rise");
   assert.equal(english.relation,"english_synonym_or_inflection");
   assert.equal(persian.relation,"contextual_equivalent");
+});
+
+test("expanded English-pivot ontology covers conflict, diplomacy, humanitarian law, energy and trade", () => {
+  for (const id of ["armed_conflict","ceasefire","peace_negotiations","sovereignty","territorial_integrity","humanitarian_crisis","humanitarian_aid","refugee","international_humanitarian_law","war_crime","energy_security","supply_chain_disruption","maritime_chokepoint","food_security","defense_spending","proxy_conflict","blockade"]) {
+    assert.ok(MARKET_CONCEPTS.some(x=>x.id===id), "missing concept "+id);
+  }
+  assert.ok(MARKET_CONCEPTS.length >= 65);
+  assert.ok(MARKET_CONCEPTS.filter(x=>["conflict","diplomacy","humanitarian","international_law","energy","trade"].includes(x.category)).length >= 20);
+});
+
+test("Persian, Arabic, Russian and Chinese conflict-news vocabulary maps to English concepts", () => {
+  const fa=analyzeMarketLexicon("طرفین درباره آتش‌بس و کمک‌های بشردوستانه مذاکره کردند.","fa");
+  for(const id of ["ceasefire","humanitarian_aid"]) assert.ok(fa.matched_concept_ids.includes(id),id);
+  const ar=analyzeMarketLexicon("دعت الأمم المتحدة إلى وقف إطلاق النار وتقديم المساعدات الإنسانية.","ar");
+  for(const id of ["ceasefire","humanitarian_aid"]) assert.ok(ar.matched_concept_ids.includes(id),id);
+  const ru=analyzeMarketLexicon("Стороны договорились о прекращении огня.","ru");
+  assert.ok(ru.matched_concept_ids.includes("ceasefire"));
+  const zh=analyzeMarketLexicon("双方同意停火。","zh");
+  assert.ok(zh.matched_concept_ids.includes("ceasefire"));
+});
+
+test("English geopolitical and economic news maps to distinct concepts", () => {
+  const result=analyzeMarketLexicon("The ceasefire talks stalled as sanctions disrupted the oil supply chain and raised energy security concerns.","en");
+  for(const id of ["ceasefire","peace_negotiations","sanctions","oil_supply_disruption","supply_chain_disruption","energy_security"]) {
+    assert.ok(result.matched_concept_ids.includes(id),id);
+  }
+});
+
+test("war-crime and armed-conflict concepts are descriptive, not legal verdicts", () => {
+  const crime=MARKET_CONCEPTS.find(x=>x.id==="war_crime");
+  const conflict=MARKET_CONCEPTS.find(x=>x.id==="armed_conflict");
+  assert.match(crime.pivot.definition,/under applicable law/);
+  assert.match(conflict.pivot.definition,/not its legal classification/);
 });
