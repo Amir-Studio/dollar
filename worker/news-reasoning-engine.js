@@ -420,6 +420,7 @@ export async function saveReasoningFeedback(env,input={}) {
 export async function analyzeNewsWithReasoning({news,languageAnalysis=null,contradictions=null,env,fetchImpl=fetch}={}) {
   const articles=normalizeNews(news);
   if(!articles.length) return {ok:false,status:"no_news",version:REASONING_VERSION};
+  if(!env?.AI?.run) return {ok:false,status:"workers_ai_unavailable",version:REASONING_VERSION};
   const usableArticles=articles.filter(article=>article.source_text_available);
   if(!usableArticles.length) return {ok:true,status:"insufficient_source_text",version:REASONING_VERSION,
     model:MODEL,created_at:new Date().toISOString(),abstained:true,confidence:0,
@@ -431,7 +432,6 @@ export async function analyzeNewsWithReasoning({news,languageAnalysis=null,contr
     evidence_catalog:evidenceCatalog(articles,{documents:[],news_archive:[]}),evidence_audit:{total:0,with_valid_references:0,
       with_verified_quotes:0,without_valid_references:0,unsupported_or_unverified:0,quote_verification_count:0,items:[]},
     safeguards:["تیتر خبر به‌تنهایی سند کافی برای تأیید ادعا یا استنتاج اثر بازار نیست."]};
-  if(!env?.AI?.run) return {ok:false,status:"workers_ai_unavailable",version:REASONING_VERSION};
   const history=await retrieveHistoryContext(news||[],fetchImpl);
   const reviewedLessons=await loadReviewedLessons(env);
 const initialCatalog=evidenceCatalog(articles,history);
