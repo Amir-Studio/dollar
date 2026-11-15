@@ -1,7 +1,11 @@
 // One primary publisher feed per priority country.
-// Feed health is determined by live ingestion logs; active=true means eligible for probing,
-// not that the publisher guarantees permanent RSS availability.
-export const COUNTRY_NEWS_SOURCES_VERSION = "priority-country-feeds-1.0.0";
+// Daily ingestion: Iran/Persian 30, United States 10, and 2 for each of 16 priority countries.
+export const COUNTRY_NEWS_SOURCES_VERSION = "priority-country-feeds-2.0.0";
+export const NEWS_DAILY_QUOTAS = Object.freeze({
+  IR:30, US:10,
+  GB:2, CN:2, DE:2, FR:2, RU:2, JP:2, IN:2, KR:2,
+  CA:2, AU:2, BR:2, IT:2, ES:2, TR:2, SA:2, AE:2
+});
 export const COUNTRY_NEWS_SOURCES = [
   {source_id:"irna-fa",country_code:"IR",country_name:"Iran",name:"IRNA",language_code:"fa",site_url:"https://www.irna.ir",feed_url:"https://www.irna.ir/rss",active:true,trust_tier:"unrated"},
   {source_id:"npr-en",country_code:"US",country_name:"United States",name:"NPR",language_code:"en",site_url:"https://www.npr.org",feed_url:"https://feeds.npr.org/1001/rss.xml",active:true,trust_tier:"unrated"},
@@ -20,30 +24,21 @@ export const COUNTRY_NEWS_SOURCES = [
   {source_id:"elpais-es",country_code:"ES",country_name:"Spain",name:"El País",language_code:"es",site_url:"https://elpais.com",feed_url:"https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada",active:true,trust_tier:"unrated"},
   {source_id:"trthaber-tr",country_code:"TR",country_name:"Türkiye",name:"TRT Haber",language_code:"tr",site_url:"https://www.trthaber.com",feed_url:"https://www.trthaber.com/sondakika.rss",active:true,trust_tier:"unrated"},
   {source_id:"arabnews-en",country_code:"SA",country_name:"Saudi Arabia",name:"Arab News",language_code:"en",site_url:"https://www.arabnews.com",feed_url:"https://www.arabnews.com/rss.xml",active:true,trust_tier:"unrated"},
-  {source_id:"skynews-ar",country_code:"AE",country_name:"United Arab Emirates",name:"Sky News Arabia",language_code:"ar",site_url:"https://www.skynewsarabia.com",feed_url:"https://www.skynewsarabia.com/web/rss",active:true,trust_tier:"unrated"},
-  {source_id:"aljazeera-en",country_code:"QA",country_name:"Qatar",name:"Al Jazeera",language_code:"en",site_url:"https://www.aljazeera.com",feed_url:"https://www.aljazeera.com/xml/rss/all.xml",active:true,trust_tier:"unrated"},
-  {source_id:"toi-israel-en",country_code:"IL",country_name:"Israel",name:"The Times of Israel",language_code:"en",site_url:"https://www.timesofisrael.com",feed_url:"https://www.timesofisrael.com/feed/",active:true,trust_tier:"unrated"},
-  {source_id:"unian-en",country_code:"UA",country_name:"Ukraine",name:"UNIAN",language_code:"en",site_url:"https://www.unian.net",feed_url:"https://rss.unian.net/site/news_eng.rss",active:true,trust_tier:"unrated"},
-  {source_id:"tvn24-pl",country_code:"PL",country_name:"Poland",name:"TVN24",language_code:"pl",site_url:"https://tvn24.pl",feed_url:"https://tvn24.pl/najnowsze.xml",active:true,trust_tier:"unrated"},
-  {source_id:"nos-nl",country_code:"NL",country_name:"Netherlands",name:"NOS",language_code:"nl",site_url:"https://nos.nl",feed_url:"https://feeds.nos.nl/nosnieuwsalgemeen",active:true,trust_tier:"unrated"},
-  {source_id:"swissinfo-en",country_code:"CH",country_name:"Switzerland",name:"SWI swissinfo.ch",language_code:"en",site_url:"https://www.swissinfo.ch",feed_url:"https://www.swissinfo.ch/eng/rss",active:true,trust_tier:"unrated"},
-  {source_id:"cna-en",country_code:"SG",country_name:"Singapore",name:"CNA",language_code:"en",site_url:"https://www.channelnewsasia.com",feed_url:"https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml",active:true,trust_tier:"unrated"},
-  {source_id:"antara-en",country_code:"ID",country_name:"Indonesia",name:"ANTARA",language_code:"en",site_url:"https://en.antaranews.com",feed_url:"https://en.antaranews.com/rss/news.xml",active:true,trust_tier:"unrated"},
-  {source_id:"eluniversal-es",country_code:"MX",country_name:"Mexico",name:"El Universal",language_code:"es",site_url:"https://www.eluniversal.com.mx",feed_url:"https://www.eluniversal.com.mx/rss.xml",active:true,trust_tier:"unrated"},
-  {source_id:"batimes-en",country_code:"AR",country_name:"Argentina",name:"Buenos Aires Times",language_code:"en",site_url:"https://www.batimes.com.ar",feed_url:"https://www.batimes.com.ar/feed",active:true,trust_tier:"unrated"},
-  {source_id:"news24-en",country_code:"ZA",country_name:"South Africa",name:"News24",language_code:"en",site_url:"https://www.news24.com",feed_url:"https://feeds.news24.com/articles/news24/TopStories/rss",active:true,trust_tier:"unrated"},
-  {source_id:"madamasr-en",country_code:"EG",country_name:"Egypt",name:"Mada Masr",language_code:"en",site_url:"https://www.madamasr.com",feed_url:"https://www.madamasr.com/en/feed/",active:true,trust_tier:"unrated"},
+  {source_id:"skynews-ar",country_code:"AE",country_name:"United Arab Emirates",name:"Sky News Arabia",language_code:"ar",site_url:"https://www.skynewsarabia.com",feed_url:"https://www.skynewsarabia.com/web/rss",active:true,trust_tier:"unrated"}
 ];
-
 export function validateCountryNewsSources(sources=COUNTRY_NEWS_SOURCES) {
   const ids=new Set(),countries=new Set(),errors=[];
+  const required=Object.keys(NEWS_DAILY_QUOTAS);
   for (const source of sources) {
     if (!source.source_id || ids.has(source.source_id)) errors.push("duplicate_or_missing_source_id:"+String(source.source_id));
     if (!source.country_code || countries.has(source.country_code)) errors.push("duplicate_or_missing_country:"+String(source.country_code));
+    if (!required.includes(source.country_code)) errors.push("country_not_in_daily_quota:"+String(source.country_code));
     if (!/^[A-Z]{2}$/.test(source.country_code||"")) errors.push("invalid_country_code:"+String(source.country_code));
     try { const feed=new URL(source.feed_url); if(feed.protocol!=="https:") errors.push("non_https_feed:"+source.source_id); }
     catch { errors.push("invalid_feed_url:"+source.source_id); }
-    ids.add(source.source_id);countries.add(source.country_code);
+    ids.add(source.source_id); countries.add(source.country_code);
   }
-  return {version:COUNTRY_NEWS_SOURCES_VERSION,total:sources.length,unique_countries:countries.size,unique_source_ids:ids.size,errors,passed:errors.length===0&&sources.length===30&&countries.size===30};
+  for (const country of required) if(!countries.has(country)) errors.push("missing_priority_country:"+country);
+  const totalQuota=Object.values(NEWS_DAILY_QUOTAS).reduce((sum,value)=>sum+value,0);
+  return {version:COUNTRY_NEWS_SOURCES_VERSION,total:sources.length,unique_countries:countries.size,unique_source_ids:ids.size,daily_quotas:NEWS_DAILY_QUOTAS,total_daily_quota:totalQuota,errors,passed:errors.length===0&&sources.length===required.length&&countries.size===required.length};
 }
