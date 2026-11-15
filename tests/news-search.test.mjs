@@ -38,6 +38,22 @@ test('search locale detection supports Persian, Arabic, English, German, French 
   assert.equal(detectMarketNewsLocale('美元汇率'),'zh');
 });
 
+test('short market aliases expand precisely without broadening unrelated searches',()=>{
+  const cases=[
+    ['gold','gold price'],
+    ['oil','oil prices'],
+    ['dollar','US dollar'],
+    ['euro','euro exchange rate'],
+    ['rial','Iranian rial'],
+    ['yuan','Chinese yuan']
+  ];
+  for(const [query,expected] of cases){
+    const result=normalizeMarketNewsSearchQuery(query);
+    assert.equal(result.ok,true,query);
+    assert.ok(result.searchQuery.includes(expected),query);
+  }
+});
+
 test('Google News URL encodes the query and applies the selected locale',()=>{
   const url=new URL(buildGoogleNewsSearchUrl('قیمت دلار','fa'));
   assert.equal(url.hostname,'news.google.com');
