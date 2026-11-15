@@ -649,9 +649,10 @@ async function liveBiasCalibration(env,asset,horizon) {
   } catch(error) { return {samples:0,applied:false,log_bias:0,adjustment_log:0,reason:"calibration_data_unavailable",error:String(error?.message||error).slice(0,100)}; }
 }
 export function runCalibrationSelfTest() {
-  const rows=Array.from({length:45},(_,i)=>({predicted_price:100,actual_price:102,actual_at:new Date(Date.UTC(2026,0,1)+i*DAY).toISOString()}));
+  const rows=Array.from({length:45},(_,i)=>({predicted_price:100,actual_price:102,actual_at:new Date(Date.UTC(2026,0,1)+(44-i)*DAY).toISOString()}));
   const stable=evaluateBiasAdjustment(rows);
-  const noisy=evaluateBiasAdjustment(rows.map((x,i)=>({...x,actual_price:i%2?110:95})));
+  // The newest holdout has the opposite bias from the older training window.
+  const noisy=evaluateBiasAdjustment(rows.map((x,i)=>({...x,actual_price:i<15?98:102})));
   const insufficient=evaluateBiasAdjustment(rows.slice(0,20));
   const tests=[
     {name:"stable_bias_validated_on_unseen_holdout",passed:stable.applied&&stable.holdout_improvement_pct>=2},
