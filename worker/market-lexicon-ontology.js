@@ -214,7 +214,7 @@ const ENGLISH_FORMS = [
 ["civilian_protection",["protect civilians","civilian safety"]],
 ["critical_infrastructure",["essential infrastructure"]],
 ["energy_security",["security of energy supply"]],
-["supply_chain_disruption",["supply disruptions","supply-chain disruption","disrupted supply chains"]],
+["supply_chain_disruption",["supply disruptions","supply-chain disruption","supply-chain disruptions","disrupted supply chains"]],
 ["trade_route",["shipping route","commercial route"]],
 ["maritime_chokepoint",["strategic sea passage","maritime bottleneck"]],
 ["food_security",["access to food","food insecurity"]],
@@ -233,7 +233,7 @@ const TERM_INDEX = new Map();
 for (const c of MARKET_CONCEPTS) {
   for (const [lang,terms] of Object.entries({en:[c.pivot.term],...c.equivalents})) {
     for (const term of terms) {
-      const key=term.toLocaleLowerCase();
+      const key=term.toLocaleLowerCase().normalize("NFKC").replace(/[\\u200c\\u200f]/g," ");
       if (!TERM_INDEX.has(lang)) TERM_INDEX.set(lang,new Map());
       const list=TERM_INDEX.get(lang).get(key)||[];
       list.push(c.id);
