@@ -171,7 +171,7 @@ function regression(points,window=45) {
   return {slope,intercept,x0,sigma,trendNow:intercept+slope*xs[xs.length-1]};
 }
 
-function candidates(points,h) {
+function candidates(points,h,options={}) {
   const p=points.slice(-260), returns=[];
   for(let i=1;i<p.length;i++){
     const days=(p[i].t-p[i-1].t)/DAY;
@@ -238,7 +238,7 @@ function relativeErrorPct(predictedLogReturn,actualLogReturn) {
 function baselineWeights(keys) {
   return Object.fromEntries(keys.map(k=>[k,k==="no_change"?1:0]));
 }
-export function selectWeightsFromErrorSums(keys,sampleCount,baselineErrorSum,candidateErrorSums) {
+export function selectWeightsFromErrorSums(keys,sampleCount,baselineErrorSum,candidateErrorSums,candidateSampleCounts={}) {
   if(sampleCount<40) return baselineWeights(keys);
   const baselineMae=baselineErrorSum/sampleCount;
   const ranked=keys.filter(k=>k!=="no_change").map(k=>({
@@ -304,7 +304,7 @@ function backtest(points,h) {
     // Do not start the next test until the actual target observation has arrived.
     nextAllowedOrigin=points[j].t;
   }
-  const keys=records.length?Object.keys(records[0].preds):["no_change"];
+  const keys=records.length?[...new Set(records.flatMap(r=>Object.keys(r.preds)))]:["no_change"];
   const n=records.length;
   if(n<30) return {
     eligible:false,samples:n,evaluation_method:"non_overlapping_rolling_origin",
@@ -328,7 +328,10 @@ function backtest(points,h) {
     while(maturedCount<i&&records[maturedCount].actualTime<=origin){
       const matured=records[maturedCount];
       baselineErrorSum+=relativeErrorPct(0,matured.actual);
-      for(const key of keys) candidateErrorSums[key]+=relativeErrorPct(matured.preds[key]??0,matured.actual);
+      for(const key of keys) if(Number.isFinite(matured.preds[key])) {
+        candidateErrorSums[key]+=relativeErrorPct(matured.preds[key],matured.actual);
+        candidateSampleCounts[key]++;
+      }
       maturedCount++;
     }
     const weights=selectWeightsFromErrorSums(keys,maturedCount,baselineErrorSum,candidateErrorSums);
