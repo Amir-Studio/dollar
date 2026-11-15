@@ -1,4 +1,4 @@
-// German News Vocabulary — curated launch curriculum (100 reviewed starter entries).
+// German News Vocabulary — curated launch curriculum (100 curated starter entries; lexical review pending).
 // Editorial examples are original teaching sentences, not quotations from publishers.
 // Frequency ranks are intentionally not fabricated; corpus ranking is pending a licensed
 // Leipzig deu_news_2025_1M lemma/POS import and review.
