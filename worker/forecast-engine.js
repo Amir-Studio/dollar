@@ -695,6 +695,23 @@ export function evaluateComponentWeightAdjustment(rows,baseWeights={}) {
     method:"older_train_newer_holdout_blended_expert_weights_v1",
     reason:accepted?"component_weights_validated_on_unseen_live_holdout":"component_weight_change_failed_holdout_gate"};
 }
+export function runComponentCalibrationSelfTest() {
+  const base={trend_15:1,median_5:0,no_change:0};
+  const stable=Array.from({length:60},()=>({reference_price:100,actual_price:100*Math.exp(0.01),
+    model_weights:base,validation:{candidate_predictions_log:{trend_15:0.02,median_5:0.01,no_change:0}}}));
+  const drift=Array.from({length:60},(_,i)=>({reference_price:100,actual_price:100*Math.exp(i<20?0.02:0.01),
+    model_weights:base,validation:{candidate_predictions_log:{trend_15:0.02,median_5:0.01,no_change:0}}}));
+  const insufficient=stable.slice(0,59);
+  const good=evaluateComponentWeightAdjustment(stable,base);
+  const unstable=evaluateComponentWeightAdjustment(drift,base);
+  const small=evaluateComponentWeightAdjustment(insufficient,base);
+  const checks=[
+    {name:"component_weights_improve_newer_holdout",passed:good.applied&&good.holdout_improvement_pct>=3},
+    {name:"component_weights_rejected_on_holdout_drift",passed:!unstable.applied},
+    {name:"component_weights_minimum_60_samples",passed:!small.applied&&small.samples===59}
+  ];
+  return {total:checks.length,passed:checks.filter(x=>x.passed).length,failed:checks.filter(x=>!x.passed)};
+}
 async function liveComponentWeightCalibration(env,asset,horizon,baseWeights) {
   try {
     const rows=await db(env,"market_forecast_runs?select=reference_price,actual_price,model_weights,validation,actual_at&asset=eq."+encodeURIComponent(asset)+
