@@ -752,10 +752,18 @@ export async function refreshBackground(env) {
 
 export default {
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(refreshBackground(env).then(async market => { await runForecastCycle(env,market); await runNewsLearningCycle(env); }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
-    ctx.waitUntil(collectGlobalCountryTestBatch(env).then(result => {
+    const cron = String(controller?.cron || "");
+    const runCountryCollector = () => collectGlobalCountryTestBatch(env).then(result => {
       console.log("Global country test scheduled result:",JSON.stringify(result));
-    }).catch(error => console.error("Global country test scheduled task crashed:",error?.message||error)));
+    }).catch(error => console.error("Global country test scheduled task crashed:",error?.message||error));
+    // Run the corpus collector every minute, separately from the heavier
+    // market refresh/forecast cycle that remains on the five-minute trigger.
+    if (cron === "* * * * *") {
+      ctx.waitUntil(runCountryCollector());
+      return;
+    }
+    ctx.waitUntil(refreshBackground(env).then(async market => { await runForecastCycle(env,market); await runNewsLearningCycle(env); }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
+    if (!cron) ctx.waitUntil(runCountryCollector());
   },
   async fetch(request, env) {
     const url = new URL(request.url);
