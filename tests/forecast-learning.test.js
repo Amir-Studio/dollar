@@ -72,3 +72,17 @@ test("diagnostic patterns are attributed only to the matching model version", ()
   assert.equal(result.asset_metrics["USD_IRR_FREE:1:legacy-v2.4"].recurring_error_patterns[0].code,"quote_age_elevated");
   assert.equal(result.asset_metrics["USD_IRR_FREE:1:iran-ensemble-wf-2.7-maturity-safe-walkforward"].diagnostic_sample_count,0);
 });
+
+test("model retention requires enough matured evidence and beats the no-change baseline", () => {
+  const good = Array.from({length:30},()=>({
+    asset:"EUR_IRR_FREE",horizon_days:3,model_version:"candidate-v3",
+    reference_price:100,predicted_price:102,actual_price:102.5,direction_correct:true
+  }));
+  const bad = Array.from({length:30},()=>({
+    asset:"GOLD_18K_IRR",horizon_days:3,model_version:"candidate-v3",
+    reference_price:100,predicted_price:105,actual_price:101,direction_correct:false
+  }));
+  const result = summarizeLearningEvidence([...good,...bad],[]);
+  assert.ok(result.learning_actions.some(x=>x.asset==="EUR_IRR_FREE"&&x.action==="retain_validated_model"));
+  assert.ok(result.learning_actions.some(x=>x.asset==="GOLD_18K_IRR"&&x.action==="keep_directional_signal_withheld"));
+});
