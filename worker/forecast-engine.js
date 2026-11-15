@@ -806,6 +806,13 @@ async function issueForecast(env,asset,horizon,input) {
       live_component_validation_method:componentCalibration.method
     };
     result.forecast_mode="adaptive_directional";
+    if(Array.isArray(result.forecast_curve)){
+      result.forecast_curve_meta={
+        ...(result.forecast_curve_meta||{}),
+        complete:false,
+        note_fa:"پیش‌بینی اصلی با وزن‌های تأییدشدهٔ زنده محاسبه شده است؛ نمودار روزانه تا زمانی که اعتبارسنجی مستقل هر افق آماده نشود نمایش داده نمی‌شود."
+      };
+    }
     baselineOnly=false;
   }
   const calibration=baselineOnly?{samples:0,applied:false,log_bias:0,reason:"baseline-only forecasts are not directionally adjusted"}:
