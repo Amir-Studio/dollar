@@ -298,7 +298,7 @@ function calculateEvidenceStrength(audit,catalog) {
 function numericTokens(value) {
   const normalized=clean(value,5000).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
     .replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-  return normalized.match(/\\d+(?:[.,]\\d+)?/g)||[];
+  return normalized.match(/\d+(?:[.,]\d+)?/g)||[];
 }
 function auditEvidenceReferences(analysis,catalog) {
   const byId=new Map(catalog.map(x=>[x.id,x])),audit=[];
