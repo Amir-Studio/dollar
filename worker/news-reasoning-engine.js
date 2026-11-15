@@ -60,6 +60,18 @@ function parseRss(xml, query) {
       publisher:(()=>{try{return new URL(url).hostname.replace(/^www\./,"")}catch{return ""}})(),search_query:query};
   }).filter(x=>x.title&&/^https?:\/\//i.test(x.url));
 }
+async function fetchArticleExcerpt(url,fetchImpl=fetch) {
+  try {
+    const parsed=new URL(url);
+    if(!["http:","https:"].includes(parsed.protocol)) return "";
+    const response=await fetchImpl(parsed.href,{headers:{accept:"text/html,application/xhtml+xml","user-agent":"DollarReasoningReader/1.0"},signal:AbortSignal.timeout(5000)});
+    if(!response.ok||!String(response.headers.get("content-type")||"").includes("text/html")) return "";
+    const html=(await response.text()).slice(0,180000);
+    const paragraphs=[...html.replace(/<(script|style|noscript|svg)\\b[^>]*>[\\s\\S]*?<\\/\\1>/gi," ").matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)]
+      .map(x=>decode(x[1])).filter(x=>x.length>=70);
+    return clean(paragraphs.slice(0,8).join(" "),2200);
+  } catch { return ""; }
+}
 async function searchEvidence(queries, fetchImpl=fetch) {
   const selected=[...new Set((Array.isArray(queries)?queries:[]).map(x=>clean(x,160)).filter(x=>x.length>=8))].slice(0,3);
   const batches=await Promise.all(selected.map(async query=>{
@@ -72,7 +84,7 @@ async function searchEvidence(queries, fetchImpl=fetch) {
     } catch { return []; }
   }));
   const seen=new Set();
-  return batches.flat().filter(x=>{if(seen.has(x.url))return false;seen.add(x.url);return true;}).slice(0,16);
+  const unique=batches.flat().filter(x=>{if(seen.has(x.url))return false;seen.add(x.url);return true;}).slice(0,12);\n  return Promise.all(unique.slice(0,4).map(async item=>({...item,article_excerpt:await fetchArticleExcerpt(item.url,fetchImpl)}))).then(enriched=>[...enriched,...unique.slice(4)]);
 }
 function normalizeNews(news) {
   return (Array.isArray(news)?news:[]).slice(0,16).map((x,i)=>({
