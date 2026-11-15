@@ -32,3 +32,14 @@
 - The Supabase migrations are `20261115221117_market_news_triage_learning` and `20261115221348_market_news_triage_model_store`.
 - Run tests with:
   `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs`.
+
+## Evidence-first reasoning and active research
+
+- `worker/news-reasoning-engine.js` adds a separate reasoning layer; it is not the triage MLP and does not change triage labels by itself.
+- It uses Cloudflare Workers AI `@cf/meta/llama-3.3-70b-instruct-fp8-fast` for structured comprehension, causal hypotheses, alternative explanations, counter-evidence and abstention.
+- It retrieves up to three relevant History dossiers from `data/index.json` and their JSON records. Draft/pending status and source limitations are preserved; History is context, never automatic proof.
+- When the first pass identifies a material evidence gap, it issues at most three targeted Google News RSS searches and performs a second synthesis pass. Search results remain leads, not independent verification.
+- The scheduled Worker stores the latest reasoning result in `MARKET_CACHE` under `news:reasoning:latest`; `/news` exposes the cached result and its freshness status.
+- Missing AI binding, failed retrieval, malformed model output or weak evidence must produce an unavailable/abstaining result rather than fabricated certainty.
+- The model is not continuously fine-tuned from its own answers. Persistent learning still requires reviewed corrections and a held-out evaluation set; self-confirmation is explicitly avoided.
+- Regression tests: `node --experimental-default-type=module --test worker/news-triage-engine.test.mjs worker/news-reasoning-engine.test.mjs`.
