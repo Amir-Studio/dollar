@@ -1,0 +1,30 @@
+name: Dollar news triage tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/news-triage-engine.js"
+      - "worker/news-triage-engine.test.mjs"
+      - "worker/index.js"
+      - ".github/workflows/news-triage-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax checks
+        run: |
+          node --experimental-default-type=module --check worker/news-triage-engine.js
+          node --experimental-default-type=module --check worker/index.js
+      - name: News triage unit tests
+        run: node --experimental-default-type=module --test worker/news-triage-engine.test.mjs
