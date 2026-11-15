@@ -54,6 +54,7 @@
 - History یک دفتر مستقل برای اصطلاحاتی دارد که عامل تحلیل واقعاً نمی‌تواند با اطمینان تعریف کند: https://amir-studio.github.io/History/vocabulary.html
 - Worker مسیر احراز هویت‌شدهٔ `POST /vocabulary/unknown` را ارائه می‌کند. درخواست فقط شامل واژه، زبان، جملهٔ اصلی، زمان مشاهده و منبع اختیاری است؛ Worker آن را از طریق GitHub Repository Dispatch به مخزن `Amir-Studio/History` می‌فرستد.
 - برای فعال‌سازی، دو Cloudflare Worker Secret لازم است: `HISTORY_GITHUB_TOKEN` (توکن محدود به مخزن History با دسترسی نوشتن محتوا برای اجرای workflow) و `HISTORY_VOCABULARY_SECRET` (یک راز تصادفی مشترک بین فراخواننده و Worker). آن‌ها را در کد، فایل عمومی یا پیام‌ها قرار نده.
+- Secretها را با Wrangler از ریشهٔ مخزن تنظیم کن: `npx wrangler secret put HISTORY_GITHUB_TOKEN --config worker/wrangler.toml` و `npx wrangler secret put HISTORY_VOCABULARY_SECRET --config worker/wrangler.toml`. برای توکن GitHub فقط دسترسی لازم به محتوای مخزن History را بده؛ مقدار Secret را در کد یا چت ننویس.
 - پس از افزودن Secretها، Worker را دوباره deploy کن. endpoint تا پیش از تنظیم هر دو Secret، عمداً با وضعیت غیرفعال پاسخ می‌دهد.
 - پاسخ `202 queued` یعنی درخواست به GitHub Actions تحویل شده، نه اینکه همان لحظه در صفحه منتشر شده باشد. پس از موفقیت workflow، واژه در دفتر History ظاهر می‌شود.
 - عامل باید فقط وقتی واژه/اصطلاح واقعاً ناشناخته است آن را ارسال کند؛ نه برای هر واژهٔ ناآشنا یا هر کلمهٔ عادی. واژه‌های تکراری با کلید زبان + شکل نرمال‌شده ادغام می‌شوند و تعداد برخورد و نمونه‌های بافتی افزایش می‌یابد.
