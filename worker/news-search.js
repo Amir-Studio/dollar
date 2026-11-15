@@ -18,9 +18,18 @@ const normalizeText = value => String(value ?? "")
 
 export function normalizeMarketNewsSearchQuery(value) {
   const query=normalizeText(value).slice(0,100);
-  if(query.length<2) return {ok:false,query,reason:"عبارت جست‌وجو باید دست‌کم دو نویسه داشته باشد."};
-  if(!isMarketRelevantHeadline(query)) return {ok:false,query,reason:"جست‌وجو فقط برای موضوعات مرتبط با بازار، ارز، طلا، اقتصاد و سیاست پولی فعال است."};
-  return {ok:true,query,reason:null};
+  if(query.length<2) return {ok:false,query,searchQuery:query,reason:"عبارت جست‌وجو باید دست‌کم دو نویسه داشته باشد."};
+  const expansions={
+    gold:"gold price OR spot gold OR gold market OR gold futures",
+    oil:"oil prices OR crude oil OR Brent crude OR oil market",
+    dollar:"US dollar OR dollar exchange rate OR dollar index",
+    euro:"euro exchange rate OR euro currency OR eurozone",
+    rial:"Iranian rial OR rial exchange rate",
+    yuan:"Chinese yuan OR yuan exchange rate"
+  };
+  const searchQuery=expansions[query]||query;
+  if(!isMarketRelevantHeadline(searchQuery)) return {ok:false,query,searchQuery,reason:"جست‌وجو فقط برای موضوعات مرتبط با بازار، ارز، طلا، اقتصاد و سیاست پولی فعال است."};
+  return {ok:true,query,searchQuery,reason:null};
 }
 
 export function detectMarketNewsLocale(value) {
@@ -115,7 +124,7 @@ export async function searchMarketNews(rawQuery,fetcher=fetch,now=Date.now()) {
   const checked=normalizeMarketNewsSearchQuery(rawQuery);
   if(!checked.ok) return {ok:false,query:checked.query,reason:checked.reason,locale:null,items:[]};
   const locale=detectMarketNewsLocale(checked.query);
-  const url=buildGoogleNewsSearchUrl(checked.query,locale);
+  const url=buildGoogleNewsSearchUrl(checked.searchQuery,locale);
   const response=await fetcher(url,{
     headers:{accept:"application/rss+xml,application/atom+xml,application/xml,text/xml","user-agent":"DollarMarketSearch/1.0"},
     signal:AbortSignal.timeout(12000)
@@ -123,5 +132,5 @@ export async function searchMarketNews(rawQuery,fetcher=fetch,now=Date.now()) {
   if(!response.ok) throw Error("Google News search HTTP "+response.status);
   const xml=await response.text();
   const items=parseGoogleNewsSearchFeed(xml,url,{now,maxAgeHours:24*14,locale});
-  return {ok:true,query:checked.query,locale,provider:"Google News RSS",items};
+  return {ok:true,query:checked.query,search_query:checked.searchQuery,locale,provider:"Google News RSS",items};
 }
