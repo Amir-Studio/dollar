@@ -799,7 +799,7 @@ async function runContinuousLearning(env, evaluatedNow=[]) {
       model_version:MODEL_VERSION,evaluated_count:newEvaluations.length,
       asset_metrics:assetMetrics,learning_actions:actions
     })});
-    return {ran:true,trigger:newEvaluations.length?\"new_evaluations\":\"15_minute_interval\",evaluated:newEvaluations.length,diagnostics:diagnosticCount,groups:Object.keys(assetMetrics).length,actions:actions.length};
+    return {ran:true,trigger:newEvaluations.length?"new_evaluations":"15_minute_interval",evaluated:newEvaluations.length,diagnostics:diagnosticCount,groups:Object.keys(assetMetrics).length,actions:actions.length};
   } catch(error) {
     console.error("Continuous learning cycle failed:",error?.message||error);
     return {ran:false,error:String(error?.message||error).slice(0,180)};
