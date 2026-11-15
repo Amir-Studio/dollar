@@ -3,6 +3,7 @@ import { analyzeMarketLanguage, VERSION as LANGUAGE_ENGINE_VERSION } from "./lan
 import { analyzeNewsReading, NEWS_READING_VERSION, runNewsReadingBenchmark } from "./news-reading-engine.js";
 import { analyzeMultilingualNews, runMultilingualBenchmark, MULTILINGUAL_VERSION } from "./multilingual-engine.js";
 import { ARABIC_ENGINE_VERSION, runArabicAcademicBenchmark } from "./arabic-academic-engine.js";
+import { ARABIC_FORMAL_GRAMMAR_VERSION, runArabicFormalGrammarBenchmark } from "./arabic-formal-grammar.js";
 import { PRAGMATICS_VERSION, PRAGMATICS_PHRASE_COUNT } from "./pragmatics-engine.js";
 import { analyzeConversationContext, CONVERSATION_CONTEXT_VERSION } from "./conversation-context-engine.js";
 import { buildDecisionBrief, DECISION_ENGINE_VERSION, runDecisionEngineSelfTest } from "./decision-engine.js";
@@ -357,6 +358,9 @@ function analyzeSupportedLanguageNews(items) {
       comparison_count:result.summary?.comparison_count||0,
       arabic_academic:result.arabic_academic_analysis?{
         engine_version:result.arabic_engine_version,
+        formal_grammar_version:result.arabic_academic_analysis.formal_grammar?.version,
+        formal_grammar_curriculum:result.arabic_academic_analysis.formal_grammar?.curriculum,
+        detected_grammar_rules:result.arabic_academic_analysis.formal_grammar?.detected_rules,
         dialect:result.arabic_academic_analysis.dialect_profile,
         finance_concepts:result.arabic_academic_analysis.finance_domain.concepts,
         semantic_families:result.arabic_academic_analysis.root_and_semantic_families,
@@ -1303,7 +1307,7 @@ export default {
           version: LANGUAGE_ENGINE_VERSION,
           mode: "deterministic_domain_nlp_not_llm",
           languages: ["fa", "en", "ar", "zh", "de", "fr", "ru", "ja", "ko", "hi", "es", "it", "pt", "tr", "nl", "pl"],
-          multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})(),arabic_academic_layer:{version:ARABIC_ENGINE_VERSION,mode:"rule_based_candidate_analysis_not_human_or_neural_level",benchmark:runArabicAcademicBenchmark()}},
+          multilingual_news_engine: {version:MULTILINGUAL_VERSION,languages:["ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"],mode:"deterministic_rule_based_not_llm",benchmark:(()=>{const b=runMultilingualBenchmark();return {total:b.total,passed:b.passed,failed:b.failed,score_pct:b.score_pct,by_language:b.by_language,scope:b.scope};})(),arabic_academic_layer:{version:ARABIC_ENGINE_VERSION,mode:"rule_based_candidate_analysis_not_human_or_neural_level",benchmark:runArabicAcademicBenchmark(),formal_grammar:{version:ARABIC_FORMAL_GRAMMAR_VERSION,benchmark:runArabicFormalGrammarBenchmark()}}},
           news_input: "rss_excerpt_or_headline",
           history_analysis: true,
           pragmatics: {
