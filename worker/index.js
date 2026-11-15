@@ -19,7 +19,7 @@ import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_C
 import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
 import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
 import { NEWS_TRIAGE_VERSION, buildNewsTriageFeatures, extractiveNewsSummary, trainNewsTriageModel, predictNewsTriageModel, fallbackNewsTriage, runNewsTriageSelfTest } from "./news-triage-engine.js";
-import { analyzeNewsWithReasoning, saveReasoningFeedback, REASONING_VERSION } from "./news-reasoning-engine.js";
+import { analyzeNewsWithReasoning, saveReasoningFeedback, REASONING_VERSION, runReasoningSelfTest } from "./news-reasoning-engine.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -1926,6 +1926,8 @@ export default {
         potential_conflicts:conflicts,
         potential_conflict_count:conflicts.length,
         cross_source_verification:crossSourceVerification,
+        news_reasoning:reasoningCache?.payload||null,
+        news_reasoning_status:reasoningCache?"scheduled_evidence_reasoning_available":"waiting_for_next_scheduled_reasoning_cycle",
         language_intelligence:{engine:"dollar-domain-nlp",version:LANGUAGE_ENGINE_VERSION,mode:"deterministic_domain_nlp_not_llm",analyzed_articles:languageAnalysis.news_analyzed,excerpt_articles:languageAnalysis.news_with_excerpt,excerpt_coverage_pct:languageAnalysis.excerpt_coverage_pct,themes:languageAnalysis.themes,
           topic_evidence:languageAnalysis.per_news.map(article=>({title:article.title,source:article.source,themes:article.theme_evidence||[],input_mode:article.input_mode,content_chars:article.content_chars})),
           events:languageAnalysis.events,possible_conflicts:languageAnalysis.possible_conflicts,structured_claim_conflicts:languageAnalysis.structured_claim_conflicts,structured_conflict_benchmark:languageAnalysis.structured_conflict_benchmark,formal_language:languageAnalysis.formal_language,bilingual_lexicon:languageAnalysis.bilingual_lexicon,hard_news_comprehension:languageAnalysis.hard_news_comprehension,news_reading_comprehension:languageAnalysis.news_reading_comprehension,quality:languageAnalysis.quality,theme_classification_benchmark:languageAnalysis.theme_classification_benchmark},
@@ -1993,6 +1995,7 @@ export default {
         llm_configured: false,
         translation_pipeline:{enabled:false,reason:"No translation-provider secret is configured; English source text is analyzed directly without fabricating a Persian translation."},
         model: null,
+        news_reasoning_engine:{enabled:Boolean(env.AI?.run&&env.MARKET_CACHE),version:REASONING_VERSION,model:"@cf/meta/llama-3.3-70b-instruct-fp8-fast",stages:["structured_comprehension","history_retrieval","targeted_search","evidence_quote_audit","semantic_entailment_audit","causal_falsification"],self_test:runReasoningSelfTest(),learning_mode:"human_reviewed_retrieval_memory_not_online_weight_updates",note_fa:"شناخت خبر، تطبیق نقل‌قول، بررسی معنایی شواهد و آزمون فرضیه علّی؛ وزن مدل خودکار آموزش داده نمی‌شود."},
         neural_error_learning: {
           enabled: Boolean(env.AI?.run && (env.MARKET_CACHE || (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY))),
           storage: env.MARKET_CACHE ? "cloudflare_kv" : "supabase_validation_report",
