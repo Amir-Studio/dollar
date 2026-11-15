@@ -153,6 +153,8 @@ function compactPayload(payload) {
   const compact={
     ...payload,
     articles:(payload.articles||[]).slice(0,10).map(x=>({...x,title:clean(x.title,220),text:clean(x.text,850)})),
+    contradiction_screen:Array.isArray(payload.contradiction_screen)?payload.contradiction_screen.slice(0,8):payload.contradiction_screen,
+    initial_analysis:payload.initial_analysis?Object.fromEntries(Object.entries(payload.initial_analysis).map(([k,v])=>[k,Array.isArray(v)?v.slice(0,10).map(x=>typeof x==="object"?{...x,statement:clean(x.statement||x.claim||x.hypothesis,500),source_ids:(x.source_ids||[]).slice(0,8)}:clean(x,500)):v])):undefined,
     language_analysis:payload.language_analysis?{
       news_analyzed:payload.language_analysis.news_analyzed,
       news_with_excerpt:payload.language_analysis.news_with_excerpt,
