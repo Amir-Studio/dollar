@@ -501,10 +501,34 @@ async function makeFreeAnalysis(env, asset) {
   const englishLearningText = (englishNews.length ? englishNews : news)
     .slice(0,6).map(x => [x.title,x.original_title,x.original_text].filter(Boolean).join(" "))
     .join("\n").slice(0,10000);
+  const neuralLanguageGroups = new Map();
+  for (const article of news) {
+    const articleText = [article.title,article.original_title,article.original_text].filter(Boolean).join(" ").trim();
+    if (!articleText) continue;
+    let language = String(article.language_code||article.language||"").toLowerCase().split("-")[0].slice(0,12);
+    if (!language) {
+      if (/[\u4e00-\u9fff]/.test(articleText)) language="zh";
+      else if (/[\u0600-\u06ff]/.test(articleText)) language="ar";
+      else if (/[\u0400-\u04ff]/.test(articleText)) language="ru";
+      else if (/[\u3040-\u30ff]/.test(articleText)) language="ja";
+      else if (/[\uac00-\ud7af]/.test(articleText)) language="ko";
+      else if (/[\u0900-\u097f]/.test(articleText)) language="hi";
+      else language="und";
+    }
+    if (language==="en") continue;
+    if (!neuralLanguageGroups.has(language)) neuralLanguageGroups.set(language,[]);
+    neuralLanguageGroups.get(language).push(articleText);
+  }
+  const additionalNeuralQueries=[...neuralLanguageGroups.entries()].slice(0,12).map(([language,texts])=>({
+    language,article_count:texts.length,text:texts.slice(0,5).join("\n").slice(0,6000)
+  }));
   let englishNeuralAnalysis = null;
   if (englishLearningText && env.AI?.run) {
     try {
-      englishNeuralAnalysis = await analyzeEnglishNewsNeurally(englishLearningText,env,{limit:20,unknownLimit:8,researchUnknown:true,researchLimit:2});
+      englishNeuralAnalysis = await analyzeEnglishNewsNeurally(englishLearningText,env,{
+        limit:20,unknownLimit:8,researchUnknown:englishNews.length>0,extractUnknown:englishNews.length>0,
+        researchLimit:2,additionalQueries:additionalNeuralQueries
+      });
     } catch(error) {
       englishNeuralAnalysis = {status:"neural_analysis_unavailable",model:"@cf/baai/bge-m3",detail:String(error?.message||error).slice(0,160)};
     }
@@ -512,6 +536,13 @@ async function makeFreeAnalysis(env, asset) {
   multilingualNewsAnalysis.english_neural_pivot_analysis = englishNeuralAnalysis || {
     status: env.AI?.run ? "no_news_in_current_learning_window" : "neural_binding_not_configured",
     model:"@cf/baai/bge-m3",version:ENGLISH_NEURAL_VERSION
+  };
+  multilingualNewsAnalysis.cross_language_neural_analysis = {
+    status:englishNeuralAnalysis?.status||"unavailable",
+    model:"@cf/baai/bge-m3",
+    language_groups:englishNeuralAnalysis?.cross_language_analyses||[],
+    analyzed_language_count:englishNeuralAnalysis?.analyzed_language_count||0,
+    semantic_scope:"multilingual embeddings matched against reviewed English market concepts; not independent fact verification"
   };
   const chineseNewsText = news.filter(x => /[\u4e00-\u9fff]/.test(String(x.title||"")+" "+String(x.original_text||"")))
     .slice(0,4).map(x => String(x.title||"")+" "+String(x.original_text||"")).join("\n").slice(0,6000);
