@@ -257,6 +257,8 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  const n=newsMetrics(news,languageAnalysis?.per_news,now);
  const eventReactions=historicalEventReactions(languageAnalysis?.event_price_context);
  const conflicts=Array.isArray(languageAnalysis?.possible_conflicts)?languageAnalysis.possible_conflicts:[];
+ const errorMemory=languageAnalysis?.verified_error_memory||{};
+ const memoryMatches=Array.isArray(errorMemory.matches)?errorMemory.matches:[];
   const deepAnalysis=buildDeepAnalysis({news,languageAnalysis,priceSignal:h.signal,now});
  const quoteFresh=quoteAge!==null&&quoteAge<=6;
  const historyFresh=h.last_observation_age_hours===null||h.last_observation_age_hours<=72;
@@ -265,6 +267,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  const enoughNews=n.recent_72h_count>=3&&n.unique_story_clusters>=3&&n.unique_publisher_domains>=2;
  const sourceDiversity=n.unique_publisher_domains>=3&&n.unique_story_clusters>=5;
  const issues=[];
+ if(memoryMatches.length)issues.push("نمونه‌های مشابه با اصلاحات انسانی تأییدشدهٔ قبلی پیدا شد؛ این فقط هشدار بازبینی است و تحلیل را خودکار تغییر نمی‌دهد.");
  if(!(price>0))issues.push("قیمت مرجع معتبر نیست.");
  if(quoteAge===null)issues.push("زمان قیمت مرجع در دسترس نیست.");
  else if(!quoteFresh)issues.push("قیمت مرجع بیش از ۶ ساعت قدمت دارد.");
@@ -301,6 +304,8 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
  if(n.risk_signal==="mixed_or_unclear")explanation.push("خبرها پیام یکدست و قابل اتکایی ندارند.");
  if(n.risk_signal==="insufficient")explanation.push("برای جمع‌بندی خبری، رویدادهای طبقه‌بندی‌شده کافی نیستند.");
  if(!enoughNews)explanation.push("تأیید مستقل چندمنبعی کافی نیست.");
+ if(memoryMatches.length)explanation.push("شبکهٔ معنایی نمونه‌های اصلاح‌شدهٔ مشابه را بازیابی کرده است؛ ادعای فعلی باید با آن‌ها مقایسه شود، نه اینکه خودکار جایگزین تحلیل شود.");
+ const learningContext={neural_error_memory_status:errorMemory.status||"unavailable",verified_correction_matches:memoryMatches.length,top_similarity:memoryMatches.length?(Number(memoryMatches[0].similarity)||null):null,categories:[...new Set(memoryMatches.map(x=>String(x.category||"other")))].slice(0,5),automatic_override:false};
  const quality={quote_fresh:quoteFresh,history_sufficient:enoughHistory,history_fresh:historyFresh,
   news_sufficient:enoughNews,source_diversity_sufficient:sourceDiversity,syndication_risk:n.likely_syndication_ratio>=0.35,
   excerpt_coverage_pct:n.excerpt_coverage_pct,issues};
@@ -316,6 +321,7 @@ export function buildDecisionBrief({asset,quote,history,news,languageAnalysis,no
    trend_score_not_probability:h.trend_score_not_probability,price_signal:h.signal},
   news_context:n,
   historical_event_reactions:eventReactions,
+  learning_context:learningContext,
    deep_analysis:deepAnalysis,
   synthesis:{state,explanation_fa:explanation.join(" ")||"شواهد کافی برای جمع‌بندی وجود ندارد.",
    important_distinction_fa:"جهت روند قیمت، فشار ریسک خبرها و پیش‌بینی آینده سه مفهوم جدا هستند؛ این موتور آن‌ها را یکی فرض نمی‌کند."},
@@ -335,6 +341,7 @@ export function runDecisionEngineSelfTest(){
   history:{rows},news:[],languageAnalysis:{per_news:[],possible_conflicts:[]},now};
  const tests=[
   {name:"empty_news_does_not_create_news_signal",input:common,check:x=>x.news_context.risk_signal==="insufficient"&&x.synthesis.state==="price_trend_only"},
+  {name:"verified_neural_error_memory_is_review_only",input:{...common,languageAnalysis:{per_news:[],possible_conflicts:[],verified_error_memory:{status:"verified_error_memory_matches_found",matches:[{category:"wrong_action",similarity:0.91,verified_correction:{action:"increase"}}]}}},check:x=>x.learning_context.verified_correction_matches===1&&x.learning_context.automatic_override===false&&x.evidence_quality.issues.some(v=>v.includes("اصلاحات انسانی"))},
   {name:"headline_only_has_lower_weight_than_excerpt",input:{...common,news:[{title:"New sanctions announced",domain:"one.example",published_at:new Date(now).toISOString()}],languageAnalysis:{per_news:[{title:"New sanctions announced",source:"one.example",published_at:new Date(now).toISOString(),input_mode:"headline_only",events:[{id:"sanction_new",market_effect:"risk_up"}],confidence:0.7}],possible_conflicts:[]}},check:x=>x.news_context.event_evidence[0]?.content_type==="headline_only"&&x.news_context.event_evidence[0]?.weight<0.7},
   {name:"conditional_claim_is_discounted",input:{...common,news:[{title:"Sanctions may be imposed",domain:"one.example",published_at:new Date(now).toISOString()}],languageAnalysis:{per_news:[{title:"Sanctions may be imposed",source:"one.example",published_at:new Date(now).toISOString(),input_mode:"headline_only",uncertain:true,english_semantics:{assertion:"forecast_or_possibility"},events:[{id:"sanction_new",market_effect:"risk_up"}],confidence:0.6}],possible_conflicts:[]}},check:x=>x.news_context.event_evidence[0]?.weight<0.3},
   {name:"duplicate_headlines_do_not_count_as_independent_stories",input:{...common,news:[{title:"Central bank announces new rate policy",domain:"a.example",published_at:new Date(now).toISOString()},{title:"Central bank announces new rate policy",domain:"b.example",published_at:new Date(now).toISOString()}]},check:x=>x.news_context.unique_story_clusters===1&&x.news_context.likely_syndication_ratio===0.5},
