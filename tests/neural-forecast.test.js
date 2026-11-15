@@ -6,7 +6,7 @@ test("neural forecast model passes deterministic and safety checks", () => {
   const report = runNeuralForecastSelfTest();
   assert.equal(report.failed.length, 0, JSON.stringify(report.failed));
   assert.equal(report.passed, report.total);
-  assert.equal(report.architecture, "15-16-1");
+  assert.equal(report.architecture, "15-24-12-1");
 });
 
 test("neural model refuses unsupported horizons", () => {
