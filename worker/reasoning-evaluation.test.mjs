@@ -23,10 +23,23 @@ test("numeric mismatch and fabricated quotes do not count as verified",()=>{
 
 test("market direction is scored only when a reviewed expected direction exists",()=>{
   const score=scoreReasoningEvaluationCase({case_id:"synthetic-market-direction",
-    gold:{expected_abstain:false,expected_market_direction:"upward_pressure"},
+    gold:{expected_abstain:false,expected_market_direction:"upward_pressure",asset:"USD/IRR",horizon:"1d"},
     analysis:{abstained:false,confidence:.6,analysis:{market_implications:[
-      {impact_direction:"upward_pressure"}],causal_hypotheses:[]}}});
+      {asset:"USD/IRR",horizon:"1d",impact_direction:"upward_pressure"},
+      {asset:"gold",horizon:"1d",impact_direction:"downward_pressure"}],causal_hypotheses:[]}}});
   assert.equal(score.direction_correct,true);
+});
+
+test("contradictory directions for the same asset and horizon are not scored as correct",()=>{
+  const score=scoreReasoningEvaluationCase({case_id:"synthetic-conflicting-market-direction",
+    gold:{expected_abstain:false,expected_market_direction:"upward_pressure",asset:"USD/IRR",horizon:"1d"},
+    analysis:{abstained:false,analysis:{market_implications:[
+      {asset:"USD/IRR",horizon:"1d",impact_direction:"upward_pressure"},
+      {asset:"USD/IRR",horizon:"1d",impact_direction:"downward_pressure"},
+      {asset:"gold",horizon:"1d",impact_direction:"upward_pressure"}
+    ]}}});
+  assert.equal(score.direction_correct,false);
+  assert.deepEqual(score.observed_market_directions,["upward_pressure","downward_pressure"]);
 });
 
 test("causal quality requires all falsifiable structure fields",()=>{
