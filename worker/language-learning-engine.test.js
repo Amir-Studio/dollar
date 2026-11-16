@@ -1,4 +1,5 @@
 import test from "node:test";
+import { runEnglishNewsVocabularySelfTest, getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 import assert from "node:assert/strict";
 import { extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest, LANGUAGE_LEARNER_VERSION, classifyVocabularyKnowledge } from "./language-learning-engine.js";
 
@@ -47,4 +48,21 @@ test("existing specialist German and Chinese vocabularies are not re-flagged as 
  const chinese=extractUnknownVocabularyCandidates("通胀预期通胀预期通胀预期", "zh");
  assert.equal(german.some(x=>x.normalized_term==="zinserhöhung"),false);
  assert.equal(chinese.some(x=>x.normalized_term==="通胀预期"),false);
+});
+
+
+test("English curriculum contains 500 unique specialist terms and grammar exceptions",()=>{
+ const result=runEnglishNewsVocabularySelfTest();
+ assert.equal(result.total,500,JSON.stringify(result));
+ assert.equal(result.passed,true,JSON.stringify(result));
+ const curriculum=getEnglishNewsVocabulary({limit:500});
+ assert.equal(curriculum.items.length,500);
+ assert.ok(curriculum.grammar.rules.length>=20);
+ assert.ok(curriculum.grammar.irregular_verbs.length>=50);
+ assert.ok(curriculum.grammar.irregular_plurals.length>=20);
+});
+
+test("English specialist terms are recognized by the learner lexicon",()=>{
+ assert.equal(classifyVocabularyKnowledge("consumer price index","en").known,true);
+ assert.equal(classifyVocabularyKnowledge("economic coercion","en").known,true);
 });
