@@ -4,6 +4,12 @@ export const ENGLISH_NEWS_VOCABULARY_VERSION="en-news-vocabulary-1.0.0";
 export const ENGLISH_NEWS_VOCABULARY_TARGET=600;
 const seen=new Set();
 export const ENGLISH_NEWS_VOCABULARY=getChineseNewsVocabulary({limit:1000}).items.filter(x=>{const k=String(x.english||"").trim().toLowerCase();if(!k||seen.has(k))return false;seen.add(k);return true;}).slice(0,600).map((x,i)=>({id:"en"+String(i+1).padStart(3,"0"),category:x.category,term:x.english,meaning_fa:x.fa,language:"en",status:"curriculum"}));
+ENGLISH_NEWS_VOCABULARY.push(
+ {id:"en597",category:"sovereign_finance",term:"fiscal dominance",meaning_fa:"سلطه مالی بر سیاست پولی",language:"en",status:"curriculum"},
+ {id:"en598",category:"sovereign_finance",term:"primary balance",meaning_fa:"تراز اولیه بودجه؛ تراز پیش از پرداخت بهره بدهی",language:"en",status:"curriculum"},
+ {id:"en599",category:"financial_markets",term:"rollover risk",meaning_fa:"ریسک ناتوانی در تمدید یا جایگزینی بدهی سررسیدشده",language:"en",status:"curriculum"},
+ {id:"en600",category:"financial_markets",term:"duration risk",meaning_fa:"ریسک تغییر ارزش اوراق در اثر تغییر نرخ بهره",language:"en",status:"curriculum"}
+);
 const R=[
 ["articles","اسم مفرد شمارش‌پذیر معمولاً به a/an/the نیاز دارد.","A minister made a statement.","اسم جمع و غیرقابل‌شمارش معمولاً a/an نمی‌گیرند."],
 ["a-an","a/an بر اساس صدا انتخاب می‌شود، نه حرف اول.","a university; an hour; an FBI agent","university صدای /j/ دارد؛ h در hour بی‌صداست؛ FBI با نام حروف خوانده می‌شود."],
