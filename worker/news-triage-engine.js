@@ -77,34 +77,86 @@ function forward(net,x) {
   return {hidden,probabilities:exp.map(v=>v/sum)};
 }
 export function trainNewsTriageModel(examples,options={}) {
-  const valid=(Array.isArray(examples)?examples:[]).filter(x=>Array.isArray(x.features)&&x.features.length===INPUTS&&TRIAGE_LABELS.includes(x.decision));
-  const classes=new Set(valid.map(x=>x.decision));
-  if(valid.length<24||classes.size<3) return {trained:false,reason:"insufficient_human_labels",samples:valid.length,classes:[...classes]};
-  const net=makeNetwork(),epochs=Math.max(40,Math.min(240,Number(options.epochs)||140)),rate=0.025;
-  const rows=valid.map(x=>({x:x.features.map(v=>clamp(v,-1,1)),y:TRIAGE_LABELS.indexOf(x.decision)}));
+  const valid=(Array.isArray(examples)?examples:[]).filter(x=>
+    Array.isArray(x.features)&&x.features.length===INPUTS&&x.features.every(Number.isFinite)&&TRIAGE_LABELS.includes(x.decision)
+  );
+  const byClass=new Map(TRIAGE_LABELS.map(label=>[label,valid.filter(x=>x.decision===label)]));
+  const present=[...byClass.entries()].filter(([,rows])=>rows.length>0);
+  if(valid.length<24||present.length<3||present.some(([,rows])=>rows.length<3))
+    return {trained:false,reason:"insufficient_balanced_human_labels",samples:valid.length,
+      classes:Object.fromEntries(present.map(([label,rows])=>[label,rows.length]))};
+
+  // Deterministic stratified holdout: at least one unseen validation case per class.
+  const trainRows=[],validationRows=[];
+  for(const [label,rows] of present){
+    const ordered=[...rows].sort((a,b)=>JSON.stringify(a.features).localeCompare(JSON.stringify(b.features)));
+    const holdoutCount=Math.max(1,Math.min( Math.floor(ordered.length*0.2), ordered.length-2));
+    validationRows.push(...ordered.slice(0,holdoutCount));
+    trainRows.push(...ordered.slice(holdoutCount));
+  }
+  const counts=Object.fromEntries(present.map(([label,rows])=>[label,rows.length]));
+  const total=trainRows.length;
+  const classWeights=Object.fromEntries(present.map(([label,rows])=>[label,Math.min(3,total/(present.length*rows.length))]));
+  const net=makeNetwork(),epochs=Math.max(40,Math.min(240,Number(options.epochs)||160));
+  const rate=0.018,patience=24;
+  const rows=trainRows.map(x=>({x:x.features.map(v=>clamp(v,-1,1)),y:TRIAGE_LABELS.indexOf(x.decision),weight:classWeights[x.decision]}));
+  const validation=validationRows.map(x=>({x:x.features.map(v=>clamp(v,-1,1)),y:TRIAGE_LABELS.indexOf(x.decision)}));
+  const cloneNet=n=>({w1:n.w1.map(r=>[...r]),b1:[...n.b1],w2:n.w2.map(r=>[...r]),b2:[...n.b2]});
+  const evaluate=data=>{
+    const matrix=TRIAGE_LABELS.map(()=>TRIAGE_LABELS.map(()=>0));
+    let loss=0,correct=0;
+    for(const row of data){
+      const out=forward(net,row.x),pred=out.probabilities.indexOf(Math.max(...out.probabilities));
+      matrix[row.y][pred]++;if(pred===row.y)correct++;
+      loss-=Math.log(Math.max(1e-8,out.probabilities[row.y]));
+    }
+    const f1=TRIAGE_LABELS.map((_,i)=>{
+      const tp=matrix[i][i],fp=matrix.reduce((s,r)=>s+r[i],0)-tp,fn=matrix[i].reduce((s,v)=>s+v,0)-tp;
+      return 2*tp/Math.max(1,2*tp+fp+fn);
+    });
+    return {loss:loss/Math.max(1,data.length),accuracy:correct/Math.max(1,data.length),
+      macro_f1:f1.reduce((a,b)=>a+b,0)/TRIAGE_LABELS.length,confusion_matrix:matrix};
+  };
+  let best=cloneNet(net),bestLoss=Infinity,stale=0,epochsRun=0;
   for(let epoch=0;epoch<epochs;epoch++){
-    let loss=0;
-    for(const row of rows){
+    // Stable class-interleaved order avoids long single-class gradient runs.
+    const order=[...rows].sort((a,b)=>((epoch+a.y)%TRIAGE_LABELS.length)-((epoch+b.y)%TRIAGE_LABELS.length));
+    for(const row of order){
       const {hidden,probabilities}=forward(net,row.x);
-      loss-=Math.log(Math.max(1e-8,probabilities[row.y]));
-      const delta=probabilities.map((p,i)=>p-(i===row.y?1:0));
+      const delta=probabilities.map((p,i)=>(p-(i===row.y?1:0))*row.weight);
       for(let o=0;o<TRIAGE_LABELS.length;o++){
         const d=delta[o];
-        net.b2[o]-=rate*d/rows.length;
+        net.b2[o]-=rate*d/total;
         for(let h=0;h<HIDDEN;h++){
           const old=net.w2[o][h];
-          net.w2[o][h]-=rate*d*hidden[h]/rows.length;
+          net.w2[o][h]-=rate*d*hidden[h]/total;
           const dh=d*old*(1-hidden[h]*hidden[h]);
-          net.b1[h]-=rate*dh/rows.length;
-          for(let j=0;j<INPUTS;j++) net.w1[h][j]-=rate*dh*row.x[j]/rows.length;
+          net.b1[h]-=rate*dh/total;
+          for(let j=0;j<INPUTS;j++) net.w1[h][j]-=rate*dh*row.x[j]/total;
         }
       }
     }
-    if(!Number.isFinite(loss)) return {trained:false,reason:"non_finite_training_loss",samples:valid.length};
+    epochsRun=epoch+1;
+    const score=evaluate(validation);
+    if(Number.isFinite(score.loss)&&score.loss<bestLoss-1e-5){
+      bestLoss=score.loss;best=cloneNet(net);stale=0;
+    } else stale++;
+    if(stale>=patience) break;
   }
-  const correct=rows.filter(r=>TRIAGE_LABELS[forward(net,r.x).probabilities.indexOf(Math.max(...forward(net,r.x).probabilities))]===TRIAGE_LABELS[r.y]).length;
-  return {trained:true,model:{version:NEWS_TRIAGE_VERSION,labels:TRIAGE_LABELS,inputs:INPUTS,hidden:HIDDEN,weights:net,trained_samples:valid.length,trained_at:new Date().toISOString()},
-    metrics:{samples:valid.length,training_accuracy:Number((correct/valid.length).toFixed(4)),epochs}};
+  net.w1=best.w1;net.b1=best.b1;net.w2=best.w2;net.b2=best.b2;
+  const trainScore=evaluate(rows),validationScore=evaluate(validation);
+  const model={version:NEWS_TRIAGE_VERSION,labels:TRIAGE_LABELS,inputs:INPUTS,hidden:HIDDEN,weights:net,
+    trained_samples:valid.length,training_samples:trainRows.length,validation_samples:validationRows.length,
+    class_counts:counts,feature_schema:"triage-eight-v1",trained_at:new Date().toISOString()};
+  return {trained:true,model,metrics:{
+    samples:valid.length,training_samples:trainRows.length,validation_samples:validationRows.length,
+    training_accuracy:Number(trainScore.accuracy.toFixed(4)),
+    validation_accuracy:Number(validationScore.accuracy.toFixed(4)),
+    validation_macro_f1:Number(validationScore.macro_f1.toFixed(4)),
+    validation_loss:Number(validationScore.loss.toFixed(5)),
+    validation_confusion_matrix:validationScore.confusion_matrix,
+    class_counts:counts,epochs:epochsRun,early_stopped:epochsRun<epochs
+  }};
 }
 export function predictNewsTriageModel(model,features) {
   if(!model?.weights||!Array.isArray(features)||features.length!==INPUTS) return null;
