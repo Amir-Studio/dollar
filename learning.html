@@ -53,7 +53,7 @@ details summary{cursor:pointer;color:var(--gold);margin:8px 0}
 </header>
 <section class="panel">
  <div class="grid">
-  <div><label for="api">آدرس API</label><input id="api" value="https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api" dir="ltr"></div>
+  <div><label for="api">آدرس API</label><input id="api" value="https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api" dir="ltr" readonly></div>
   <div><label for="secret">کلید دسترسی مدیریتی</label><input id="secret" type="password" autocomplete="off" placeholder="CRON_SECRET را وارد کن" dir="ltr"></div>
  </div>
  <div class="actions"><button id="connect">اتصال و بررسی وضعیت</button><span class="small">کلید فقط در حافظهٔ همین صفحه می‌ماند و ذخیره نمی‌شود.</span></div>
@@ -117,7 +117,8 @@ function render(report){
   return '<article class="item"><h3>'+esc(item.article_title||'بدون عنوان')+'</h3><span class="tag">'+esc(statusLabel)+'</span>'+
    (item.issue_categories||[]).map(x=>'<span class="tag">'+esc(x)+'</span>').join('')+
    '<p>'+esc(String(item.input_excerpt||'').slice(0,1100))+'</p>'+
-   '<p class="small">ثبت: '+esc(item.created_at||'—')+' · '+esc(item.evidence_url||'بدون لینک منبع')+'</p>'+
+   '<details><summary>مقایسهٔ خروجی‌ها</summary><p>خروجی قبلی</p><pre>'+esc(JSON.stringify(item.predicted_output,null,2)||'—')+'</pre><p>خروجی اصلاح‌شده</p><pre>'+esc(JSON.stringify(item.corrected_output,null,2)||'—')+'</pre></details>'+
+   '<p class="small">ثبت: '+esc(item.created_at||'—')+' · '+(item.evidence_url?'<a target="_blank" rel="noopener" href="'+esc(item.evidence_url)+'">منبع تأیید ↗</a>':'بدون لینک منبع')+'</p>'+
    (item.status==='submitted'?'<div class="actions"><button data-review="verified" data-id="'+esc(item.id)+'">تأیید و اجرای یادگیری</button><button class="danger" data-review="rejected" data-id="'+esc(item.id)+'">رد بازخورد</button></div>':'')+
    '</article>';
  }).join(''):'<p>هنوز بازخوردی ثبت نشده است.</p>';
