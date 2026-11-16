@@ -2,11 +2,12 @@
 // BGE-M3 supplies pretrained multilingual semantic representations; reviewed ontology
 // concepts provide grounded labels. External dictionary/news evidence is never auto-promoted.
 import { getMarketLexicon } from "./market-lexicon-ontology.js";
+import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 import { extractUnknownVocabularyCandidates, lookupVocabularyMeaning } from "./language-learning-engine.js";
 
-export const ENGLISH_NEURAL_VERSION = "bge-m3-en-pivot-1.0.0";
+export const ENGLISH_NEURAL_VERSION = "bge-m3-en-pivot-2.0.0";
 const MODEL = "@cf/baai/bge-m3";
-const INDEX_KEY = "neural:english:bge-m3:index:v1";
+const INDEX_KEY = "neural:english:bge-m3:index:v2";
 const TTL = 60 * 60 * 24 * 30;
 const BATCH = 48;
 
@@ -26,16 +27,22 @@ async function embed(ai,texts) {
   return out;
 }
 function concepts() {
-  return getMarketLexicon({language:"en",limit:1000}).concepts
+  const ontology = getMarketLexicon({language:"en",limit:1000}).concepts
     .filter(x=>x.pivot?.term&&x.pivot?.definition)
-    .map(x=>({id:x.id,term:x.pivot.term,definition:x.pivot.definition,
+    .map(x=>({id:"ontology:"+x.id,term:x.pivot.term,definition:x.pivot.definition,
       equivalents:x.equivalents||{},near_miss:x.near_miss||x.pivot.near_miss||null,
-      domain:x.domain||x.category||"financial_news"}));
+      domain:x.domain||x.category||"financial_news",kind:"ontology"}));
+  const vocabulary = getEnglishNewsVocabulary({limit:1000}).items.map(x=>({
+    id:"vocabulary:"+x.id,term:x.term,
+    definition:"Persian meaning: "+x.meaning_fa+". News domain: "+x.category+".",
+    equivalents:{fa:[x.meaning_fa]},near_miss:null,domain:x.category,kind:"vocabulary"
+  }));
+  return [...ontology,...vocabulary];
 }
 async function loadIndex(env,rows) {
   if(env.MARKET_CACHE) {
     const saved=await env.MARKET_CACHE.get(INDEX_KEY,"json");
-    if(saved?.ids?.length===rows.length&&saved?.vectors?.length===rows.length) return saved;
+    if(saved?.version===ENGLISH_NEURAL_VERSION&&saved?.ids?.length===rows.length&&saved?.vectors?.length===rows.length&&saved?.ids?.[0]===rows[0]?.id&&saved?.ids?.[saved.ids.length-1]===rows[rows.length-1]?.id) return saved;
   }
   const vectors=[];
   for(let i=0;i<rows.length;i+=BATCH) {
@@ -74,8 +81,13 @@ export async function analyzeEnglishNewsNeurally(text,env,options={}) {
   const termResearch = options.researchUnknown
     ? await Promise.all(unknown.slice(0,Math.max(0,Math.min(3,Number(options.researchLimit)||2))).map(x=>researchEnglishTerm(x.term,source,env)))
     : [];
+  const vocabularyMatches=matches.filter(x=>x.kind==="vocabulary");
+  const ontologyMatches=matches.filter(x=>x.kind==="ontology");
   return {status:"neural_semantic_analysis_complete",model:MODEL,version:ENGLISH_NEURAL_VERSION,
-    pivot_language:"en",concept_count:rows.length,embedding_dimension:query.length,matches,
+    pivot_language:"en",concept_count:rows.length,vocabulary_count:rows.filter(x=>x.kind==="vocabulary").length,
+    ontology_count:rows.filter(x=>x.kind==="ontology").length,embedding_dimension:query.length,matches,
+    vocabulary_matches:vocabularyMatches,ontology_matches:ontologyMatches,
+    vocabulary_learning_mode:"BGE-M3 semantic retrieval over the 1000-term reviewed English curriculum; pretrained embedding-based learning support, not weight fine-tuning.",
     cross_language_analyses:crossLanguageAnalyses,
     analyzed_language_count:1+crossLanguageAnalyses.length,
     unknown_candidates:unknown,term_research:termResearch,
