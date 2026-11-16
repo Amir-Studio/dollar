@@ -3,10 +3,6 @@
 export const REASONING_EVALUATION_VERSION = "dollar-reasoning-eval-1.0.0";
 
 const clamp01 = value => Math.max(0, Math.min(1, Number(value) || 0));
-const norm = value => String(value ?? "").normalize("NFKC").toLocaleLowerCase()
-  .replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u064B-\u065F\u0670]/g,"")
-  .replace(/[^\p{L}\p{N}]+/gu," ").trim();
-
 function ratio(numerator, denominator) {
   return denominator > 0 ? numerator / denominator : null;
 }
@@ -28,10 +24,14 @@ export function scoreReasoningEvaluationCase({case_id, gold, analysis}) {
     ? analysis.analysis.market_implications
     : Array.isArray(analysis.market_implications) ? analysis.market_implications : [];
   const expectedDirection = gold.expected_market_direction || "unclear";
-  const observedDirections = implications.map(item => item.impact_direction).filter(Boolean);
+  const directionCandidates = implications.filter(item =>
+    (!gold.asset || item.asset === gold.asset) &&
+    (!gold.horizon || item.horizon === gold.horizon)
+  );
+  const observedDirections = directionCandidates.map(item => item.impact_direction).filter(Boolean);
   const directionKnown = expectedDirection !== "unclear";
   const directionCorrect = directionKnown
-    ? observedDirections.includes(expectedDirection)
+    ? observedDirections.length > 0 && observedDirections.every(value => value === expectedDirection)
     : null;
 
   const hypotheses = Array.isArray(analysis.analysis?.causal_hypotheses)
