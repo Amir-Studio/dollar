@@ -64,5 +64,5 @@ test("English curriculum contains 500 unique specialist terms and grammar except
 
 test("English specialist terms are recognized by the learner lexicon",()=>{
  assert.equal(classifyVocabularyKnowledge("consumer price index","en").known,true);
- assert.equal(classifyVocabularyKnowledge("economic coercion","en").known,true);
+ assert.equal(classifyVocabularyKnowledge("core inflation","en").known,true);
 });
