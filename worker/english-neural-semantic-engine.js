@@ -3,6 +3,7 @@
 // concepts provide grounded labels. External dictionary/news evidence is never auto-promoted.
 import { getMarketLexicon } from "./market-lexicon-ontology.js";
 import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
+import { recordEnglishVocabularyExposure } from "./english-vocabulary-learning-engine.js";
 import { extractUnknownVocabularyCandidates, lookupVocabularyMeaning } from "./language-learning-engine.js";
 
 export const ENGLISH_NEURAL_VERSION = "bge-m3-en-pivot-2.0.0";
@@ -83,10 +84,11 @@ export async function analyzeEnglishNewsNeurally(text,env,options={}) {
     : [];
   const vocabularyMatches=matches.filter(x=>x.kind==="vocabulary");
   const ontologyMatches=matches.filter(x=>x.kind==="ontology");
+  const exposureResult=await recordEnglishVocabularyExposure(vocabularyMatches.slice(0,20).map(x=>x.id.replace(/^vocabulary:/,"")),env,source.slice(0,180));
   return {status:"neural_semantic_analysis_complete",model:MODEL,version:ENGLISH_NEURAL_VERSION,
     pivot_language:"en",concept_count:rows.length,vocabulary_count:rows.filter(x=>x.kind==="vocabulary").length,
     ontology_count:rows.filter(x=>x.kind==="ontology").length,embedding_dimension:query.length,matches,
-    vocabulary_matches:vocabularyMatches,ontology_matches:ontologyMatches,
+    vocabulary_matches:vocabularyMatches,ontology_matches:ontologyMatches,exposure_tracking:exposureResult,
     vocabulary_learning_mode:"BGE-M3 semantic retrieval over the 1000-term reviewed English curriculum; pretrained embedding-based learning support, not weight fine-tuning.",
     cross_language_analyses:crossLanguageAnalyses,
     analyzed_language_count:1+crossLanguageAnalyses.length,
