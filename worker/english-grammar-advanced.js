@@ -177,7 +177,7 @@ const rows = [
 ["even-if-even-though","even if شرط فرضی؛ even though واقعیت یا امتیازدهی.","Even if rates fall, credit may remain tight.","این دو را بر اساس واقعی/فرضی بودن انتخاب کنید."],
 ["as-a-result","as a result نتیجه را معرفی می‌کند و معمولاً با ویرگول جدا می‌شود.","Demand weakened; as a result, prices fell.","رابطه علّی را فقط وقتی بنویسید که شواهد پشتیبان دارد."]
 ];
-export const ENGLISH_GRAMMAR_ADVANCED = rows.map(([topic,rule,example,exception],i)=>({id:"G"+String(i+27).padStart(3,"0"),topic,rule,example,exception}));
+export const ENGLISH_GRAMMAR_ADVANCED = rows.slice(0,74).map(([topic,rule,example,exception],i)=>({id:"G"+String(i+27).padStart(3,"0"),topic,rule,example,exception}));
 export function runAdvancedEnglishGrammarSelfTest(){
  const ids=new Set(ENGLISH_GRAMMAR_ADVANCED.map(x=>x.id));
  const topics=new Set(ENGLISH_GRAMMAR_ADVANCED.map(x=>x.topic));
