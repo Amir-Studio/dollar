@@ -3,6 +3,7 @@ import test from "node:test";
 import { runEnglishNewsVocabularySelfTest, getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 import assert from "node:assert/strict";
 import { extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest, LANGUAGE_LEARNER_VERSION, classifyVocabularyKnowledge } from "./language-learning-engine.js";
+import { runEnglishGrammarNeuralSelfTest } from "./english-neural-grammar-engine.js";
 
 test("learner discovers repeated unknown economic terms and filters stopwords",()=>{
  const result=runLanguageLearnerSelfTest();
@@ -75,4 +76,11 @@ test("expanded English grammar curriculum exposes every authored advanced rule",
  assert.equal(result.passed,true,JSON.stringify(result));
  const curriculum=getEnglishNewsVocabulary({limit:500});
  assert.equal(curriculum.grammar.rules.length,201);
+});
+
+test("English grammar neural layer covers the expanded curriculum and flags regression examples",()=>{
+ const result=runEnglishGrammarNeuralSelfTest();
+ assert.equal(result.total_rules,201,JSON.stringify(result));
+ assert.equal(result.unique_rules,201,JSON.stringify(result));
+ assert.equal(result.passed,true,JSON.stringify(result));
 });
