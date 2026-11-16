@@ -24,7 +24,16 @@ async function embed(ai,texts) {
 }
 function curriculum() {
   const grammar=getEnglishNewsVocabulary({limit:1}).grammar;
-  return grammar.rules.map((rule,index)=>({
+  const grammarItems=grammar.rules.map(rule=>({...rule,knowledge_type:"grammar_rule"}));
+  const verbItems=grammar.irregular_verbs.map((verb,index)=>({
+    id:"V"+String(index+1).padStart(3,"0"),
+    topic:"English irregular verb: "+verb.base,
+    rule:"Base form (V1): "+verb.base+"; simple past (V2): "+verb.past+"; past participle (V3): "+verb.participle+".",
+    example:"V1 → V2 → V3: "+verb.base+" → "+verb.past+" → "+verb.participle+".",
+    exception:"Slash-separated forms are accepted variants; select the form appropriate to dialect, meaning, and context.",
+    knowledge_type:"irregular_verb"
+  }));
+  return [...grammarItems,...verbItems].map((rule,index)=>({
     ...rule,
     curriculum_index:index,
     search_text:[rule.topic,rule.rule,rule.example,rule.exception].filter(Boolean).join(". ")
@@ -96,11 +105,13 @@ export async function analyzeEnglishGrammar(text,env,options={}) {
 export function runEnglishGrammarNeuralSelfTest() {
   const rules=curriculum();
   const ids=new Set(rules.map(x=>x.id));
-  const complete=rules.length>=200&&ids.size===rules.length&&rules.every(x=>x.topic&&x.rule&&x.example&&x.exception);
+  const grammarRuleCount=rules.filter(x=>x.knowledge_type==="grammar_rule").length;
+  const irregularVerbCount=rules.filter(x=>x.knowledge_type==="irregular_verb").length;
+  const complete=grammarRuleCount>=200&&irregularVerbCount>=180&&ids.size===rules.length&&rules.every(x=>x.topic&&x.rule&&x.example&&x.exception);
   const challenge="The bank did went up. Investors must to wait. Despite prices fell, demand improved. If rates will rise, demand may fall. The minister has announced yesterday. The agency had went home. The proposal was write yesterday. I look forward to meet them. Can you explain why did rates rise? They are used to work late. There are less jobs. Each of the reports are ready. Prices fell sharp. This is more better. We need an information.";
   const warnings=deterministicDiagnostics(challenge);
   const required=["did_past_form","modal_to_infinitive","despite_clause","if_will_future","present_perfect_finished_time","past_perfect_missing_participle","passive_missing_participle","gerund_after_preposition","indirect_question_inversion","used_to_confusion","fewer_less","subject_verb_agreement","adjective_adverb","comparative_irregular","article_uncountable"];
   const detected=new Set(warnings.map(x=>x.id));
   const missed=required.filter(x=>!detected.has(x));
-  return {version:ENGLISH_GRAMMAR_NEURAL_VERSION,model:MODEL,total_rules:rules.length,unique_rules:ids.size,diagnostic_cases:required.length,diagnostics_detected:required.length-missed.length,missed,passed:complete&&missed.length===0,scope:"Deterministic regression checks only; they do not establish general grammatical understanding or neural-model mastery."};
+  return {version:ENGLISH_GRAMMAR_NEURAL_VERSION,model:MODEL,total_knowledge_items:rules.length,grammar_rule_count:grammarRuleCount,irregular_verb_count:irregularVerbCount,unique_items:ids.size,diagnostic_cases:required.length,diagnostics_detected:required.length-missed.length,missed,passed:complete&&missed.length===0,scope:"Curriculum and deterministic regression integrity only; this does not establish general grammatical understanding or learner mastery."};
 }
