@@ -7,10 +7,12 @@ on:
       - "worker/news-reasoning-engine.js"
       - "worker/news-reasoning-engine.test.mjs"
       - "worker/reasoning-evaluation.js"
-      - "worker/reasoning-evaluation.test.mjs"
+      - "worker/reasoning-evaluation.test.mjs worker/news-learning-validation.test.mjs"
       - "docs/REASONING-EVALUATION.md"
       - "worker/news-triage-engine.js"
       - "worker/news-triage-engine.test.mjs"
+      - "worker/news-learning-validation.js"
+      - "worker/news-learning-validation.test.mjs"
       - "worker/index.js"
       - ".github/workflows/news-triage-tests.yml"
   workflow_dispatch:
@@ -32,6 +34,7 @@ jobs:
           node --experimental-default-type=module --check worker/news-reasoning-engine.js
           node --experimental-default-type=module --check worker/reasoning-evaluation.js
           node --experimental-default-type=module --check worker/news-triage-engine.js
+          node --experimental-default-type=module --check worker/news-learning-validation.js
           node --experimental-default-type=module --check worker/index.js
       - name: News triage unit tests
         run: node --experimental-default-type=module --test worker/news-triage-engine.test.mjs worker/news-reasoning-engine.test.mjs worker/reasoning-evaluation.test.mjs
