@@ -94,7 +94,8 @@ details summary{cursor:pointer;color:var(--gold);margin:8px 0}
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
 let secret='';
-const base=()=>String($('api').value||'').trim().replace(/\/$/,'');
+const API='https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api';
+const base=()=>API;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function call(path,method='GET',body=null){
  if(!secret)throw new Error('ابتدا کلید دسترسی مدیریتی را وارد کن.');
