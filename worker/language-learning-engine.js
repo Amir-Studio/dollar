@@ -36,7 +36,7 @@ function getKnownTerms(lang) {
  if(KNOWN_TERMS_CACHE.has(lang)) return KNOWN_TERMS_CACHE.get(lang);
  const known=new Set(getMarketLexicon({language:lang,limit:200}).concepts.flatMap(c=>[...(c.equivalents?.[lang]||[]),...(lang==="en"?[c.pivot?.term]:[])]).map(x=>norm(x,lang)));
  if(lang==="en") {
-   for(const item of getEnglishNewsVocabulary({limit:500}).items) {
+   for(const item of getEnglishNewsVocabulary({limit:600}).items) {
      known.add(norm(item.term,lang));
      // Also recognize individual words contained in curated multiword terms.
      for(const part of item.term.split(/[\s-]+/)) if(part.length>=4) known.add(norm(part,lang));
