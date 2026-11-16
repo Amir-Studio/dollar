@@ -68,19 +68,19 @@ function deterministicDiagnostics(text) {
     {id:"double_comparative",pattern:/\b(more\s+\w+er|most\s+\w+est)\b/i,explanation:"از ساختار مقایسه‌ای یا عالی دوگانه پرهیز کنید."},
     {id:"despite_clause",pattern:/\bdespite\s+(the fact\s+)?(prices|rates|demand|inflation|they|the bank)\s+(fell|rose|increased|decreased|was|were|had)\b/i,explanation:"despite معمولاً اسم یا gerund می‌گیرد؛ برای جمله کامل از although استفاده کنید."}
 
-    ,{id:"if_will_future",pattern:/\\bif\\s+[^,.!?;]{1,80}\\bwill\\s+[a-z]+/i,explanation:"در شرطی واقعی آینده، بند if معمولاً حال ساده می‌گیرد."}
-    ,{id:"present_perfect_finished_time",pattern:/\\b(has|have)\\s+[a-z]+(?:ed|en)\\s+(yesterday|last week|last month|in 2010|two days ago)\\b/i,explanation:"با زمان گذشتهٔ تمام‌شده معمولاً past simple به‌کار می‌رود."}
-    ,{id:"past_perfect_missing_participle",pattern:/\\bhad\\s+(went|saw|ate|wrote|spoke|took|gave|did|was|were)\\b/i,explanation:"پس از had در past perfect شکل سوم فعل لازم است."}
-    ,{id:"passive_missing_participle",pattern:/\\b(is|are|was|were|be|been)\\s+(announce|write|choose|take|give|make|build|speak)\\b/i,explanation:"در مجهول، be با شکل سوم فعل می‌آید."}
-    ,{id:"gerund_after_preposition",pattern:/\\b(interested in|look forward to|committed to|good at|instead of)\\s+(to\\s+)?[a-z]+\\b/i,explanation:"پس از این ترکیب‌ها معمولاً اسم یا gerund می‌آید."}
-    ,{id:"indirect_question_inversion",pattern:/\\b(know|explain|tell me|wonder|asked)\\s+[^.!?]{0,30}\\b(why|where|when|what|how)\\s+(do|does|did|is|are|was|were)\\s+[^.!?]{1,50}/i,explanation:"در سؤال غیرمستقیم ترتیب جمله خبری است."}
-    ,{id:"used_to_confusion",pattern:/\\b(be|am|is|are|was|were)\\s+used to\\s+[a-z]+\\b/i,explanation:"be used to به معنی عادت داشتن است و پس از to اسم یا gerund می‌آید."}
-    ,{id:"fewer_less",pattern:/\\bless\\s+(people|countries|companies|reports|jobs|students)\\b/i,explanation:"برای اسم‌های جمع شمارش‌پذیر، fewer معیارتر است."}
-    ,{id:"subject_verb_agreement",pattern:/\\b(the number of|each of|every one of)\\s+[^,;.!?]{1,45}\\s+(are|were|have)\\b/i,explanation:"هستهٔ فاعل در the number of و each/every one مفرد است."}
-    ,{id:"double_negative",pattern:/\\b(don't|doesn't|didn't|isn't|aren't|wasn't|weren't)\\s+\\w+\\s+no\\s+\\w+/i,explanation:"در انگلیسی معیار معمولاً منفی مضاعف برای یک نفی به‌کار نمی‌رود."}
-    ,{id:"adjective_adverb",pattern:/\\b(fell|rose|increased|decreased|changed|moved)\\s+(sharp|rapid|significant|dramatic|steady)\\b/i,explanation:"برای توصیف فعل معمولاً قید لازم است."}
-    ,{id:"comparative_irregular",pattern:/\\b(gooder|more better|more worse|badder|most best|most worst)\\b/i,explanation:"صورت‌های درست: good/better/best و bad/worse/worst."}
-    ,{id:"article_uncountable",pattern:/\\b(a|an|many|few)\\s+(information|advice|equipment|furniture|research|evidence)\\b/i,explanation:"این اسم‌ها در کاربرد معمول غیرقابل‌شمارش‌اند."}
+    ,{id:"if_will_future",pattern:/\bif\s+[^,.!?;]{1,80}\bwill\s+[a-z]+/i,explanation:"در شرطی واقعی آینده، بند if معمولاً حال ساده می‌گیرد."}
+    ,{id:"present_perfect_finished_time",pattern:/\b(has|have)\s+[a-z]+(?:ed|en)\s+(yesterday|last week|last month|in 2010|two days ago)\b/i,explanation:"با زمان گذشتهٔ تمام‌شده معمولاً past simple به‌کار می‌رود."}
+    ,{id:"past_perfect_missing_participle",pattern:/\bhad\s+(went|saw|ate|wrote|spoke|took|gave|did|was|were)\b/i,explanation:"پس از had در past perfect شکل سوم فعل لازم است."}
+    ,{id:"passive_missing_participle",pattern:/\b(is|are|was|were|be|been)\s+(announce|write|choose|take|give|make|build|speak)\b/i,explanation:"در مجهول، be با شکل سوم فعل می‌آید."}
+    ,{id:"gerund_after_preposition",pattern:/\b(interested in|look forward to|committed to|good at|instead of)\s+(to\s+)?[a-z]+\b/i,explanation:"پس از این ترکیب‌ها معمولاً اسم یا gerund می‌آید."}
+    ,{id:"indirect_question_inversion",pattern:/\b(know|explain|tell me|wonder|asked)\s+[^.!?]{0,30}\b(why|where|when|what|how)\s+(do|does|did|is|are|was|were)\s+[^.!?]{1,50}/i,explanation:"در سؤال غیرمستقیم ترتیب جمله خبری است."}
+    ,{id:"used_to_confusion",pattern:/\b(be|am|is|are|was|were)\s+used to\s+[a-z]+\b/i,explanation:"be used to به معنی عادت داشتن است و پس از to اسم یا gerund می‌آید."}
+    ,{id:"fewer_less",pattern:/\bless\s+(people|countries|companies|reports|jobs|students)\b/i,explanation:"برای اسم‌های جمع شمارش‌پذیر، fewer معیارتر است."}
+    ,{id:"subject_verb_agreement",pattern:/\b(the number of|each of|every one of)\s+[^,;.!?]{1,45}\s+(are|were|have)\b/i,explanation:"هستهٔ فاعل در the number of و each/every one مفرد است."}
+    ,{id:"double_negative",pattern:/\b(don't|doesn't|didn't|isn't|aren't|wasn't|weren't)\s+\w+\s+no\s+\w+/i,explanation:"در انگلیسی معیار معمولاً منفی مضاعف برای یک نفی به‌کار نمی‌رود."}
+    ,{id:"adjective_adverb",pattern:/\b(fell|rose|increased|decreased|changed|moved)\s+(sharp|rapid|significant|dramatic|steady)\b/i,explanation:"برای توصیف فعل معمولاً قید لازم است."}
+    ,{id:"comparative_irregular",pattern:/\b(gooder|more better|more worse|badder|most best|most worst)\b/i,explanation:"صورت‌های درست: good/better/best و bad/worse/worst."}
+    ,{id:"article_uncountable",pattern:/\b(a|an|many|few)\s+(information|advice|equipment|furniture|research|evidence)\b/i,explanation:"این اسم‌ها در کاربرد معمول غیرقابل‌شمارش‌اند."}
   ];
   return checks.filter(x=>x.pattern.test(s)).map(x=>({id:x.id,explanation_fa:x.explanation,method:"high_precision_pattern_warning",certainty:"needs_context_review"}));
 }
