@@ -33,6 +33,9 @@ test("feedback-trained MLP produces normalized class probabilities",()=>{
   for(let i=0;i<12;i++) rows.push({features:[.05,.0,.0,.0,.1,0,0,1],decision:"discard"});
   const trained=trainNewsTriageModel(rows,{epochs:80});
   assert.equal(trained.trained,true);
+  assert.ok(trained.metrics.validation_samples>0);
+  assert.ok(trained.metrics.validation_macro_f1>=0&&trained.metrics.validation_macro_f1<=1);
+  assert.equal(trained.model.training_samples+trained.model.validation_samples,48);
   const prediction=predictNewsTriageModel(trained.model,[.9,.8,.9,.9,.8,1,1,0]);
   assert.ok(TRIAGE_LABELS.includes(prediction.decision));
   const sum=Object.values(prediction.probabilities).reduce((a,b)=>a+b,0);
@@ -41,4 +44,12 @@ test("feedback-trained MLP produces normalized class probabilities",()=>{
 test("built-in regression self-test passes",()=>{
   const result=runNewsTriageSelfTest();
   assert.equal(result.failed.length,0);
+});
+
+test("model refuses to train when a class has too few reviewed examples",()=>{
+  const rows=[];
+  for(let i=0;i<20;i++) rows.push({features:[.8,.8,.8,.8,.8,1,1,0],decision:"keep"});
+  for(let i=0;i<3;i++) rows.push({features:[.4,.4,.4,.4,.4,0,0,0],decision:"summarize"});
+  for(let i=0;i<3;i++) rows.push({features:[.2,.2,.2,.2,.2,0,0,0],decision:"quarantine"});
+  assert.equal(trainNewsTriageModel(rows).trained,false);
 });
