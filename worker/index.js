@@ -18,6 +18,7 @@ import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.
 import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_CONTRADICTION_VERSION } from "./news-contradiction-engine.js";
 import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
 import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
+import { getEnglishVocabularyLearningStatus, recordEnglishVocabularyFeedback, runEnglishVocabularyLearningSelfTest } from "./english-vocabulary-learning-engine.js";
 import { analyzeEnglishGrammar, runEnglishGrammarNeuralSelfTest, ENGLISH_GRAMMAR_NEURAL_VERSION } from "./english-neural-grammar-engine.js";
 import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
 import { NEWS_TRIAGE_VERSION, buildNewsTriageFeatures, extractiveNewsSummary, trainNewsTriageModel, predictNewsTriageModel, fallbackNewsTriage, runNewsTriageSelfTest } from "./news-triage-engine.js";
@@ -1983,6 +1984,18 @@ export default {
       const query=url.searchParams.get("q")||null;
       const limit=Number(url.searchParams.get("limit")||500);
       return reply(getEnglishNewsVocabulary({category,query,limit}),200,{"cache-control":"public, max-age=3600"});
+    }
+    if (url.pathname === "/language/english/vocabulary/learning-status") {
+      if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+      const result=await getEnglishVocabularyLearningStatus(env,{limit:Number(url.searchParams.get("limit")||20)});
+      return reply({...result,self_test:runEnglishVocabularyLearningSelfTest()},200,{"cache-control":"no-store"});
+    }
+    if (url.pathname === "/language/english/vocabulary/feedback") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      let payload;
+      try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
+      const result=await recordEnglishVocabularyFeedback(payload,env);
+      return reply(result,result.ok?200:400,{"cache-control":"no-store"});
     }
     if (url.pathname === "/language/english/grammar") {
       if (request.method !== "GET") return reply({error:"Method not allowed"},405);
