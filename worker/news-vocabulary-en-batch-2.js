@@ -1,5 +1,5 @@
 // Specialist English vocabulary extension for economics, finance, trade, geopolitics and governance.
-export const ENGLISH_NEWS_VOCABULARY_BATCH_2_VERSION="en-news-vocabulary-batch-2-1.0.0";
+export const ENGLISH_NEWS_VOCABULARY_BATCH_2_VERSION="en-news-vocabulary-batch-2-1.1.0";
 export const ENGLISH_NEWS_VOCABULARY_BATCH_2=[
   {
     "id": "enx001",
@@ -3608,6 +3608,166 @@ export const ENGLISH_NEWS_VOCABULARY_BATCH_2=[
     "category": "governance",
     "language": "en",
     "status": "curriculum"
+  },
+  {
+    "id": "enx452",
+    "term": "seigniorage",
+    "meaning_fa": "درآمد دولت از حق خلق پول",
+    "category": "public_finance",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx453",
+    "term": "pari passu",
+    "meaning_fa": "برابری رتبه و اولویت طلبکاران",
+    "category": "public_finance",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx454",
+    "term": "cross-default",
+    "meaning_fa": "نکول متقاطع در چند قرارداد بدهی",
+    "category": "public_finance",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx455",
+    "term": "negative pledge",
+    "meaning_fa": "تعهد قراردادی به وثیقه‌نگذاشتن دارایی‌ها",
+    "category": "public_finance",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx456",
+    "term": "clawback",
+    "meaning_fa": "بازپس‌گیری وجه یا مزیت پرداخت‌شده",
+    "category": "public_finance",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx457",
+    "term": "recapitalization",
+    "meaning_fa": "تجدید سرمایه و افزایش سرمایه پایه",
+    "category": "public_finance",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx458",
+    "term": "sterilization",
+    "meaning_fa": "خنثی‌سازی اثر عملیات ارزی بر نقدینگی",
+    "category": "central_banking",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx459",
+    "term": "dollarization",
+    "meaning_fa": "رواج استفاده از دلار به‌جای پول ملی",
+    "category": "central_banking",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx460",
+    "term": "de-dollarization",
+    "meaning_fa": "کاهش وابستگی اقتصاد به دلار",
+    "category": "central_banking",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx461",
+    "term": "currency substitution",
+    "meaning_fa": "جایگزینی پول ملی با ارز خارجی",
+    "category": "central_banking",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx462",
+    "term": "capital controls",
+    "meaning_fa": "محدودیت بر ورود و خروج سرمایه",
+    "category": "central_banking",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx463",
+    "term": "convertibility",
+    "meaning_fa": "قابلیت تبدیل یک ارز به ارز دیگر",
+    "category": "central_banking",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx464",
+    "term": "sovereign immunity",
+    "meaning_fa": "مصونیت دولت از صلاحیت قضایی خارجی",
+    "category": "geopolitics",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx465",
+    "term": "demarche",
+    "meaning_fa": "اقدام یا پیام رسمی دیپلماتیک",
+    "category": "geopolitics",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx466",
+    "term": "ultimatum",
+    "meaning_fa": "ضرب‌الاجل یا مطالبه نهایی با پیامد مشخص",
+    "category": "geopolitics",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx467",
+    "term": "backchannel",
+    "meaning_fa": "کانال ارتباطی غیررسمی و محرمانه",
+    "category": "geopolitics",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx468",
+    "term": "confidence-building measure",
+    "meaning_fa": "اقدام اعتمادساز میان طرف‌های متخاصم",
+    "category": "geopolitics",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx469",
+    "term": "track-two diplomacy",
+    "meaning_fa": "دیپلماسی غیررسمی از طریق بازیگران غیردولتی",
+    "category": "geopolitics",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx470",
+    "term": "gerrymandering",
+    "meaning_fa": "دستکاری مرز حوزه‌های انتخاباتی به سود یک حزب",
+    "category": "governance",
+    "language": "en",
+    "status": "curriculum"
+  },
+  {
+    "id": "enx471",
+    "term": "judicial review",
+    "meaning_fa": "بازبینی قضایی قانون یا تصمیم دولت",
+    "category": "governance",
+    "language": "en",
+    "status": "curriculum"
   }
 ];
-export function runEnglishNewsVocabularyBatch2SelfTest(){const ids=new Set(ENGLISH_NEWS_VOCABULARY_BATCH_2.map(x=>x.id));const terms=new Set(ENGLISH_NEWS_VOCABULARY_BATCH_2.map(x=>x.term.toLowerCase()));const invalid=ENGLISH_NEWS_VOCABULARY_BATCH_2.filter(x=>!x.term||!x.meaning_fa||!x.category);return{total:ENGLISH_NEWS_VOCABULARY_BATCH_2.length,unique_ids:ids.size,unique_terms:terms.size,invalid:invalid.length,passed:ENGLISH_NEWS_VOCABULARY_BATCH_2.length===451&&ids.size===451&&terms.size===451&&!invalid.length};}
+export function runEnglishNewsVocabularyBatch2SelfTest(){const ids=new Set(ENGLISH_NEWS_VOCABULARY_BATCH_2.map(x=>x.id));const terms=new Set(ENGLISH_NEWS_VOCABULARY_BATCH_2.map(x=>x.term.toLowerCase()));const invalid=ENGLISH_NEWS_VOCABULARY_BATCH_2.filter(x=>!x.term||!x.meaning_fa||!x.category);return{total:ENGLISH_NEWS_VOCABULARY_BATCH_2.length,unique_ids:ids.size,unique_terms:terms.size,invalid:invalid.length,passed:ENGLISH_NEWS_VOCABULARY_BATCH_2.length===471&&ids.size===471&&terms.size===471&&!invalid.length};}
