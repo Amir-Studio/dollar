@@ -28,3 +28,23 @@ The holdout is a useful guard against obvious overfitting, but it is not a subst
 ## Current limitation
 
 This network learns editorial triage decisions, not whether a news claim is true and not whether an asset price will rise or fall. The evidence-first reasoning engine remains separately evaluated against human-reviewed gold cases.
+
+
+## Feedback contract and blocked-state diagnostics
+
+The Worker feedback route now rejects examples that cannot be scored before they are stored. For ordinary reading-analysis categories, send the original article excerpt plus the predicted and corrected output objects. If both outputs are comparable objects, changed top-level fields are converted into explicit equality assertions. For precise nested corrections, provide `corrected_output.assertions`, for example:
+
+```json
+{
+  "assertions": [
+    { "path": "claims.0.negated", "equals": true },
+    { "path": "claims.0.tense", "equals": "past" }
+  ]
+}
+```
+
+For the `contradiction` category, `input_excerpt` must be JSON containing at least two independently sourced articles. A single headline or one article cannot be scored as a cross-source contradiction. Unscorable submissions receive HTTP 422 and a machine-readable reason; they are not silently stored as training examples.
+
+The learning report includes a `learning_pipeline` diagnostic with a status, blocking reason, and next step. Scheduled cycles no longer call the embedding-memory refresh when there are no verified, scorable cases; instead they record `learning_blocked` and the exact blocker. This prevents repeated empty cycles from looking like successful learning attempts.
+
+The feedback, review, and learning-report routes require the Worker cron-secret verification flow. Do not replace it with a fixed public header. Keep the secret out of browser bundles and public source code.
