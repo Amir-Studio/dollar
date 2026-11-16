@@ -1001,7 +1001,7 @@ export async function runNewsLearningCycle(env) {
     for(const item of report.real_case_results) {
       await learningRest(env,"market_news_learning_cases?id=eq."+encodeURIComponent(item.id),{
         method:"PATCH",headers:{"prefer":"return=minimal"},
-        body:{validation_report:{total:item.total,passed:item.passed,failed:item.failed,results:item.results,evaluation_status:item.total===0?"unscorable":item.failed>0?"failed":"passed"},
+        body:{validation_report:{...(item.validation_report||{}),total:item.total,passed:item.passed,failed:item.failed,results:item.results,evaluation_status:item.total===0?"unscorable":item.failed>0?"failed":"passed"},
           validation_status:item.total===0?"unscorable":item.failed>0?"needs_revision":"approved",validated_at:new Date().toISOString()}
       });
     }
