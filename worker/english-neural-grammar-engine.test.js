@@ -20,6 +20,8 @@ test("isolated grammar diagnostic benchmark detects all target errors without fl
   assert.deepEqual(result.missed,[]);
   assert.deepEqual(result.false_positives,[]);
   assert.equal(result.passed,true);
+  assert.equal(result.total_positive_cases,29);
+  assert.equal(result.valid_control_sentences,27);
 });
 
 test("valid past participles and gerund constructions are not flagged by targeted checks", () => {
