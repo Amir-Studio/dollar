@@ -69,10 +69,10 @@ test("English specialist terms are recognized by the learner lexicon",()=>{
 });
 
 
-test("advanced English grammar curriculum has 74 unique rules and joins the starter 26 for 100 total",()=>{
+test("expanded English grammar curriculum exposes every authored advanced rule",()=>{
  const result=runAdvancedEnglishGrammarSelfTest();
- assert.equal(result.total,74,JSON.stringify(result));
+ assert.equal(result.total,175,JSON.stringify(result));
  assert.equal(result.passed,true,JSON.stringify(result));
  const curriculum=getEnglishNewsVocabulary({limit:500});
- assert.equal(curriculum.grammar.rules.length,100);
+ assert.equal(curriculum.grammar.rules.length,201);
 });
