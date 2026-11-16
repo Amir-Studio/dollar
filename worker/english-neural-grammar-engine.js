@@ -97,7 +97,7 @@ export function runEnglishGrammarNeuralSelfTest() {
   const rules=curriculum();
   const ids=new Set(rules.map(x=>x.id));
   const complete=rules.length>=200&&ids.size===rules.length&&rules.every(x=>x.topic&&x.rule&&x.example&&x.exception);
-  const challenge="The bank did went up. Investors must to wait. Despite prices fell, demand improved. If rates will rise, demand may fall. The minister has announced the change yesterday. The agency had went home. The proposal was write yesterday. I look forward to meet them. Can you explain why did rates rise? They are used to work late. There are less jobs. Each of the reports are ready. Prices fell sharp. This is more better. We need an information.";
+  const challenge="The bank did went up. Investors must to wait. Despite prices fell, demand improved. If rates will rise, demand may fall. The minister has announced yesterday. The agency had went home. The proposal was write yesterday. I look forward to meet them. Can you explain why did rates rise? They are used to work late. There are less jobs. Each of the reports are ready. Prices fell sharp. This is more better. We need an information.";
   const warnings=deterministicDiagnostics(challenge);
   const required=["did_past_form","modal_to_infinitive","despite_clause","if_will_future","present_perfect_finished_time","past_perfect_missing_participle","passive_missing_participle","gerund_after_preposition","indirect_question_inversion","used_to_confusion","fewer_less","subject_verb_agreement","adjective_adverb","comparative_irregular","article_uncountable"];
   const detected=new Set(warnings.map(x=>x.id));
