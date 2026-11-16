@@ -17,11 +17,6 @@ export function buildLearningAssertions(category,predictedOutput,correctedOutput
     !x.path.split(".").some(part=>BLOCKED_PATH_PARTS.has(part))&&
     Object.prototype.hasOwnProperty.call(x,"equals"))
     .slice(0,32).map(x=>({path:x.path,equals:x.equals}));
-  if(category==="contradiction") {
-    let payload;
-    try { payload=JSON.parse(String(corrected.input_text||"")); } catch {}
-    // Input is validated separately by validateLearningCaseInput.
-  }
   return {assertions:normalized,source};
 }
 
