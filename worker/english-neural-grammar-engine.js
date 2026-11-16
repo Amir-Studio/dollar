@@ -1,7 +1,7 @@
 // Neural retrieval and evidence-based diagnostics over Dollar's complete English grammar curriculum.
 import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 
-export const ENGLISH_GRAMMAR_NEURAL_VERSION = "english-grammar-bge-m3-1.2.0";
+export const ENGLISH_GRAMMAR_NEURAL_VERSION = "english-grammar-bge-m3-1.2.1";
 const MODEL = "@cf/baai/bge-m3";
 const INDEX_KEY = "language:english:grammar:bge-m3:v3";
 const INDEX_TTL = 60 * 60 * 24 * 14;
@@ -67,7 +67,6 @@ function deterministicDiagnostics(text) {
     {id:"did_past_form",pattern:/\b(did|didn't|did not)\s+(went|saw|rose|fell|made|took|gave|became|was|were|had)\b/i,explanation:"پس از did/didn't فعل باید شکل ساده داشته باشد؛ مانند did go."},
     {id:"modal_to_infinitive",pattern:/\b(can|could|may|might|must|shall|should|will|would)\s+to\s+[a-z]+\b/i,explanation:"پس از modal معمولاً فعل ساده بدون to می‌آید."},
     {id:"third_person_missing_s",pattern:/\b(he|she|it|the bank|the government|the company)\s+(go|have|do|say|make|raise|fall|rise|increase|decrease)\b/i,explanation:"در حال ساده، فعل سوم‌شخص مفرد معمولاً s/es می‌گیرد؛ البته این الگو فقط یک هشدار احتمالی است."},
-    {id:"article_before_singular_countable",pattern:/\b(a|an)\s+(information|advice|equipment|research|furniture)\b/i,explanation:"این اسم‌ها معمولاً غیرقابل‌شمارش‌اند و به‌طور معمول a/an مستقیم نمی‌گیرند."},
     {id:"double_comparative",pattern:/\b(more\s+\w+er|most\s+\w+est)\b/i,explanation:"از ساختار مقایسه‌ای یا عالی دوگانه پرهیز کنید."},
     {id:"despite_clause",pattern:/\bdespite\s+(the fact\s+)?(prices|rates|demand|inflation|they|the bank)\s+(fell|rose|increased|decreased|was|were|had)\b/i,explanation:"despite معمولاً اسم یا gerund می‌گیرد؛ برای جمله کامل از although استفاده کنید."}
 
@@ -75,9 +74,9 @@ function deterministicDiagnostics(text) {
     ,{id:"present_perfect_finished_time",pattern:/\b(has|have)\s+[a-z]+(?:ed|en)\s+(yesterday|last week|last month|in 2010|two days ago)\b/i,explanation:"با زمان گذشتهٔ تمام‌شده معمولاً past simple به‌کار می‌رود."}
     ,{id:"past_perfect_missing_participle",pattern:/\bhad\s+(went|saw|ate|wrote|spoke|took|gave|did|was|were)\b/i,explanation:"پس از had در past perfect شکل سوم فعل لازم است."}
     ,{id:"passive_missing_participle",pattern:/\b(is|are|was|were|be|been)\s+(announce|write|choose|take|give|make|build|speak)\b/i,explanation:"در مجهول، be با شکل سوم فعل می‌آید."}
-    ,{id:"gerund_after_preposition",pattern:/\b(interested in|look forward to|committed to|good at|instead of)\s+(to\s+)?[a-z]+\b/i,explanation:"پس از این ترکیب‌ها معمولاً اسم یا gerund می‌آید."}
+    ,{id:"gerund_after_preposition",pattern:/\b(?:look forward to|committed to)\s+(?:meet|see|hear|receive|visit|reduce|improve|increase|decrease|complete|finish|learn|work|travel|study|discuss|attend|join|help|understand|know|go|do|make|take|write|read|speak|invest|trade|announce|build|choose|be)\b/i,explanation:"پس از look forward to و committed to در این کاربرد، اسم یا gerund می‌آید؛ مصدر سادهٔ بدون -ing مناسب نیست."}
     ,{id:"indirect_question_inversion",pattern:/\b(know|explain|tell me|wonder|asked)\s+[^.!?]{0,30}\b(why|where|when|what|how)\s+(do|does|did|is|are|was|were)\s+[^.!?]{1,50}/i,explanation:"در سؤال غیرمستقیم ترتیب جمله خبری است."}
-    ,{id:"used_to_confusion",pattern:/\b(be|am|is|are|was|were)\s+used to\s+[a-z]+\b/i,explanation:"be used to به معنی عادت داشتن است و پس از to اسم یا gerund می‌آید."}
+    ,{id:"used_to_confusion",pattern:/\b(?:am|is|are|was|were|be)\s+used to\s+(?:work|live|travel|drive|study|wake|eat|play|read|speak|wait|deal|manage|spend|exercise|teach|learn|invest|trade|operate|handle|pay|save|borrow|lend|cook|walk|run|swim|write|listen|watch|go|do|make|take|have|be)\b/i,explanation:"در معنی عادت داشتن، be used to پس از to اسم یا gerund می‌گیرد؛ مصدر سادهٔ فعل در این الگو درست نیست."}
     ,{id:"fewer_less",pattern:/\bless\s+(people|countries|companies|reports|jobs|students)\b/i,explanation:"برای اسم‌های جمع شمارش‌پذیر، fewer معیارتر است."}
     ,{id:"subject_verb_agreement",pattern:/\b(the number of|each of|every one of)\s+[^,;.!?]{1,45}\s+(are|were|have)\b/i,explanation:"هستهٔ فاعل در the number of و each/every one مفرد است."}
     ,{id:"double_negative",pattern:/\b(don't|doesn't|didn't|isn't|aren't|wasn't|weren't)\s+\w+\s+no\s+\w+/i,explanation:"در انگلیسی معیار معمولاً منفی مضاعف برای یک نفی به‌کار نمی‌رود."}
@@ -87,6 +86,67 @@ function deterministicDiagnostics(text) {
   ];
   return checks.filter(x=>x.pattern.test(s)).map(x=>({id:x.id,explanation_fa:x.explanation,method:"high_precision_pattern_warning",certainty:"needs_context_review"}));
 }
+export function diagnoseEnglishGrammar(text) {
+  return deterministicDiagnostics(String(text||"").normalize("NFKC").trim().slice(0,5000));
+}
+
+export function runEnglishGrammarDiagnosticBenchmark() {
+  const cases = [
+    ["did_past_form","The bank did went up."],
+    ["modal_to_infinitive","Investors must to wait."],
+    ["third_person_missing_s","The bank raise rates."],
+    ["double_comparative","This is more better."],
+    ["despite_clause","Despite prices fell, demand improved."],
+    ["if_will_future","If rates will rise, demand may fall."],
+    ["present_perfect_finished_time","The minister has announced yesterday."],
+    ["past_perfect_missing_participle","The agency had went home."],
+    ["passive_missing_participle","The proposal was write yesterday."],
+    ["gerund_after_preposition","I look forward to meet them."],
+    ["indirect_question_inversion","Can you explain why did rates rise?"],
+    ["used_to_confusion","They are used to work late."],
+    ["fewer_less","There are less jobs."],
+    ["subject_verb_agreement","Each of the reports are ready."],
+    ["double_negative","We don't have no evidence."],
+    ["adjective_adverb","Prices fell sharp."],
+    ["comparative_irregular","This is more better."],
+    ["article_uncountable","We need an information."]
+  ];
+  const validSentences = [
+    "Yesterday, the bank raised rates.",
+    "Investors must wait.",
+    "Despite the fall in prices, demand improved.",
+    "If rates rise, demand may fall.",
+    "The minister announced the decision yesterday.",
+    "The agency had gone home.",
+    "The proposal was written yesterday.",
+    "I look forward to meeting them.",
+    "Can you explain why rates rose?",
+    "They are used to working late.",
+    "There are fewer jobs.",
+    "Each of the reports is ready.",
+    "Prices fell sharply.",
+    "This is better.",
+    "We need information.",
+    "The government has announced a plan."
+  ];
+  const results=cases.map(([expected,text])=>({
+    expected,
+    detected:deterministicDiagnostics(text).some(item=>item.id===expected),
+    text
+  }));
+  const falsePositives=validSentences.flatMap(text=>deterministicDiagnostics(text).map(item=>({id:item.id,text})));
+  const passed=results.every(item=>item.detected)&&falsePositives.length===0;
+  return {
+    total_positive_cases:cases.length,
+    positive_cases_detected:results.filter(item=>item.detected).length,
+    missed:results.filter(item=>!item.detected),
+    valid_control_sentences:validSentences.length,
+    false_positives:falsePositives,
+    passed,
+    scope:"A small deterministic regression benchmark for selected high-frequency error patterns. It is not a comprehensive grammar examination and does not establish general language understanding."
+  };
+}
+
 export async function analyzeEnglishGrammar(text,env,options={}) {
   const source=String(text||"").normalize("NFKC").trim().slice(0,5000);
   if(!source) return {status:"empty_input",version:ENGLISH_GRAMMAR_NEURAL_VERSION,matches:[],diagnostics:[]};
@@ -111,10 +171,16 @@ export function runEnglishGrammarNeuralSelfTest() {
   const grammarRuleCount=rules.filter(x=>x.knowledge_type==="grammar_rule").length;
   const irregularVerbCount=rules.filter(x=>x.knowledge_type==="irregular_verb").length;
   const complete=grammarRuleCount>=2300&&irregularVerbCount>=180&&ids.size===rules.length&&rules.every(x=>x.topic&&x.rule&&x.example&&x.exception);
-  const challenge="The bank did went up. Investors must to wait. Despite prices fell, demand improved. If rates will rise, demand may fall. The minister has announced yesterday. The agency had went home. The proposal was write yesterday. I look forward to meet them. Can you explain why did rates rise? They are used to work late. There are less jobs. Each of the reports are ready. Prices fell sharp. This is more better. We need an information.";
-  const warnings=deterministicDiagnostics(challenge);
-  const required=["did_past_form","modal_to_infinitive","despite_clause","if_will_future","present_perfect_finished_time","past_perfect_missing_participle","passive_missing_participle","gerund_after_preposition","indirect_question_inversion","used_to_confusion","fewer_less","subject_verb_agreement","adjective_adverb","comparative_irregular","article_uncountable"];
-  const detected=new Set(warnings.map(x=>x.id));
-  const missed=required.filter(x=>!detected.has(x));
-  return {version:ENGLISH_GRAMMAR_NEURAL_VERSION,model:MODEL,total_knowledge_items:rules.length,grammar_rule_count:grammarRuleCount,irregular_verb_count:irregularVerbCount,unique_items:ids.size,diagnostic_cases:required.length,diagnostics_detected:required.length-missed.length,missed,passed:complete&&missed.length===0,scope:"Curriculum and deterministic regression integrity only; this does not establish general grammatical understanding or learner mastery."};
+  const benchmark=runEnglishGrammarDiagnosticBenchmark();
+  return {
+    version:ENGLISH_GRAMMAR_NEURAL_VERSION,
+    model:MODEL,
+    total_knowledge_items:rules.length,
+    grammar_rule_count:grammarRuleCount,
+    irregular_verb_count:irregularVerbCount,
+    unique_items:ids.size,
+    diagnostic_benchmark:benchmark,
+    passed:complete&&benchmark.passed,
+    scope:"Curriculum integrity and selected diagnostic regression checks only; this does not establish comprehensive grammatical understanding or learner mastery."
+  };
 }
