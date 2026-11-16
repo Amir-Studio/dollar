@@ -75,12 +75,16 @@ test("expanded English grammar curriculum exposes every authored advanced rule",
  assert.equal(result.total,175,JSON.stringify(result));
  assert.equal(result.passed,true,JSON.stringify(result));
  const curriculum=getEnglishNewsVocabulary({limit:500});
- assert.equal(curriculum.grammar.rules.length,201);
+ assert.equal(curriculum.grammar.rules.length,2365);
 });
 
 test("English grammar neural layer covers the expanded curriculum and flags regression examples",()=>{
  const result=runEnglishGrammarNeuralSelfTest();
- assert.equal(result.total_rules,201,JSON.stringify(result));
- assert.equal(result.unique_rules,201,JSON.stringify(result));
+ assert.equal(result.grammar_rule_count,2365,JSON.stringify(result));
+ assert.equal(result.irregular_verb_count,205,JSON.stringify(result));
+ assert.equal(result.total_knowledge_items,2570,JSON.stringify(result));
+ assert.equal(result.unique_items,2570,JSON.stringify(result));
+ assert.equal(result.diagnostic_benchmark.total_positive_cases,29,JSON.stringify(result));
+ assert.equal(result.diagnostic_benchmark.valid_control_sentences,27,JSON.stringify(result));
  assert.equal(result.passed,true,JSON.stringify(result));
 });
