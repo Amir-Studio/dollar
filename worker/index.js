@@ -941,7 +941,7 @@ function runNewsLearningEvaluationSelfTest() {
 
 async function newsLearningReport(env) {
   const [feedback,cases,cycles] = await Promise.all([
-    learningRest(env,"market_news_feedback?select=id,status,issue_categories,created_at,reviewed_at&order=created_at.desc&limit=200"),
+    learningRest(env,"market_news_feedback?select=id,status,article_title,input_excerpt,predicted_output,corrected_output,issue_categories,evidence_url,reviewer_note,created_at,reviewed_at&order=created_at.desc&limit=200"),
     learningRest(env,"market_news_learning_cases?select=id,feedback_id,category,input_text,expected_output,validation_status,validation_report,created_at&order=created_at.desc&limit=200"),
     learningRest(env,"market_news_learning_cycles?select=cycle_at,analyzer_version,feedback_seen,verified_cases,pending_cases,rejected_cases,benchmark_before,benchmark_after,actions,notes&order=cycle_at.desc&limit=20")
   ]);
@@ -1887,7 +1887,9 @@ export default {
       try {
         const updated=await learningRest(env,"market_news_feedback?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:{"prefer":"return=representation"},body:{status,reviewed_at:new Date().toISOString(),reviewer_note:String(payload.reviewer_note||"").slice(0,1500)}});
         if(!updated.length) return reply({error:"Feedback not found"},404);
-        return reply({ok:true,feedback_id:id,status,note_fa:status==="verified"?"بازخورد انسانی تأیید شد و وارد مجموعهٔ ارزیابی می‌شود؛ تغییر خودکار موتور انجام نشده است.":"بازخورد رد شد و در ارزیابی معتبر شمرده نمی‌شود."});
+        const learning=status==="verified"?await runNewsLearningCycle(env):null;
+        return reply({ok:true,feedback_id:id,status,learning,
+          note_fa:status==="verified"?"بازخورد تأیید شد؛ ارزیابی نمونه و به‌روزرسانی حافظهٔ خطا اجرا شد. این کار به معنی آموزش وزن‌های مدل زبانی نیست.":"بازخورد رد شد و در ارزیابی معتبر شمرده نمی‌شود."});
       } catch(error) { console.error("News feedback review failed:",error); return reply({error:"Could not review feedback"},503); }
     }
     if (url.pathname === "/news/learning") {
