@@ -13,7 +13,7 @@ const env = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "access-control-allow-origin": "https://amir-studio.github.io", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "Content-Type, apikey, x-learner-id, x-learner-token" },
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "access-control-allow-origin": "https://amir-studio.github.io", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "Content-Type, apikey, x-learner-id, x-learner-token, x-cron-secret" },
   });
 
 function routePath(url: URL) {
@@ -54,6 +54,13 @@ async function verifyRefreshSecret(request: Request) {
 Deno.serve(async (request: Request) => {
   const url = new URL(request.url);
   const route = routePath(url);
+
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: {
+    "access-control-allow-origin": "https://amir-studio.github.io",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "Content-Type, apikey, x-learner-id, x-learner-token, x-cron-secret",
+    "access-control-max-age": "86400",
+  }});
 
   if (route === "/language/german-progress") {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: {
@@ -166,7 +173,7 @@ Deno.serve(async (request: Request) => {
     try { if (!(await verifyRefreshSecret(request))) return json({ error: "Unauthorized" }, 401); }
     catch (error) { console.error("News learning authorization failed:", error); return json({ error: "Authorization check failed" }, 503); }
     const headers = new Headers(request.headers);
-    headers.delete("x-cron-secret");
+    // Preserve the verified secret for the Worker's own verification too.
     headers.set("x-internal-learning-authorized", "1");
     const body = request.method === "GET" || request.method === "HEAD" ? null : await request.arrayBuffer();
     const target = new URL(route + url.search, "https://dollar-api.internal");
