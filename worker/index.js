@@ -1841,7 +1841,7 @@ export default {
       if(!title||title.length>500||excerpt.length>5000||!payload?.predicted_output||!payload?.corrected_output||safeJsonSize(payload.predicted_output)>5000||safeJsonSize(payload.corrected_output)>5000||categories.some(x=>!allowed.has(x))) return reply({error:"Invalid feedback payload"},400);
       const category=categories[0]||"other";
       const normalized=buildLearningAssertions(category,payload.predicted_output,payload.corrected_output);
-      const inputText=category==="contradiction"?excerpt:title+"\\n"+excerpt;
+      const inputText=category==="contradiction"?excerpt:title+"\n"+excerpt;
       const expectedOutput={assertions:normalized.assertions};
       const validation=validateLearningCaseInput(category,inputText,expectedOutput);
       if(!validation.ok) return reply({error:"Feedback cannot enter learning yet",reason:validation.reason,
@@ -1880,7 +1880,7 @@ export default {
     }
     if (url.pathname === "/news/learning/review") {
       if(request.method!=="POST") return reply({error:"Method not allowed"},405);
-      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      if(!(await verifyWorkerCronSecret(request))) return reply({error:"Unauthorized"},401);
       let payload; try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
       const id=String(payload?.feedback_id||""), status=payload?.status;
       if(!/^[0-9a-f-]{36}$/i.test(id)||!["verified","rejected"].includes(status)) return reply({error:"feedback_id and verified/rejected status are required"},400);
@@ -1892,7 +1892,7 @@ export default {
     }
     if (url.pathname === "/news/learning") {
       if(request.method!=="GET") return reply({error:"Method not allowed"},405);
-      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      if(!(await verifyWorkerCronSecret(request))) return reply({error:"Unauthorized"},401);
       try { return reply(await newsLearningReport(env),200,{"cache-control":"no-store"}); }
       catch(error) { console.error("News learning report failed:",error); return reply({error:"Learning report unavailable"},503); }
     }
