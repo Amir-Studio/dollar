@@ -4,6 +4,7 @@
 import { analyzeMarketLexicon, getMarketLexicon } from "./market-lexicon-ontology.js";
 import { getGermanNewsVocabulary } from "./news-vocabulary-de.js";
 import { getChineseNewsVocabulary } from "./news-vocabulary-zh.js";
+import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 
 export const LANGUAGE_LEARNER_VERSION = "dollar-language-learner-1.1.0";
 export const LEARNER_LANGUAGES = ["fa","en","ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"];
@@ -34,6 +35,13 @@ const KNOWN_TERMS_CACHE=new Map();
 function getKnownTerms(lang) {
  if(KNOWN_TERMS_CACHE.has(lang)) return KNOWN_TERMS_CACHE.get(lang);
  const known=new Set(getMarketLexicon({language:lang,limit:200}).concepts.flatMap(c=>[...(c.equivalents?.[lang]||[]),...(lang==="en"?[c.pivot?.term]:[])]).map(x=>norm(x,lang)));
+ if(lang==="en") {
+   for(const item of getEnglishNewsVocabulary({limit:500}).items) {
+     known.add(norm(item.term,lang));
+     // Also recognize individual words contained in curated multiword terms.
+     for(const part of item.term.split(/[\\s-]+/)) if(part.length>=4) known.add(norm(part,lang));
+   }
+ }
  if(lang==="de") {
    for(const item of getGermanNewsVocabulary({limit:1000}).items) {
      for(const value of [item.word,item.form]) {
