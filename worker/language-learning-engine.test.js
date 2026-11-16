@@ -53,12 +53,14 @@ test("existing specialist German and Chinese vocabularies are not re-flagged as 
 });
 
 
-test("English curriculum contains 500 unique specialist terms and grammar exceptions",()=>{
+test("English curriculum contains 1000 unique specialist terms and grammar exceptions",()=>{
  const result=runEnglishNewsVocabularySelfTest();
- assert.equal(result.total,600,JSON.stringify(result));
+ assert.equal(result.total,1000,JSON.stringify(result));
  assert.equal(result.passed,true,JSON.stringify(result));
- const curriculum=getEnglishNewsVocabulary({limit:600});
- assert.equal(curriculum.items.length,600);
+ const curriculum=getEnglishNewsVocabulary({limit:1000});
+ assert.equal(curriculum.items.length,1000);
+ assert.equal(new Set(curriculum.items.map(x=>x.term.toLowerCase())).size,1000);
+ assert.equal(curriculum.target_total,1000);
  assert.ok(curriculum.grammar.rules.length>=20);
  assert.ok(curriculum.grammar.irregular_verbs.length>=50);
  assert.ok(curriculum.grammar.irregular_plurals.length>=20);
