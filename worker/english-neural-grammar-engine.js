@@ -1,9 +1,9 @@
 // Neural retrieval and evidence-based diagnostics over Dollar's complete English grammar curriculum.
 import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 
-export const ENGLISH_GRAMMAR_NEURAL_VERSION = "english-grammar-bge-m3-1.0.0";
+export const ENGLISH_GRAMMAR_NEURAL_VERSION = "english-grammar-bge-m3-1.1.0";
 const MODEL = "@cf/baai/bge-m3";
-const INDEX_KEY = "language:english:grammar:bge-m3:v1";
+const INDEX_KEY = "language:english:grammar:bge-m3:v2";
 const INDEX_TTL = 60 * 60 * 24 * 14;
 const BATCH_SIZE = 32;
 
@@ -40,7 +40,10 @@ function curriculum() {
   }));
 }
 async function loadIndex(env, rules) {
-  const fingerprint=rules.length+":"+rules.map(x=>x.id).join("|");
+  const fingerprintSource=rules.map(x=>x.id+":"+x.search_text).join("|");
+  let fingerprintHash=2166136261;
+  for(let i=0;i<fingerprintSource.length;i++) fingerprintHash=Math.imul(fingerprintHash^fingerprintSource.charCodeAt(i),16777619);
+  const fingerprint=rules.length+":"+((fingerprintHash>>>0).toString(16));
   if(env?.MARKET_CACHE) {
     try {
       const cached=await env.MARKET_CACHE.get(INDEX_KEY,"json");
