@@ -119,7 +119,7 @@ function render(report){
    (item.issue_categories||[]).map(x=>'<span class="tag">'+esc(x)+'</span>').join('')+
    '<p>'+esc(String(item.input_excerpt||'').slice(0,1100))+'</p>'+
    '<details><summary>مقایسهٔ خروجی‌ها</summary><p>خروجی قبلی</p><pre>'+esc(JSON.stringify(item.predicted_output,null,2)||'—')+'</pre><p>خروجی اصلاح‌شده</p><pre>'+esc(JSON.stringify(item.corrected_output,null,2)||'—')+'</pre></details>'+
-   '<p class="small">ثبت: '+esc(item.created_at||'—')+' · '+(item.evidence_url?'<a target="_blank" rel="noopener" href="'+esc(item.evidence_url)+'">منبع تأیید ↗</a>':'بدون لینک منبع')+'</p>'+
+   '<p class="small">ثبت: '+esc(item.created_at||'—')+' · منبع: '+esc(item.evidence_url||'ثبت نشده')+'</p>'+
    (item.status==='submitted'?'<div class="actions"><button data-review="verified" data-id="'+esc(item.id)+'">تأیید و اجرای یادگیری</button><button class="danger" data-review="rejected" data-id="'+esc(item.id)+'">رد بازخورد</button></div>':'')+
    '</article>';
  }).join(''):'<p>هنوز بازخوردی ثبت نشده است.</p>';
