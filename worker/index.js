@@ -1987,7 +1987,7 @@ export default {
     if (url.pathname === "/language/english/grammar") {
       if (request.method !== "GET") return reply({error:"Method not allowed"},405);
       const curriculum=getEnglishNewsVocabulary({limit:1});
-      return reply({language:"en",rule_count:curriculum.grammar.rules.length,rules:curriculum.grammar.rules,irregular_verb_count:curriculum.grammar.irregular_verbs.length,irregular_verbs:curriculum.grammar.irregular_verbs,irregular_plurals:curriculum.grammar.irregular_plurals,expanded_irregular_verb_test:curriculum.grammar.expanded_irregular_verb_test,curriculum_self_test:curriculum.grammar.curriculum_self_test,self_test:curriculum.grammar.advanced_self_test},200,{"cache-control":"public, max-age=3600"});
+      return reply({language:"en",rule_count:curriculum.grammar.rules.length,rules:curriculum.grammar.rules,irregular_verb_count:curriculum.grammar.irregular_verbs.length,irregular_verbs:curriculum.grammar.irregular_verbs,irregular_plurals:curriculum.grammar.irregular_plurals,expanded_irregular_verb_test:curriculum.grammar.expanded_irregular_verb_test,curriculum_self_test:curriculum.grammar.curriculum_self_test,expert_grammar_self_test:curriculum.grammar.expert_self_test,self_test:curriculum.grammar.advanced_self_test},200,{"cache-control":"public, max-age=3600"});
     }
     if (url.pathname === "/language/english/grammar/analyze") {
       if (request.method !== "POST") return reply({error:"Method not allowed"},405);
