@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090a09">
+<meta name="robots" content="noindex,nofollow">
+<title>آزمایشگاه یادگیری | دولار</title>
+<link rel="icon" href="assets/brand.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css?v=20261116-learning-lab">
+<style>
+:root{color-scheme:dark;--gold:#d4b46d;--muted:#a6a398;--panel:#111310;--line:#2b2b25}
+body{background:#090a09;color:#f1efe8;font-family:Vazirmatn,Estedad,sans-serif}
+.lab{max-width:1120px;margin:0 auto;padding:34px 20px 80px}
+.lab-head{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:28px}
+.lab-head a{color:var(--gold);text-decoration:none}
+.eyebrow{color:var(--gold);letter-spacing:.12em;font:500 11px "DM Mono",monospace}
+h1{font-size:clamp(25px,4vw,38px);margin:8px 0}
+.sub{color:var(--muted);line-height:1.9;max-width:760px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+label{display:block;color:#d9d5c8;font-size:13px;margin:0 0 8px}
+input,select,textarea{width:100%;box-sizing:border-box;background:#090b09;color:#f1efe8;border:1px solid #34352e;border-radius:9px;padding:12px;font:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+textarea{min-height:125px;direction:ltr;text-align:left;font:12px/1.7 ui-monospace,monospace;resize:vertical}
+button{background:var(--gold);color:#11120e;border:0;border-radius:9px;padding:11px 16px;font:600 13px Vazirmatn,sans-serif;cursor:pointer}
+button.secondary{background:#24251f;color:#e7e2d5;border:1px solid #45453a}
+button.danger{background:#422522;color:#f0c8bf;border:1px solid #74443b}
+button:disabled{opacity:.5;cursor:wait}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.status{color:var(--muted);font-size:13px;line-height:1.8;margin-top:10px}
+.status.ok{color:#a8d4ae}.status.err{color:#e9a59a}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.stat{background:#0b0d0b;border:1px solid var(--line);padding:13px;border-radius:10px}
+.stat b{display:block;font:600 24px "DM Mono",monospace;color:var(--gold);margin-top:5px}
+.stat span{font-size:12px;color:var(--muted)}
+.blocker{border-right:3px solid var(--gold);padding:10px 13px;background:#19170f;border-radius:8px;line-height:1.9;margin-top:14px}
+.item{border-top:1px solid var(--line);padding:16px 0}
+.item:first-child{border-top:0}
+.item h3{font-size:15px;margin:0 0 8px}
+.item p{color:var(--muted);font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+.tag{display:inline-block;border:1px solid #484438;color:var(--gold);border-radius:20px;padding:2px 9px;font-size:11px;margin-left:6px}
+.small{font-size:11px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--gold);margin:8px 0}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.lab-head{align-items:flex-start;flex-direction:column}.panel{padding:15px}}
+</style>
+</head>
+<body>
+<div class="lab">
+<header class="lab-head">
+ <div><div class="eyebrow">DOLLAR INTELLIGENCE / LEARNING LAB</div><h1>آزمایشگاه یادگیری</h1><p class="sub">ثبت اصلاحات واقعی، تأیید انسانی، ارزیابی مجدد و ساخت حافظهٔ خطا. هیچ نمونهٔ تأییدنشده‌ای به‌عنوان حقیقت به سیستم آموزش داده نمی‌شود.</p></div>
+ <a href="index.html">بازگشت به دولار ←</a>
+</header>
+<section class="panel">
+ <div class="grid">
+  <div><label for="api">آدرس API</label><input id="api" value="https://oolfbjxclhzlbwjmzxxx.supabase.co/functions/v1/market-api" dir="ltr"></div>
+  <div><label for="secret">کلید دسترسی مدیریتی</label><input id="secret" type="password" autocomplete="off" placeholder="CRON_SECRET را وارد کن" dir="ltr"></div>
+ </div>
+ <div class="actions"><button id="connect">اتصال و بررسی وضعیت</button><span class="small">کلید فقط در حافظهٔ همین صفحه می‌ماند و ذخیره نمی‌شود.</span></div>
+ <div id="connection" class="status">برای مشاهدهٔ گزارش، اتصال مدیریتی را برقرار کن.</div>
+</section>
+<section class="panel">
+ <div class="eyebrow">LIVE DIAGNOSTICS</div><h2>وضعیت یادگیری</h2>
+ <div id="stats" class="stats"><div class="stat"><span>بازخورد</span><b>—</b></div><div class="stat"><span>تأییدشده</span><b>—</b></div><div class="stat"><span>نمونهٔ قابل‌سنجش</span><b>—</b></div><div class="stat"><span>حافظهٔ خطا</span><b>—</b></div></div>
+ <div id="pipeline" class="blocker">هنوز گزارشی دریافت نشده است.</div>
+</section>
+<section class="panel">
+ <div class="eyebrow">HUMAN CORRECTION</div><h2>ثبت یک اصلاح واقعی</h2>
+ <p class="sub">خروجی پیش‌بینی‌شده و خروجی اصلاح‌شده را به‌صورت JSON وارد کن. فیلدهای تغییرکرده به معیارهای قابل‌آزمون تبدیل می‌شوند. برای اصلاح دقیق‌تر می‌توانی در JSON اصلاح‌شده کلید <code>assertions</code> اضافه کنی.</p>
+ <div class="grid">
+  <div><label for="title">عنوان خبر</label><input id="title" maxlength="500" placeholder="عنوان دقیق خبر"></div>
+  <div><label for="category">نوع خطا</label><select id="category">
+   <option value="wrong_actor">تشخیص اشتباه فاعل</option><option value="wrong_action">تشخیص اشتباه کنش</option><option value="negation">نادیده‌گرفتن نفی</option><option value="modality">وجهیت و احتمال</option><option value="conditionality">شرط</option><option value="attribution">انتساب به منبع</option><option value="time_scope">بازهٔ زمانی</option><option value="numeric_value">عدد اشتباه</option><option value="unit_mismatch">واحد اشتباه</option><option value="causal_inference">استنباط علّی</option><option value="topic_classification">دسته‌بندی موضوع</option><option value="contradiction">تناقض بین خبرها</option><option value="translation">ترجمه</option><option value="missing_context">زمینهٔ ناقص</option><option value="other">سایر</option>
+  </select></div>
+ </div>
+ <div style="margin-top:14px"><label for="excerpt">متن خبر / متن ورودی تحلیل</label><textarea id="excerpt" style="direction:rtl;text-align:right;font-family:Vazirmatn,sans-serif" placeholder="متن واقعی خبر را وارد کن؛ برای نوع تناقض، JSON شامل articles با حداقل دو خبر مستقل وارد کن."></textarea></div>
+ <div class="grid" style="margin-top:14px">
+  <div><label for="predicted">خروجی قبلی سیستم · JSON</label><textarea id="predicted" placeholder='{"claims":[...],"actors":[...]}'></textarea></div>
+  <div><label for="corrected">خروجی اصلاح‌شده · JSON</label><textarea id="corrected" placeholder='{"claims":[...],"actors":[...]} یا {"assertions":[{"path":"claims.0.negated","equals":true}]}'></textarea></div>
+ </div>
+ <div class="grid" style="margin-top:14px">
+  <div><label for="evidence">لینک منبع تأیید</label><input id="evidence" type="url" dir="ltr" placeholder="https://publisher.example/article"></div>
+  <div><label for="note">توضیح اصلاح</label><input id="note" maxlength="1500" placeholder="چرا خروجی قبلی نادرست بود؟"></div>
+ </div>
+ <div class="actions"><button id="submitFeedback">ثبت بازخورد برای بررسی</button></div>
+ <div id="submitStatus" class="status">بازخورد ابتدا در وضعیت «در انتظار بررسی» ذخیره می‌شود.</div>
+</section>
+<section class="panel">
+ <div class="eyebrow">REVIEW QUEUE</div><h2>صف بررسی انسانی</h2>
+ <div id="queue" class="status">ابتدا اتصال را برقرار کن.</div>
+</section>
+</div>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+let secret='';
+const base=()=>String($('api').value||'').trim().replace(/\/$/,'');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function call(path,method='GET',body=null){
+ if(!secret)throw new Error('ابتدا کلید دسترسی مدیریتی را وارد کن.');
+ const response=await fetch(base()+path,{method,headers:{accept:'application/json','content-type':'application/json','x-cron-secret':secret},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(data.reason||data.error||('HTTP '+response.status));
+ return data;
+}
+function status(id,message,kind=''){const el=$(id);el.textContent=message;el.className='status '+kind}
+function render(report){
+ const s=report.summary||{},p=report.learning_pipeline||{};
+ $('stats').innerHTML=[
+  ['بازخورد ثبت‌شده',s.feedback_total??0],['تأییدشده',s.feedback_verified??0],['نمونهٔ قابل‌سنجش',s.evaluated_cases??0],['خطاهای تأییدشده',s.cases_failed??0]
+ ].map(([k,v])=>'<div class="stat"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');
+ $('pipeline').innerHTML='<b>'+esc(p.status||'نامشخص')+'</b><br>علت: '+esc(p.reason||'—')+'<br>گام بعدی: '+esc(p.next_step||'—')+
+  '<br>Assertionهای موفق: '+esc(s.real_case_assertions_passed??0)+' از '+esc(s.real_case_assertions??0);
+ const rows=Array.isArray(report.feedback)?report.feedback:[];
+ $('queue').innerHTML=rows.length?rows.map(item=>{
+  const statusLabel={submitted:'در انتظار بررسی',verified:'تأییدشده',rejected:'ردشده'}[item.status]||item.status;
+  return '<article class="item"><h3>'+esc(item.article_title||'بدون عنوان')+'</h3><span class="tag">'+esc(statusLabel)+'</span>'+
+   (item.issue_categories||[]).map(x=>'<span class="tag">'+esc(x)+'</span>').join('')+
+   '<p>'+esc(String(item.input_excerpt||'').slice(0,1100))+'</p>'+
+   '<p class="small">ثبت: '+esc(item.created_at||'—')+' · '+esc(item.evidence_url||'بدون لینک منبع')+'</p>'+
+   (item.status==='submitted'?'<div class="actions"><button data-review="verified" data-id="'+esc(item.id)+'">تأیید و اجرای یادگیری</button><button class="danger" data-review="rejected" data-id="'+esc(item.id)+'">رد بازخورد</button></div>':'')+
+   '</article>';
+ }).join(''):'<p>هنوز بازخوردی ثبت نشده است.</p>';
+}
+async function refresh(){
+ const report=await call('/news/learning');
+ render(report);status('connection','اتصال برقرار است؛ وضعیت از گزارش زنده خوانده شد.','ok');
+}
+$('connect').addEventListener('click',async()=>{
+ secret=$('secret').value.trim();
+ try{await refresh()}catch(e){secret='';status('connection','اتصال ناموفق: '+e.message,'err')}
+});
+$('submitFeedback').addEventListener('click',async()=>{
+ try{
+  const predicted=JSON.parse($('predicted').value),corrected=JSON.parse($('corrected').value);
+  const body={article_title:$('title').value.trim(),input_excerpt:$('excerpt').value.trim(),issue_categories:[$('category').value],
+   predicted_output:predicted,corrected_output:corrected,evidence_url:$('evidence').value.trim(),reviewer_note:$('note').value.trim()};
+  const result=await call('/news/feedback','POST',body);
+  status('submitStatus','ذخیره شد؛ '+result.assertion_count+' معیار قابل‌آزمون ساخته شد. اکنون در صف بررسی است.','ok');
+  await refresh();
+ }catch(e){status('submitStatus','ثبت نشد: '+e.message,'err')}
+});
+$('queue').addEventListener('click',async event=>{
+ const button=event.target.closest('button[data-review]');if(!button)return;
+ button.disabled=true;
+ try{
+  const result=await call('/news/learning/review','POST',{feedback_id:button.dataset.id,status:button.dataset.review});
+  status('connection',result.note_fa||'وضعیت بررسی ثبت شد.','ok');
+  await refresh();
+ }catch(e){status('connection','بررسی انجام نشد: '+e.message,'err');button.disabled=false}
+});
+})();
+</script>
+</body>
+</html>
