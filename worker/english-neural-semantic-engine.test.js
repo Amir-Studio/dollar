@@ -6,6 +6,7 @@ function mockAI() {
   return {run:async (_model,{text})=>({data:text.map(value=>{
     const s=String(value).toLowerCase();
     if(s.includes("football team")) return [0,1,0];
+    if(s.includes("fiscal space")) return [1,0,0];
     if(s.includes("central bank")||s.includes("interest rate")) return [1,0,0];
     return [0.8,0.2,0];
   })})};
@@ -15,13 +16,16 @@ function cache() { const values=new Map(); return {
   put:async (key,value)=>{values.set(key,JSON.parse(value));}
 };}
 
-test("English pivot uses multilingual neural embeddings and returns ranked ontology concepts",async()=>{
-  const result=await analyzeEnglishNewsNeurally("The central bank raises its interest rate.",{AI:mockAI(),MARKET_CACHE:cache()},{limit:5,minimumScore:0});
+test("English BGE-M3 index retrieves vocabulary from the 1000-term curriculum",async()=>{
+  const result=await analyzeEnglishNewsNeurally("The government has limited fiscal space.",{AI:mockAI(),MARKET_CACHE:cache()},{limit:30,minimumScore:0});
   assert.equal(result.status,"neural_semantic_analysis_complete");
   assert.equal(result.model,"@cf/baai/bge-m3");
   assert.equal(result.version,ENGLISH_NEURAL_VERSION);
   assert.equal(result.pivot_language,"en");
   assert.equal(result.embedding_dimension,3);
+  assert.equal(result.vocabulary_count,1000);
+  assert.ok(result.ontology_count>0);
+  assert.ok(result.vocabulary_matches.some(x=>x.term==="fiscal space"));
   assert.ok(result.matches.length>0);
   assert.ok(result.matches.every(x=>x.match_type==="pretrained_multilingual_neural_embedding"));
 });
