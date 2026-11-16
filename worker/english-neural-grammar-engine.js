@@ -58,6 +58,20 @@ function deterministicDiagnostics(text) {
     {id:"article_before_singular_countable",pattern:/\b(a|an)\s+(information|advice|equipment|research|furniture)\b/i,explanation:"این اسم‌ها معمولاً غیرقابل‌شمارش‌اند و به‌طور معمول a/an مستقیم نمی‌گیرند."},
     {id:"double_comparative",pattern:/\b(more\s+\w+er|most\s+\w+est)\b/i,explanation:"از ساختار مقایسه‌ای یا عالی دوگانه پرهیز کنید."},
     {id:"despite_clause",pattern:/\bdespite\s+(the fact\s+)?(prices|rates|demand|inflation|they|the bank)\s+(fell|rose|increased|decreased|was|were|had)\b/i,explanation:"despite معمولاً اسم یا gerund می‌گیرد؛ برای جمله کامل از although استفاده کنید."}
+
+    ,{id:"if_will_future",pattern:/\\bif\\s+[^,.!?;]{1,80}\\bwill\\s+[a-z]+/i,explanation:"در شرطی واقعی آینده، بند if معمولاً حال ساده می‌گیرد."}
+    ,{id:"present_perfect_finished_time",pattern:/\\b(has|have)\\s+[a-z]+(?:ed|en)\\s+(yesterday|last week|last month|in 2010|two days ago)\\b/i,explanation:"با زمان گذشتهٔ تمام‌شده معمولاً past simple به‌کار می‌رود."}
+    ,{id:"past_perfect_missing_participle",pattern:/\\bhad\\s+(went|saw|ate|wrote|spoke|took|gave|did|was|were)\\b/i,explanation:"پس از had در past perfect شکل سوم فعل لازم است."}
+    ,{id:"passive_missing_participle",pattern:/\\b(is|are|was|were|be|been)\\s+(announce|write|choose|take|give|make|build|speak)\\b/i,explanation:"در مجهول، be با شکل سوم فعل می‌آید."}
+    ,{id:"gerund_after_preposition",pattern:/\\b(interested in|look forward to|committed to|good at|instead of)\\s+(to\\s+)?[a-z]+\\b/i,explanation:"پس از این ترکیب‌ها معمولاً اسم یا gerund می‌آید."}
+    ,{id:"indirect_question_inversion",pattern:/\\b(know|explain|tell me|wonder|asked)\\s+[^.!?]{0,30}\\b(why|where|when|what|how)\\s+(do|does|did|is|are|was|were)\\s+[^.!?]{1,50}/i,explanation:"در سؤال غیرمستقیم ترتیب جمله خبری است."}
+    ,{id:"used_to_confusion",pattern:/\\b(be|am|is|are|was|were)\\s+used to\\s+[a-z]+\\b/i,explanation:"be used to به معنی عادت داشتن است و پس از to اسم یا gerund می‌آید."}
+    ,{id:"fewer_less",pattern:/\\bless\\s+(people|countries|companies|reports|jobs|students)\\b/i,explanation:"برای اسم‌های جمع شمارش‌پذیر، fewer معیارتر است."}
+    ,{id:"subject_verb_agreement",pattern:/\\b(the number of|each of|every one of)\\s+[^,;.!?]{1,45}\\s+(are|were|have)\\b/i,explanation:"هستهٔ فاعل در the number of و each/every one مفرد است."}
+    ,{id:"double_negative",pattern:/\\b(don't|doesn't|didn't|isn't|aren't|wasn't|weren't)\\s+\\w+\\s+no\\s+\\w+/i,explanation:"در انگلیسی معیار معمولاً منفی مضاعف برای یک نفی به‌کار نمی‌رود."}
+    ,{id:"adjective_adverb",pattern:/\\b(fell|rose|increased|decreased|changed|moved)\\s+(sharp|rapid|significant|dramatic|steady)\\b/i,explanation:"برای توصیف فعل معمولاً قید لازم است."}
+    ,{id:"comparative_irregular",pattern:/\\b(gooder|more better|more worse|badder|most best|most worst)\\b/i,explanation:"صورت‌های درست: good/better/best و bad/worse/worst."}
+    ,{id:"article_uncountable",pattern:/\\b(a|an|many|few)\\s+(information|advice|equipment|furniture|research|evidence)\\b/i,explanation:"این اسم‌ها در کاربرد معمول غیرقابل‌شمارش‌اند."}
   ];
   return checks.filter(x=>x.pattern.test(s)).map(x=>({id:x.id,explanation_fa:x.explanation,method:"high_precision_pattern_warning",certainty:"needs_context_review"}));
 }
@@ -83,6 +97,10 @@ export function runEnglishGrammarNeuralSelfTest() {
   const rules=curriculum();
   const ids=new Set(rules.map(x=>x.id));
   const complete=rules.length>=200&&ids.size===rules.length&&rules.every(x=>x.topic&&x.rule&&x.example&&x.exception);
-  const warnings=deterministicDiagnostics("The bank did went up. Investors must to wait. Despite prices fell, demand improved.");
-  return {version:ENGLISH_GRAMMAR_NEURAL_VERSION,model:MODEL,total_rules:rules.length,unique_rules:ids.size,diagnostic_cases:3,diagnostics_detected:warnings.length,passed:complete&&warnings.length>=2,scope:"Curriculum coverage and deterministic warning regression; neural retrieval quality requires a live Workers AI benchmark."};
+  const challenge="The bank did went up. Investors must to wait. Despite prices fell, demand improved. If rates will rise, demand may fall. The minister has announced the change yesterday. The agency had went home. The proposal was write yesterday. I look forward to meet them. Can you explain why did rates rise? They are used to work late. There are less jobs. Each of the reports are ready. Prices fell sharp. This is more better. We need an information.";
+  const warnings=deterministicDiagnostics(challenge);
+  const required=["did_past_form","modal_to_infinitive","despite_clause","if_will_future","present_perfect_finished_time","past_perfect_missing_participle","passive_missing_participle","gerund_after_preposition","indirect_question_inversion","used_to_confusion","fewer_less","subject_verb_agreement","adjective_adverb","comparative_irregular","article_uncountable"];
+  const detected=new Set(warnings.map(x=>x.id));
+  const missed=required.filter(x=>!detected.has(x));
+  return {version:ENGLISH_GRAMMAR_NEURAL_VERSION,model:MODEL,total_rules:rules.length,unique_rules:ids.size,diagnostic_cases:required.length,diagnostics_detected:required.length-missed.length,missed,passed:complete&&missed.length===0,scope:"Deterministic regression checks only; they do not establish general grammatical understanding or neural-model mastery."};
 }
