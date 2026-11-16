@@ -147,7 +147,9 @@ $('queue').addEventListener('click',async event=>{
  button.disabled=true;
  try{
   const result=await call('/news/learning/review','POST',{feedback_id:button.dataset.id,status:button.dataset.review});
-  status('connection',result.note_fa||'وضعیت بررسی ثبت شد.','ok');
+  const memory=result.learning?.neural_error_memory;
+  const extra=memory?.reason==='workers_ai_unavailable'?' ارزیابی ثبت شد؛ ساخت embedding در چرخهٔ زمان‌بندی‌شدهٔ Worker انجام می‌شود.':memory?.refreshed?' حافظهٔ خطای تأییدشده به‌روزرسانی شد.':'';
+  status('connection',(result.note_fa||'وضعیت بررسی ثبت شد.')+extra,'ok');
   await refresh();
  }catch(e){status('connection','بررسی انجام نشد: '+e.message,'err');button.disabled=false}
 });
