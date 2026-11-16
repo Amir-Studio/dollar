@@ -82,7 +82,7 @@ export function trainNewsTriageModel(examples,options={}) {
   );
   const byClass=new Map(TRIAGE_LABELS.map(label=>[label,valid.filter(x=>x.decision===label)]));
   const present=[...byClass.entries()].filter(([,rows])=>rows.length>0);
-  if(valid.length<24||present.length<3||present.some(([,rows])=>rows.length<3))
+  if(valid.length<24||present.length<3||present.some(([,rows])=>rows.length<4))
     return {trained:false,reason:"insufficient_balanced_human_labels",samples:valid.length,
       classes:Object.fromEntries(present.map(([label,rows])=>[label,rows.length]))};
 
