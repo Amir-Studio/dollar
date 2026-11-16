@@ -82,6 +82,17 @@ function deterministicDiagnostics(text) {
     ,{id:"double_negative",pattern:/\b(don't|doesn't|didn't|isn't|aren't|wasn't|weren't)\s+\w+\s+no\s+\w+/i,explanation:"در انگلیسی معیار معمولاً منفی مضاعف برای یک نفی به‌کار نمی‌رود."}
     ,{id:"adjective_adverb",pattern:/\b(fell|rose|increased|decreased|changed|moved)\s+(sharp|rapid|significant|dramatic|steady)\b/i,explanation:"برای توصیف فعل معمولاً قید لازم است."}
     ,{id:"comparative_irregular",pattern:/\b(gooder|more better|more worse|badder|most best|most worst)\b/i,explanation:"صورت‌های درست: good/better/best و bad/worse/worst."}
+    ,{id:"despite_of",pattern:/\bdespite of\b/i,explanation:"در انگلیسی معیار despite مستقیماً اسم یا gerund می‌گیرد؛ of پس از آن نمی‌آید."}
+    ,{id:"discuss_about",pattern:/\b(discuss|discusses|discussed|discussing)\s+about\b/i,explanation:"فعل discuss معمولاً مستقیم مفعول می‌گیرد و about اضافی است."}
+    ,{id:"explain_indirect_object",pattern:/\b(explain|explains|explained)\s+(me|him|her|them|us)\s+(the|a|an|why|how|what)\b/i,explanation:"برای گیرنده از explain something to someone استفاده کنید؛ explain me the... ساخت معیار نیست."}
+    ,{id:"depend_of",pattern:/\b(depends|depend|depended|depending)\s+of\b/i,explanation:"ساخت معیار depend on/upon است، نه depend of."}
+    ,{id:"suggest_object_infinitive",pattern:/\b(suggest|suggests|suggested)\s+(me|him|her|them|us)\s+to\s+[a-z]+\b/i,explanation:"برای پیشنهاد دادن، suggest doing یا suggest that someone do را به‌کار ببرید."}
+    ,{id:"make_object_to_infinitive",pattern:/\b(made|makes|make)\s+(me|him|her|them|us)\s+to\s+[a-z]+\b/i,explanation:"در ساخت معلوم make + object، مصدر بدون to می‌آید؛ در مجهول to بازمی‌گردد."}
+    ,{id:"let_object_to_infinitive",pattern:/\blet\s+(me|him|her|them|us)\s+to\s+[a-z]+\b/i,explanation:"پس از let + object مصدر بدون to می‌آید."}
+    ,{id:"gerund_verb_pattern",pattern:/\b(enjoy|enjoys|enjoyed|avoid|avoids|avoided|consider|considers|considered|finish|finishes|finished|mind|minds|minded)\s+to\s+[a-z]+\b/i,explanation:"این افعال در این معانی معمولاً gerund می‌گیرند، نه to-infinitive."}
+    ,{id:"no_sooner_conjunction",pattern:/\bno sooner\b.{0,70}\bwhen\b/i,explanation:"در ساخت وارونهٔ no sooner ... than از than استفاده می‌شود."}
+    ,{id:"hardly_conjunction",pattern:/\bhardly\b.{0,70}\bthan\b/i,explanation:"در ساخت hardly ... when از when استفاده می‌شود."}
+    ,{id:"between_objective_case",pattern:/\bbetween you and I\b/i,explanation:"پس از حرف اضافه between ضمیر مفعولی me لازم است: between you and me."}
     ,{id:"article_uncountable",pattern:/\b(a|an|many|few)\s+(information|advice|equipment|furniture|research|evidence)\b/i,explanation:"این اسم‌ها در کاربرد معمول غیرقابل‌شمارش‌اند."}
   ];
   return checks.filter(x=>x.pattern.test(s)).map(x=>({id:x.id,explanation_fa:x.explanation,method:"high_precision_pattern_warning",certainty:"needs_context_review"}));
@@ -109,7 +120,18 @@ export function runEnglishGrammarDiagnosticBenchmark() {
     ["double_negative","We don't have no evidence."],
     ["adjective_adverb","Prices fell sharp."],
     ["comparative_irregular","This is more better."],
-    ["article_uncountable","We need an information."]
+    ["article_uncountable","We need an information."],
+    ["despite_of","Despite of the decline, exports rose."],
+    ["discuss_about","The report discusses about inflation."],
+    ["explain_indirect_object","Please explain me the result."],
+    ["depend_of","The outcome depends of demand."],
+    ["suggest_object_infinitive","She suggested him to wait."],
+    ["make_object_to_infinitive","The manager made them to leave."],
+    ["let_object_to_infinitive","They let us to enter."],
+    ["gerund_verb_pattern","He enjoys to analyse markets."],
+    ["no_sooner_conjunction","No sooner had prices fallen when demand recovered."],
+    ["hardly_conjunction","Hardly had the meeting begun than the alarm rang."],
+    ["between_objective_case","This remains between you and I."]
   ];
   const validSentences = [
     "Yesterday, the bank raised rates.",
@@ -127,7 +149,18 @@ export function runEnglishGrammarDiagnosticBenchmark() {
     "Prices fell sharply.",
     "This is better.",
     "We need information.",
-    "The government has announced a plan."
+    "The government has announced a plan.",
+    "Despite the decline, exports rose.",
+    "The report discusses inflation.",
+    "Please explain the result to me.",
+    "The outcome depends on demand.",
+    "She suggested that he wait.",
+    "The manager made them leave.",
+    "They let us enter.",
+    "He enjoys analysing markets.",
+    "No sooner had prices fallen than demand recovered.",
+    "Hardly had the meeting begun when the alarm rang.",
+    "This remains between you and me."
   ];
   const results=cases.map(([expected,text])=>({
     expected,
