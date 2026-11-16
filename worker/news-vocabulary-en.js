@@ -6,9 +6,9 @@ const seen=new Set();
 export const ENGLISH_NEWS_VOCABULARY=getChineseNewsVocabulary({limit:1000}).items.filter(x=>{const k=String(x.english||"").trim().toLowerCase();if(!k||seen.has(k))return false;seen.add(k);return true;}).slice(0,600).map((x,i)=>({id:"en"+String(i+1).padStart(3,"0"),category:x.category,term:x.english,meaning_fa:x.fa,language:"en",status:"curriculum"}));
 ENGLISH_NEWS_VOCABULARY.push(
  {id:"en597",category:"sovereign_finance",term:"fiscal dominance",meaning_fa:"سلطه مالی بر سیاست پولی",language:"en",status:"curriculum"},
- {id:"en598",category:"sovereign_finance",term:"primary balance",meaning_fa:"تراز اولیه بودجه؛ تراز پیش از پرداخت بهره بدهی",language:"en",status:"curriculum"},
+ {id:"en598",category:"sovereign_finance",term:"sovereign spread",meaning_fa:"فاصله بازده اوراق بدهی دولت‌ها؛ شاخصی از ریسک اعتباری نسبی",language:"en",status:"curriculum"},
  {id:"en599",category:"financial_markets",term:"rollover risk",meaning_fa:"ریسک ناتوانی در تمدید یا جایگزینی بدهی سررسیدشده",language:"en",status:"curriculum"},
- {id:"en600",category:"financial_markets",term:"duration risk",meaning_fa:"ریسک تغییر ارزش اوراق در اثر تغییر نرخ بهره",language:"en",status:"curriculum"}
+ {id:"en600",category:"financial_markets",term:"debt overhang",meaning_fa:"انباشت بدهی سنگین که رشد و سرمایه‌گذاری آینده را محدود می‌کند",language:"en",status:"curriculum"}
 );
 const R=[
 ["articles","اسم مفرد شمارش‌پذیر معمولاً به a/an/the نیاز دارد.","A minister made a statement.","اسم جمع و غیرقابل‌شمارش معمولاً a/an نمی‌گیرند."],
