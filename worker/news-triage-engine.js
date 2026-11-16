@@ -116,7 +116,7 @@ export function trainNewsTriageModel(examples,options={}) {
       return 2*tp/Math.max(1,2*tp+fp+fn);
     });
     return {loss:loss/Math.max(1,data.length),accuracy:correct/Math.max(1,data.length),
-      macro_f1:f1.reduce((a,b)=>a+b,0)/TRIAGE_LABELS.length,confusion_matrix:matrix};
+      macro_f1:f1.reduce((a,b)=>a+b,0)/Math.max(1,activeIndices.length),confusion_matrix:matrix};
   };
   let best=cloneNet(net),bestLoss=Infinity,stale=0,epochsRun=0;
   for(let epoch=0;epoch<epochs;epoch++){
