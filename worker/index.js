@@ -20,6 +20,7 @@ import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEW
 import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
 import { NEWS_TRIAGE_VERSION, buildNewsTriageFeatures, extractiveNewsSummary, trainNewsTriageModel, predictNewsTriageModel, fallbackNewsTriage, runNewsTriageSelfTest } from "./news-triage-engine.js";
 import { analyzeNewsWithReasoning, saveReasoningFeedback, REASONING_VERSION, runReasoningSelfTest } from "./news-reasoning-engine.js";
+import { buildLearningAssertions, validateLearningCaseInput, diagnoseLearningPipeline } from "./news-learning-validation.js";
 const NEWS_ARTICLE_STATUSES = new Set(["headline_only","queued","extracted","translated","summarized","failed","blocked"]);
 export function normalizeNewsArticleStatus(status,hasText=false) {
   const value=String(status??"");
@@ -975,6 +976,7 @@ async function newsLearningReport(env) {
       learning_evaluation_benchmark:learningEvaluationBenchmark
     },
     benchmark_failures:benchmark.failures,real_case_results:evaluated,
+    learning_pipeline:diagnoseLearningPipeline({feedback_total:feedback.length,feedback_submitted:feedback.filter(x=>x.status==="submitted").length,feedback_verified:feedback.filter(x=>x.status==="verified").length,learning_cases:cases.length,evaluated_cases:evaluated.filter(x=>x.total>0).length,cases_failed:evaluated.filter(x=>x.failed>0).length,cases_unscorable:evaluated.filter(x=>x.total===0).length}),
     rule_change_candidates:buildRuleChangeCandidates(evaluated),
     feedback:feedback.slice(0,30),cycles
   };
@@ -1002,8 +1004,13 @@ export async function runNewsLearningCycle(env) {
           validation_status:item.total===0?"unscorable":item.failed>0?"needs_revision":"approved",validated_at:new Date().toISOString()}
       });
     }
-    try { neuralMemoryRefresh=await refreshNeuralErrorMemory(report.real_case_results,env); }
-    catch(error) { neuralMemoryRefresh={refreshed:false,reason:"refresh_failed",indexed:0,error:String(error?.message||error).slice(0,120)}; }
+    if(s.evaluated_cases>0) {
+      try { neuralMemoryRefresh=await refreshNeuralErrorMemory(report.real_case_results,env); }
+      catch(error) { neuralMemoryRefresh={refreshed:false,reason:"refresh_failed",indexed:0,error:String(error?.message||error).slice(0,120)}; }
+    } else {
+      neuralMemoryRefresh={refreshed:false,reason:report.learning_pipeline.reason,indexed:0};
+      actions.push({action:"learning_blocked",reason:report.learning_pipeline.reason,next_step:report.learning_pipeline.next_step});
+    }
     if(neuralMemoryRefresh.indexed>0) actions.push({action:"neural_verified_error_memory_refreshed",indexed:neuralMemoryRefresh.indexed,cache_hit:neuralMemoryRefresh.cache_hit===true,storage:neuralMemoryRefresh.storage||null});
     const saved=await learningRest(env,"market_news_learning_cycles",{
       method:"POST",headers:{"prefer":"return=representation"},
@@ -1825,13 +1832,20 @@ export default {
 
     if (url.pathname === "/news/feedback") {
       if(request.method!=="POST") return reply({error:"Method not allowed"},405);
-      if(request.headers.get("x-internal-learning-authorized")!=="1") return reply({error:"Unauthorized"},401);
+      if(!(await verifyWorkerCronSecret(request))) return reply({error:"Unauthorized"},401);
       if(Number(request.headers.get("content-length")||0)>16000) return reply({error:"Feedback payload too large"},413);
       let payload; try { payload=await request.json(); } catch { return reply({error:"Invalid JSON"},400); }
       const title=String(payload?.article_title||"").trim(), excerpt=String(payload?.input_excerpt||"").trim();
       const categories=Array.isArray(payload?.issue_categories)?[...new Set(payload.issue_categories.map(x=>String(x).trim()).filter(Boolean))].slice(0,8):[];
       const allowed=new Set(["wrong_actor","wrong_action","negation","modality","conditionality","attribution","time_scope","numeric_value","unit_mismatch","causal_inference","topic_classification","contradiction","translation","missing_context","other"]);
       if(!title||title.length>500||excerpt.length>5000||!payload?.predicted_output||!payload?.corrected_output||safeJsonSize(payload.predicted_output)>5000||safeJsonSize(payload.corrected_output)>5000||categories.some(x=>!allowed.has(x))) return reply({error:"Invalid feedback payload"},400);
+      const category=categories[0]||"other";
+      const normalized=buildLearningAssertions(category,payload.predicted_output,payload.corrected_output);
+      const inputText=category==="contradiction"?excerpt:title+"\\n"+excerpt;
+      const expectedOutput={assertions:normalized.assertions};
+      const validation=validateLearningCaseInput(category,inputText,expectedOutput);
+      if(!validation.ok) return reply({error:"Feedback cannot enter learning yet",reason:validation.reason,
+        note_fa:"برای یادگیری قابل‌آزمون، اصلاح باید شامل فیلدهای اصلاح‌شده یا assertions صریح باشد؛ برای تناقض نیز متن JSON دو خبر مستقل لازم است."},422);
       try {
         const saved=await learningRest(env,"market_news_feedback",{method:"POST",headers:{"prefer":"return=representation"},body:{
           article_url:typeof payload.article_url==="string"?payload.article_url.slice(0,1500):null,
@@ -1842,10 +1856,12 @@ export default {
         }});
         const item=Array.isArray(saved)?saved[0]:null;
         if(item?.id) await learningRest(env,"market_news_learning_cases",{method:"POST",headers:{"prefer":"resolution=ignore-duplicates,return=minimal"},body:{
-          feedback_id:item.id,category:categories[0]||"other",input_text:title+"\n"+excerpt,
-          expected_output:payload.corrected_output,case_fingerprint:await fingerprintLearningCase(title,excerpt,payload.corrected_output),validation_status:"pending"
+          feedback_id:item.id,category,input_text:inputText,expected_output:expectedOutput,
+          case_fingerprint:await fingerprintLearningCase(title,inputText,expectedOutput),validation_status:"pending",
+          validation_report:{assertion_source:normalized.source,assertion_count:validation.assertion_count}
         }});
-        return reply({ok:true,feedback_id:item?.id||null,status:"submitted",note_fa:"بازخورد ذخیره شد؛ تا تأیید انسانی، برچسب حقیقت قطعی محسوب نمی‌شود و هیچ قاعده‌ای خودکار تغییر نمی‌کند."},201);
+        return reply({ok:true,feedback_id:item?.id||null,status:"submitted",assertion_count:validation.assertion_count,
+          assertion_source:normalized.source,note_fa:"بازخورد و معیارهای قابل‌آزمون ذخیره شد؛ تا تأیید انسانی وارد حافظه یادگیری نمی‌شود."},201);
       } catch(error) { console.error("News feedback write failed:",error); return reply({error:"Could not save feedback"},503); }
     }
     if (url.pathname === "/news/reason/feedback") {
