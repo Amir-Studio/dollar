@@ -39,7 +39,7 @@ function getKnownTerms(lang) {
    for(const item of getEnglishNewsVocabulary({limit:500}).items) {
      known.add(norm(item.term,lang));
      // Also recognize individual words contained in curated multiword terms.
-     for(const part of item.term.split(/[\\s-]+/)) if(part.length>=4) known.add(norm(part,lang));
+     for(const part of item.term.split(/[\s-]+/)) if(part.length>=4) known.add(norm(part,lang));
    }
  }
  if(lang==="de") {
