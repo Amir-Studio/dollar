@@ -1,6 +1,6 @@
 import { ENGLISH_GRAMMAR_ADVANCED, runAdvancedEnglishGrammarSelfTest } from "./english-grammar-advanced.js";
 import { getChineseNewsVocabulary } from "./news-vocabulary-zh.js";
-export const ENGLISH_NEWS_VOCABULARY_VERSION="en-news-vocabulary-1.0.0";
+export const ENGLISH_NEWS_VOCABULARY_VERSION="en-news-vocabulary-1.1.0";
 export const ENGLISH_NEWS_VOCABULARY_TARGET=600;
 const seen=new Set();
 export const ENGLISH_NEWS_VOCABULARY=getChineseNewsVocabulary({limit:1000}).items.filter(x=>{const k=String(x.english||"").trim().toLowerCase();if(!k||seen.has(k))return false;seen.add(k);return true;}).slice(0,600).map((x,i)=>({id:"en"+String(i+1).padStart(3,"0"),category:x.category,term:x.english,meaning_fa:x.fa,language:"en",status:"curriculum"}));
