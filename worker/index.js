@@ -1558,11 +1558,13 @@ export default {
   async scheduled(controller, env, ctx) {
     // Each subsystem has its own failure boundary: a quote/forecast outage must
     // never prevent the learning or news-triage cycles from running.
-    ctx.waitUntil(refreshBackground(env).then(market => runForecastCycle(env,market))
-      .catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
-    ctx.waitUntil(runNewsLearningCycle(env).then(result => {
+    ctx.waitUntil(refreshBackground(env).then(async market => {
+      await runForecastCycle(env,market);
+    }).catch(error => console.error("Scheduled market/forecast cycle failed:",error?.message || error)));
+    ctx.waitUntil((async () => {
+      const result = await runNewsLearningCycle(env);
       console.log("Autonomous news learning cycle:",JSON.stringify(result));
-    }).catch(error => console.error("Autonomous news learning cycle failed:",error?.message || error)));
+    })().catch(error => console.error("Autonomous news learning cycle failed:",error?.message || error)));
     ctx.waitUntil(runNewsTriageCycle(env).then(result => {
       console.log("Autonomous news triage cycle:",JSON.stringify(result));
     }).catch(error => console.error("Autonomous news triage cycle failed:",error?.message || error)));
