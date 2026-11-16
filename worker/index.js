@@ -18,6 +18,7 @@ import { normalizeMarketNewsSearchQuery, searchMarketNews } from "./news-search.
 import { analyzeCrossSourceContradictions, runNewsContradictionBenchmark, NEWS_CONTRADICTION_VERSION } from "./news-contradiction-engine.js";
 import { getChineseNewsVocabulary, runChineseNewsVocabularySelfTest, CHINESE_NEWS_VOCABULARY_VERSION } from "./news-vocabulary-zh.js";
 import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
+import { analyzeEnglishGrammar, runEnglishGrammarNeuralSelfTest, ENGLISH_GRAMMAR_NEURAL_VERSION } from "./english-neural-grammar-engine.js";
 import { LANGUAGE_LEARNER_VERSION, extractUnknownVocabularyCandidates, lookupVocabularyMeaning, runLanguageLearnerSelfTest } from "./language-learning-engine.js";
 import { NEWS_TRIAGE_VERSION, buildNewsTriageFeatures, extractiveNewsSummary, trainNewsTriageModel, predictNewsTriageModel, fallbackNewsTriage, runNewsTriageSelfTest } from "./news-triage-engine.js";
 import { analyzeNewsWithReasoning, saveReasoningFeedback, REASONING_VERSION, runReasoningSelfTest } from "./news-reasoning-engine.js";
@@ -1987,6 +1988,18 @@ export default {
       if (request.method !== "GET") return reply({error:"Method not allowed"},405);
       const curriculum=getEnglishNewsVocabulary({limit:1});
       return reply({language:"en",rule_count:curriculum.grammar.rules.length,rules:curriculum.grammar.rules,irregular_verbs:curriculum.grammar.irregular_verbs,irregular_plurals:curriculum.grammar.irregular_plurals,self_test:curriculum.grammar.advanced_self_test},200,{"cache-control":"public, max-age=3600"});
+    }
+    if (url.pathname === "/language/english/grammar/analyze") {
+      if (request.method !== "POST") return reply({error:"Method not allowed"},405);
+      let body;
+      try { body=await request.json(); } catch { return reply({error:"Invalid JSON body"},400); }
+      if (typeof body?.text !== "string" || !body.text.trim()) return reply({error:"A non-empty text field is required"},400);
+      const result=await analyzeEnglishGrammar(body.text,env,{limit:body.limit});
+      return reply(result,result.status==="neural_analysis_failed"?503:200,{"cache-control":"no-store"});
+    }
+    if (url.pathname === "/language/english/grammar/neural-status") {
+      if (request.method !== "GET") return reply({error:"Method not allowed"},405);
+      return reply({version:ENGLISH_GRAMMAR_NEURAL_VERSION,model:"@cf/baai/bge-m3",curriculum:runEnglishGrammarNeuralSelfTest(),workers_ai_configured:Boolean(env.AI?.run),cache_configured:Boolean(env.MARKET_CACHE)},200,{"cache-control":"no-store"});
     }
     if (url.pathname === "/language/news-vocabulary/zh") {
       if (request.method !== "GET") return reply({error:"Method not allowed"},405);
