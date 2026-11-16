@@ -48,3 +48,8 @@ For the `contradiction` category, `input_excerpt` must be JSON containing at lea
 The learning report includes a `learning_pipeline` diagnostic with a status, blocking reason, and next step. Scheduled cycles no longer call the embedding-memory refresh when there are no verified, scorable cases; instead they record `learning_blocked` and the exact blocker. This prevents repeated empty cycles from looking like successful learning attempts.
 
 The feedback, review, and learning-report routes require the Worker cron-secret verification flow. Do not replace it with a fixed public header. Keep the secret out of browser bundles and public source code.
+
+
+## Scheduler isolation
+
+The Cloudflare scheduled handler runs market refresh/forecast, supervised learning, and news triage as separate tasks with independent failure boundaries. A quote-source or forecast failure must not suppress a learning cycle. Every learning cycle records either its completed evaluation or an explicit blocker such as `no_feedback_submissions`, rather than silently skipping the attempt.
