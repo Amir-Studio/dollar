@@ -1,0 +1,23 @@
+name: English grammar expert challenge
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/english-neural-grammar-engine.js"
+      - "worker/english-neural-grammar-engine.test.js"
+      - "worker/news-vocabulary-en.js"
+      - "worker/english-grammar-*.js"
+      - ".github/workflows/english-grammar-expert.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  expert-grammar-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run expert English grammar benchmark
+        run: node --test worker/english-neural-grammar-engine.test.js
