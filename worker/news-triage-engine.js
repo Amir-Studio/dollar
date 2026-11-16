@@ -110,7 +110,8 @@ export function trainNewsTriageModel(examples,options={}) {
       matrix[row.y][pred]++;if(pred===row.y)correct++;
       loss-=Math.log(Math.max(1e-8,out.probabilities[row.y]));
     }
-    const f1=TRIAGE_LABELS.map((_,i)=>{
+    const activeIndices=present.map(([label])=>TRIAGE_LABELS.indexOf(label));
+    const f1=activeIndices.map(i=>{
       const tp=matrix[i][i],fp=matrix.reduce((s,r)=>s+r[i],0)-tp,fn=matrix[i].reduce((s,v)=>s+v,0)-tp;
       return 2*tp/Math.max(1,2*tp+fp+fn);
     });
