@@ -1,4 +1,4 @@
-// Advanced English grammar curriculum: 74 additional rules, designed for economic and international news.
+// Advanced English grammar curriculum: 175 additional rules, designed for economic and international news.
 export const ENGLISH_GRAMMAR_ADVANCED_VERSION = "en-grammar-advanced-1.0.0";
 const rows = [
 ["present-simple","حال ساده برای عادت، واقعیت و گزارش‌های عمومی؛ سوم‌شخص مفرد s می‌گیرد.","The central bank meets every month.","در تیتر خبر ممکن است حال ساده برای رویداد گذشته به‌کار رود."],
