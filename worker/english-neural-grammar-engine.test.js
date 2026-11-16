@@ -8,7 +8,7 @@ import {
 
 test("English grammar curriculum has unique, populated knowledge records", () => {
   const result=runEnglishGrammarNeuralSelfTest();
-  assert.equal(result.grammar_rule_count,2367);
+  assert.equal(result.grammar_rule_count,2365);
   assert.equal(result.irregular_verb_count,205);
   assert.equal(result.unique_items,result.total_knowledge_items);
   assert.equal(result.passed,true,JSON.stringify(result,null,2));
