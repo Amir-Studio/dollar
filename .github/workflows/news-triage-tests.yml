@@ -13,6 +13,7 @@ on:
       - "worker/news-triage-engine.test.mjs"
       - "worker/news-learning-validation.js"
       - "worker/news-learning-validation.test.mjs"
+      - "docs/NEWS-TRIAGE-LEARNING.md"
       - "worker/index.js"
       - ".github/workflows/news-triage-tests.yml"
   workflow_dispatch:
