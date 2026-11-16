@@ -1982,7 +1982,7 @@ export default {
       if (request.method !== "GET") return reply({error:"Method not allowed"},405);
       const category=url.searchParams.get("category")||null;
       const query=url.searchParams.get("q")||null;
-      const limit=Number(url.searchParams.get("limit")||500);
+      const limit=Number(url.searchParams.get("limit")||1000);
       return reply(getEnglishNewsVocabulary({category,query,limit}),200,{"cache-control":"public, max-age=3600"});
     }
     if (url.pathname === "/language/english/vocabulary/learning-status") {
