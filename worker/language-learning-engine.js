@@ -6,7 +6,7 @@ import { getGermanNewsVocabulary } from "./news-vocabulary-de.js";
 import { getChineseNewsVocabulary } from "./news-vocabulary-zh.js";
 import { getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 
-export const LANGUAGE_LEARNER_VERSION = "dollar-language-learner-1.1.0";
+export const LANGUAGE_LEARNER_VERSION = "dollar-language-learner-1.2.0";
 export const LEARNER_LANGUAGES = ["fa","en","ar","zh","de","fr","ru","ja","ko","hi","es","it","pt","tr","nl","pl"];
 const LANGUAGE_NAMES = {fa:"Persian",en:"English",ar:"Arabic",zh:"Chinese",de:"German",fr:"French",ru:"Russian",ja:"Japanese",ko:"Korean",hi:"Hindi",es:"Spanish",it:"Italian",pt:"Portuguese",tr:"Turkish",nl:"Dutch",pl:"Polish"};
 const STOP = {
