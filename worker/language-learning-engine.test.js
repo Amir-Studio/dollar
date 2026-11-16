@@ -1,3 +1,4 @@
+import { runAdvancedEnglishGrammarSelfTest } from "./english-grammar-advanced.js";
 import test from "node:test";
 import { runEnglishNewsVocabularySelfTest, getEnglishNewsVocabulary } from "./news-vocabulary-en.js";
 import assert from "node:assert/strict";
@@ -65,4 +66,13 @@ test("English curriculum contains 500 unique specialist terms and grammar except
 test("English specialist terms are recognized by the learner lexicon",()=>{
  assert.equal(classifyVocabularyKnowledge("consumer price index","en").known,true);
  assert.equal(classifyVocabularyKnowledge("core inflation","en").known,true);
+});
+
+
+test("advanced English grammar curriculum has 74 unique rules and joins the starter 26 for 100 total",()=>{
+ const result=runAdvancedEnglishGrammarSelfTest();
+ assert.equal(result.total,74,JSON.stringify(result));
+ assert.equal(result.passed,true,JSON.stringify(result));
+ const curriculum=getEnglishNewsVocabulary({limit:500});
+ assert.equal(curriculum.grammar.rules.length,100);
 });
