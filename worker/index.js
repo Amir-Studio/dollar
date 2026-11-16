@@ -1021,7 +1021,7 @@ export async function runNewsLearningCycle(env) {
 
 
 async function refreshNewsTriageModel(env) {
-  const savedRows=await learningRest(env,"market_news_triage_models?select=model,trained_at,trained_samples&id=eq.1&limit=1");
+  const savedRows=await learningRest(env,"market_news_triage_models?select=model,metrics,trained_at,trained_samples&id=eq.1&limit=1");
   let model=savedRows?.[0]?.model||null;
   const latest=await learningRest(env,"market_news_triage_feedback?select=created_at&order=created_at.desc&limit=1");
   const latestAt=Date.parse(latest?.[0]?.created_at||"");
@@ -1030,18 +1030,25 @@ async function refreshNewsTriageModel(env) {
     return {model,trained:false,samples:savedRows?.[0]?.trained_samples||model.trained_samples||0};
   const feedback=await learningRest(env,"market_news_triage_feedback?select=features,decision&order=created_at.desc&limit=500");
   const trained=trainNewsTriageModel((feedback||[]).map(x=>({features:x.features,decision:x.decision})));
-  if(trained.trained){
-    model=trained.model;
-    const now=new Date().toISOString();
-    await learningRest(env,"market_news_triage_models?on_conflict=id",{
-      method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},
-      body:{id:1,version:model.version,model,trained_samples:model.trained_samples,
-        metrics:trained.metrics||{},trained_at:model.trained_at,updated_at:now}
-    });
-    if(env.MARKET_CACHE) await env.MARKET_CACHE.put("news:triage:classifier:v1",JSON.stringify(model),{expirationTtl:60*60*24*180});
-    return {model,trained:true,metrics:trained.metrics};
-  }
-  return {model,trained:false,reason:trained.reason,samples:trained.samples||0};
+  if(!trained.trained) return {model,trained:false,reason:trained.reason,samples:trained.samples||0};
+  const metrics=trained.metrics||{};
+  const priorMacro=Number(savedRows?.[0]?.metrics?.validation_macro_f1);
+  const candidateMacro=Number(metrics.validation_macro_f1);
+  const enoughValidation=Number(metrics.validation_samples)>=3;
+  const clearsFloor=Number.isFinite(candidateMacro)&&candidateMacro>=0.30;
+  const doesNotRegress=!Number.isFinite(priorMacro)||candidateMacro>=priorMacro-0.03;
+  if(!enoughValidation||!clearsFloor||!doesNotRegress)
+    return {model,trained:false,candidate_rejected:true,reason:"held_out_validation_gate_failed",
+      candidate_metrics:metrics,previous_validation_macro_f1:Number.isFinite(priorMacro)?priorMacro:null};
+  model=trained.model;
+  const now=new Date().toISOString();
+  await learningRest(env,"market_news_triage_models?on_conflict=id",{
+    method:"POST",headers:{"prefer":"resolution=merge-duplicates,return=minimal"},
+    body:{id:1,version:model.version,model,trained_samples:model.trained_samples,
+      metrics,trained_at:model.trained_at,updated_at:now}
+  });
+  if(env.MARKET_CACHE) await env.MARKET_CACHE.put("news:triage:classifier:v1",JSON.stringify(model),{expirationTtl:60*60*24*180});
+  return {model,trained:true,metrics};
 }
 
 async function archiveAndPruneNews(env) {
