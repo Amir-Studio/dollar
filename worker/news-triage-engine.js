@@ -1,5 +1,5 @@
 // Dollar multilingual news triage: BGE-M3 semantic signals + a feedback-trained MLP.
-export const NEWS_TRIAGE_VERSION = "dollar-news-triage-1.0.0";
+export const NEWS_TRIAGE_VERSION = "dollar-news-triage-1.1.0";
 export const TRIAGE_LABELS = ["keep", "summarize", "quarantine", "discard"];
 const INPUTS = 8;
 const HIDDEN = 12;
